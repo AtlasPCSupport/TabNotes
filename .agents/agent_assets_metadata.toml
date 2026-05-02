@@ -24,3 +24,9 @@ id = "71Ym47-KfQzKt47eKAvgc"
 uri = "file://store/tabnotes-extension-v1.3.0.zip"
 type = "unspecified"
 title = "TabNotes Extension v1.3.0 — Multi-nota por contexto"
+
+[[outputs]]
+id = "qL6lkzUgiZVN5Y-Ym20Oy"
+uri = "file://store/tabnotes-extension-v1.4.0.zip"
+type = "unspecified"
+title = "TabNotes Extension v1.4.0 — Export/Import backup"
