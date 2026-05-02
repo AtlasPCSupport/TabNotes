@@ -83,6 +83,7 @@ export default function SidePanelApp() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
+  const [deleteCardConfirmId, setDeleteCardConfirmId] = useState<string | null>(null);
 
   // Search
   const [searchQ, setSearchQ] = useState('');
@@ -328,6 +329,27 @@ export default function SidePanelApp() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveNote(c, t, tg), 600);
   }, [saveNote]);
+
+  // ── Delete note by id (from list card) ───────────────────────
+  const deleteCardNote = async (id: string) => {
+    clearTimeout(saveTimer.current);
+    await noteSvc.current.deleteNote(id);
+    setDeleteCardConfirmId(null);
+    // If we deleted the active note, clear editor
+    if (id === activeNoteIdRef.current) {
+      const url = currentUrlRef.current;
+      const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
+      setContextNotes(notes);
+      const next = notes[0] ?? null;
+      activeNoteIdRef.current = next?.id ?? null;
+      setActiveNoteId(next?.id ?? null);
+      setContent(next?.content ?? '');
+      setTitle(next?.title ?? '');
+      setTags(next?.tags.join(', ') ?? '');
+      setSaved(false);
+    }
+    await refreshAllNotes();
+  };
 
   // ── Delete note by id (from pill ×) ──────────────────────────
   const deletePillNote = async (id: string) => {
@@ -684,8 +706,11 @@ export default function SidePanelApp() {
                   return (
                     <div
                       key={n.id}
-                      className={`sp-note-card${isSelected ? ' selected' : ''}`}
-                      onClick={() => {
+                      className={`sp-note-card${isSelected ? ' selected' : ''}${deleteCardConfirmId === n.id ? ' delete-confirm' : ''}`}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('.sp-card-delete')) return;
+                        if (deleteCardConfirmId === n.id) { setDeleteCardConfirmId(null); return; }
+                        setDeleteCardConfirmId(null);
                         setSelectedId(isSelected ? null : n.id);
                         setActiveNoteId(n.id); activeNoteIdRef.current = n.id;
                         setContent(n.content); setTitle(n.title ?? ''); setTags(n.tags.join(', '));
@@ -697,6 +722,20 @@ export default function SidePanelApp() {
                         <span className="sp-card-scope-icon">{scopeOpt?.icon}</span>
                         <span className="sp-card-scope">{n.scope}</span>
                         <span className="sp-card-time">{formatRelativeTime(n.updatedAt)}</span>
+                        <button
+                          className={`sp-card-delete${deleteCardConfirmId === n.id ? ' confirming' : ''}`}
+                          title={deleteCardConfirmId === n.id ? 'Click to confirm delete' : 'Delete note'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (deleteCardConfirmId === n.id) {
+                              deleteCardNote(n.id);
+                            } else {
+                              setDeleteCardConfirmId(n.id);
+                            }
+                          }}
+                        >
+                          {deleteCardConfirmId === n.id ? 'Delete?' : '×'}
+                        </button>
                       </div>
                       {n.title && <div className="sp-card-title">{n.title}</div>}
                       {n.content && <div className="sp-card-excerpt">{n.content}</div>}

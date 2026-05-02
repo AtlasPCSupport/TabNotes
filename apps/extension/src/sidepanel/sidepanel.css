@@ -619,6 +619,33 @@ body {
 .sp-card-scope-icon { font-size: 11px; }
 .sp-card-scope { font-size: 10px; color: var(--text-subtle); text-transform: capitalize; }
 .sp-card-time { margin-left: auto; font-size: 10px; color: var(--text-subtle); flex-shrink: 0; }
+.sp-card-delete {
+  margin-left: 6px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-subtle);
+  border-radius: var(--r-sm);
+  padding: 1px 4px;
+  opacity: 0;
+  transition: opacity 120ms, background 120ms, color 120ms;
+  font-family: var(--font);
+}
+.sp-note-card:hover .sp-card-delete { opacity: 1; }
+.sp-card-delete:hover { background: var(--bg-muted); color: var(--danger, #e55); }
+.sp-card-delete.confirming {
+  opacity: 1;
+  background: var(--danger, #e55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--r-full);
+}
+.sp-note-card.delete-confirm { background: color-mix(in srgb, var(--danger, #e55) 8%, transparent); }
 
 .sp-card-title {
   font-size: 12px;
