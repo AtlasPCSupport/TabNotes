@@ -1,7 +1,7 @@
 import type { Note, Workspace, StorageData, ExportData, NoteScope } from './types';
 import { generateId, getScopeKey } from './utils';
 
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export const DEFAULT_STORAGE: StorageData = {
   notes: {},
@@ -9,6 +9,7 @@ export const DEFAULT_STORAGE: StorageData = {
   activeWorkspaceId: null,
   defaultScope: 'domain',
   theme: 'system',
+  markdownEnabled: false,
   version: STORAGE_VERSION,
 };
 
@@ -16,6 +17,20 @@ export interface StorageAdapter {
   get(): Promise<StorageData>;
   set(data: Partial<StorageData>): Promise<void>;
   clear(): Promise<void>;
+}
+
+function migrateNote(raw: Partial<Note>): Note {
+  return {
+    id: raw.id ?? generateId(),
+    workspaceId: raw.workspaceId ?? null,
+    scope: raw.scope ?? 'global',
+    scopeKey: raw.scopeKey ?? '',
+    title: raw.title,
+    content: raw.content ?? '',
+    tags: raw.tags ?? [],
+    createdAt: raw.createdAt ?? Date.now(),
+    updatedAt: raw.updatedAt ?? Date.now(),
+  };
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
@@ -26,7 +41,11 @@ export class LocalStorageAdapter implements StorageAdapter {
       const raw = localStorage.getItem(this.key);
       if (!raw) return { ...DEFAULT_STORAGE };
       const parsed = JSON.parse(raw) as Partial<StorageData>;
-      return { ...DEFAULT_STORAGE, ...parsed };
+      const notes: Record<string, Note> = {};
+      for (const [id, note] of Object.entries(parsed.notes ?? {})) {
+        notes[id] = migrateNote(note as Partial<Note>);
+      }
+      return { ...DEFAULT_STORAGE, ...parsed, notes };
     } catch {
       return { ...DEFAULT_STORAGE };
     }
@@ -34,8 +53,7 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async set(data: Partial<StorageData>): Promise<void> {
     const current = await this.get();
-    const updated = { ...current, ...data };
-    localStorage.setItem(this.key, JSON.stringify(updated));
+    localStorage.setItem(this.key, JSON.stringify({ ...current, ...data }));
   }
 
   async clear(): Promise<void> {
@@ -45,22 +63,23 @@ export class LocalStorageAdapter implements StorageAdapter {
 
 export class ChromeStorageAdapter implements StorageAdapter {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private get chromeApi(): any {
-    return typeof globalThis !== 'undefined' && (globalThis as any).chrome
-      ? (globalThis as any).chrome
+  private get api(): any {
+    return typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).chrome
+      ? (globalThis as Record<string, unknown>).chrome
       : null;
   }
 
   async get(): Promise<StorageData> {
-    const api = this.chromeApi;
+    const api = this.api;
     return new Promise((resolve) => {
-      if (!api?.storage) {
-        resolve({ ...DEFAULT_STORAGE });
-        return;
-      }
+      if (!api?.storage) { resolve({ ...DEFAULT_STORAGE }); return; }
       api.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
-        const data = result['tabnotes_data'] as Partial<StorageData> | undefined;
-        resolve({ ...DEFAULT_STORAGE, ...(data ?? {}) });
+        const raw = result['tabnotes_data'] as Partial<StorageData> | undefined;
+        const notes: Record<string, Note> = {};
+        for (const [id, note] of Object.entries(raw?.notes ?? {})) {
+          notes[id] = migrateNote(note as Partial<Note>);
+        }
+        resolve({ ...DEFAULT_STORAGE, ...(raw ?? {}), notes });
       });
     });
   }
@@ -68,23 +87,17 @@ export class ChromeStorageAdapter implements StorageAdapter {
   async set(data: Partial<StorageData>): Promise<void> {
     const current = await this.get();
     const updated = { ...current, ...data };
-    const api = this.chromeApi;
+    const api = this.api;
     return new Promise((resolve) => {
-      if (!api?.storage) {
-        resolve();
-        return;
-      }
+      if (!api?.storage) { resolve(); return; }
       api.storage.local.set({ tabnotes_data: updated }, resolve);
     });
   }
 
   async clear(): Promise<void> {
-    const api = this.chromeApi;
+    const api = this.api;
     return new Promise((resolve) => {
-      if (!api?.storage) {
-        resolve();
-        return;
-      }
+      if (!api?.storage) { resolve(); return; }
       api.storage.local.remove('tabnotes_data', resolve);
     });
   }
@@ -101,18 +114,14 @@ export class NotesService {
   async getNoteByScope(scope: NoteScope, url: string, workspaceId?: string | null): Promise<Note | null> {
     const data = await this.adapter.get();
     const scopeKey = getScopeKey(scope, url, workspaceId);
-    const note = Object.values(data.notes).find(
+    return Object.values(data.notes).find(
       (n) => n.scope === scope && n.scopeKey === scopeKey && n.workspaceId === (workspaceId ?? null)
-    );
-    return note ?? null;
+    ) ?? null;
   }
 
   async createNote(params: {
-    scope: NoteScope;
-    url: string;
-    workspaceId?: string | null;
-    content?: string;
-    title?: string;
+    scope: NoteScope; url: string;
+    workspaceId?: string | null; content?: string; title?: string; tags?: string[];
   }): Promise<Note> {
     const data = await this.adapter.get();
     const now = Date.now();
@@ -123,6 +132,7 @@ export class NotesService {
       scopeKey: getScopeKey(params.scope, params.url, params.workspaceId),
       title: params.title,
       content: params.content ?? '',
+      tags: params.tags ?? [],
       createdAt: now,
       updatedAt: now,
     };
@@ -130,7 +140,7 @@ export class NotesService {
     return note;
   }
 
-  async updateNote(id: string, updates: Partial<Pick<Note, 'content' | 'title'>>): Promise<Note | null> {
+  async updateNote(id: string, updates: Partial<Pick<Note, 'content' | 'title' | 'tags'>>): Promise<Note | null> {
     const data = await this.adapter.get();
     const note = data.notes[id];
     if (!note) return null;
@@ -146,14 +156,9 @@ export class NotesService {
     await this.adapter.set({ notes });
   }
 
-  async getOrCreateNote(params: {
-    scope: NoteScope;
-    url: string;
-    workspaceId?: string | null;
-  }): Promise<Note> {
-    const existing = await this.getNoteByScope(params.scope, params.url, params.workspaceId);
-    if (existing) return existing;
-    return this.createNote(params);
+  async getOrCreateNote(params: { scope: NoteScope; url: string; workspaceId?: string | null }): Promise<Note> {
+    return (await this.getNoteByScope(params.scope, params.url, params.workspaceId))
+      ?? this.createNote(params);
   }
 }
 
@@ -165,19 +170,19 @@ export class WorkspacesService {
     return Object.values(data.workspaces).sort((a, b) => a.createdAt - b.createdAt);
   }
 
-  async create(name: string): Promise<Workspace> {
+  async create(name: string, color?: string): Promise<Workspace> {
     const data = await this.adapter.get();
     const now = Date.now();
-    const workspace: Workspace = { id: generateId(), name, createdAt: now, updatedAt: now };
+    const workspace: Workspace = { id: generateId(), name, color, createdAt: now, updatedAt: now };
     await this.adapter.set({ workspaces: { ...data.workspaces, [workspace.id]: workspace } });
     return workspace;
   }
 
-  async update(id: string, name: string): Promise<Workspace | null> {
+  async update(id: string, updates: Partial<Pick<Workspace, 'name' | 'color'>>): Promise<Workspace | null> {
     const data = await this.adapter.get();
     const ws = data.workspaces[id];
     if (!ws) return null;
-    const updated: Workspace = { ...ws, name, updatedAt: Date.now() };
+    const updated: Workspace = { ...ws, ...updates, updatedAt: Date.now() };
     await this.adapter.set({ workspaces: { ...data.workspaces, [id]: updated } });
     return updated;
   }
@@ -195,8 +200,7 @@ export class WorkspacesService {
   }
 
   async getActive(): Promise<string | null> {
-    const data = await this.adapter.get();
-    return data.activeWorkspaceId;
+    return (await this.adapter.get()).activeWorkspaceId;
   }
 }
 
@@ -211,12 +215,8 @@ export function exportData(data: StorageData): ExportData {
 
 export function importData(exported: ExportData, current: StorageData): StorageData {
   const notes = { ...current.notes };
-  for (const note of exported.notes) {
-    notes[note.id] = note;
-  }
+  for (const n of exported.notes) notes[n.id] = n;
   const workspaces = { ...current.workspaces };
-  for (const ws of exported.workspaces) {
-    workspaces[ws.id] = ws;
-  }
+  for (const ws of exported.workspaces) workspaces[ws.id] = ws;
   return { ...current, notes, workspaces };
 }

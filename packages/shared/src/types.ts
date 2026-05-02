@@ -7,6 +7,7 @@ export interface Note {
   scopeKey: string;
   title?: string;
   content: string;
+  tags: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -14,6 +15,7 @@ export interface Note {
 export interface Workspace {
   id: string;
   name: string;
+  color?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -24,6 +26,7 @@ export interface StorageData {
   activeWorkspaceId: string | null;
   defaultScope: NoteScope;
   theme: 'light' | 'dark' | 'system';
+  markdownEnabled: boolean;
   version: number;
 }
 

@@ -23,7 +23,7 @@ export default function WorkspacesPage() {
 
   const handleUpdate = async (id: string) => {
     if (!editName.trim()) return;
-    await updateWorkspace(id, editName.trim());
+    await updateWorkspace(id, { name: editName.trim() });
     setEditId(null);
     setEditName('');
   };

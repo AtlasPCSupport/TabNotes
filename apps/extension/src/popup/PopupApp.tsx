@@ -1,23 +1,20 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  Note,
-  NoteScope,
-  ChromeStorageAdapter,
-  NotesService,
-  WorkspacesService,
-  Workspace,
-  normalizeUrl,
-  normalizeDomain,
-  formatRelativeTime,
+  Note, NoteScope,
+  ChromeStorageAdapter, NotesService, WorkspacesService, Workspace,
+  normalizeUrl, normalizeDomain, formatRelativeTime,
 } from '@tabnotes/shared';
 import './popup.css';
 
 const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string }[] = [
-  { value: 'url', label: 'URL', icon: '🔗' },
-  { value: 'domain', label: 'Domain', icon: '🌐' },
+  { value: 'url',       label: 'URL',       icon: '🔗' },
+  { value: 'domain',    label: 'Domain',    icon: '🌐' },
   { value: 'workspace', label: 'Workspace', icon: '⊞' },
-  { value: 'global', label: 'Global', icon: '🌍' },
+  { value: 'global',    label: 'Global',    icon: '🌍' },
 ];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chromeApi: any = (typeof globalThis !== 'undefined' && (globalThis as Record<string,unknown>).chrome) ? (globalThis as Record<string,unknown>).chrome : null;
 
 export default function PopupApp() {
   const [currentUrl, setCurrentUrl] = useState('');
@@ -26,6 +23,7 @@ export default function PopupApp() {
   const [note, setNote] = useState<Note | null>(null);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
+  const [tags, setTags] = useState('');
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -45,17 +43,25 @@ export default function PopupApp() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+
+  const loadNote = useCallback(async (s: NoteScope, url: string, wsId: string | null) => {
+    const existing = await notesService.current.getNoteByScope(s, url, wsId);
+    setNote(existing);
+    setContent(existing?.content ?? '');
+    setTitle(existing?.title ?? '');
+    setTags(existing?.tags.join(', ') ?? '');
+  }, []);
 
   useEffect(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      const url = tab?.url ?? '';
+    if (!chromeApi?.tabs) {
+      setLoading(false);
+      return;
+    }
+    chromeApi.tabs.query({ active: true, currentWindow: true }, async (tabs: {url?: string}[]) => {
+      const url = tabs[0]?.url ?? '';
       setCurrentUrl(url);
       setCurrentDomain(normalizeDomain(url));
-
       const [wsList, activeWsId, storageData] = await Promise.all([
         workspacesService.current.getAll(),
         workspacesService.current.getActive(),
@@ -68,69 +74,41 @@ export default function PopupApp() {
       await loadNote(savedScope, url, activeWsId);
       setLoading(false);
     });
-  }, []);
-
-  const loadNote = useCallback(async (s: NoteScope, url: string, wsId: string | null) => {
-    const existing = await notesService.current.getNoteByScope(s, url, wsId);
-    setNote(existing);
-    setContent(existing?.content ?? '');
-    setTitle(existing?.title ?? '');
-  }, []);
+  }, [loadNote]);
 
   const handleScopeChange = async (s: NoteScope) => {
     setScope(s);
     await loadNote(s, currentUrl, activeWorkspaceId);
   };
 
-  const handleChange = (val: string) => {
-    setContent(val);
-    setSaved(false);
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveNote(val, title), 600);
-  };
-
-  const handleTitleChange = (val: string) => {
-    setTitle(val);
-    setSaved(false);
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveNote(content, val), 600);
-  };
-
-  const saveNote = async (c: string, t: string) => {
+  const saveNote = useCallback(async (c: string, t: string, tg: string) => {
+    const parsedTags = tg.split(',').map((s) => s.trim()).filter(Boolean);
     if (note) {
-      await notesService.current.updateNote(note.id, { content: c, title: t });
+      await notesService.current.updateNote(note.id, { content: c, title: t || undefined, tags: parsedTags });
     } else {
       const created = await notesService.current.createNote({
-        scope,
-        url: currentUrl,
-        workspaceId: activeWorkspaceId,
-        content: c,
-        title: t,
+        scope, url: currentUrl, workspaceId: activeWorkspaceId,
+        content: c, title: t || undefined, tags: parsedTags,
       });
       setNote(created);
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  };
+  }, [note, scope, currentUrl, activeWorkspaceId]);
 
-  const openOptions = () => {
-    chrome.runtime.openOptionsPage();
-  };
+  const scheduleAutosave = useCallback((c: string, t: string, tg: string) => {
+    setSaved(false);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveNote(c, t, tg), 600);
+  }, [saveNote]);
 
-  const scopeKey = scope === 'url'
-    ? normalizeUrl(currentUrl)
-    : scope === 'domain'
-    ? currentDomain
-    : scope === 'workspace'
-    ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Default')
+  const scopeKey = scope === 'url' ? normalizeUrl(currentUrl)
+    : scope === 'domain' ? currentDomain
+    : scope === 'workspace' ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Default')
     : 'Global';
 
   if (loading) {
-    return (
-      <div className="popup-loading">
-        <div className="spinner" />
-      </div>
-    );
+    return <div className="popup-loading"><div className="spinner" /></div>;
   }
 
   return (
@@ -141,52 +119,40 @@ export default function PopupApp() {
           <div className="logo-icon">T</div>
           <span className="logo-text">TabNotes</span>
         </div>
-        <button className="icon-btn" onClick={openOptions} title="Settings">⚙</button>
+        <button className="icon-btn" onClick={() => chromeApi?.runtime?.openOptionsPage()} title="Settings">⚙</button>
       </div>
 
       {/* Scope switcher */}
       <div className="scope-bar">
         {SCOPE_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            className={`scope-btn ${scope === opt.value ? 'active' : ''}`}
-            onClick={() => handleScopeChange(opt.value)}
-            title={opt.label}
-          >
+          <button key={opt.value} className={`scope-btn ${scope === opt.value ? 'active' : ''}`} onClick={() => handleScopeChange(opt.value)} title={opt.label}>
             <span className="scope-icon">{opt.icon}</span>
             <span className="scope-label">{opt.label}</span>
           </button>
         ))}
       </div>
 
-      {/* Scope context */}
+      {/* Context bar */}
       <div className="scope-context">
-        <span className="scope-key">{scopeKey || 'Global note'}</span>
+        <span className="scope-key" title={scopeKey}>{scopeKey || 'Global note'}</span>
         {saved && <span className="saved-badge">✓ Saved</span>}
       </div>
 
       {/* Title */}
-      <input
-        className="note-title"
-        value={title}
-        onChange={(e) => handleTitleChange(e.target.value)}
-        placeholder="Title (optional)"
-      />
+      <input className="note-title" value={title} onChange={(e) => { setTitle(e.target.value); scheduleAutosave(content, e.target.value, tags); }} placeholder="Title (optional)" />
 
       {/* Editor */}
-      <textarea
-        className="note-editor"
-        value={content}
-        onChange={(e) => handleChange(e.target.value)}
-        placeholder={`Write your ${scope} note here…`}
-        autoFocus
-      />
+      <textarea className="note-editor" value={content} onChange={(e) => { setContent(e.target.value); scheduleAutosave(e.target.value, title, tags); }} placeholder={`Write your ${scope} note here…`} autoFocus />
+
+      {/* Tags */}
+      <div className="tags-bar">
+        <span className="tags-label">Tags:</span>
+        <input className="tags-input" value={tags} onChange={(e) => { setTags(e.target.value); scheduleAutosave(content, title, e.target.value); }} placeholder="tag1, tag2" />
+      </div>
 
       {/* Footer */}
       <div className="popup-footer">
-        <span className="footer-meta">
-          {note ? formatRelativeTime(note.updatedAt) : 'New note'}
-        </span>
+        <span className="footer-meta">{note ? formatRelativeTime(note.updatedAt) : 'New note'}</span>
         <span className="footer-count">{content.length} chars</span>
       </div>
     </div>

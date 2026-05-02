@@ -2,6 +2,13 @@ export function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Tracking params to strip
+const TRACKING_PARAMS = new Set([
+  'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
+  'ref','fbclid','gclid','msclkid','twclid','mc_cid','mc_eid',
+  '_ga','_gl','igshid',
+]);
+
 export function normalizeDomain(url: string): string {
   try {
     const u = new URL(url);
@@ -14,43 +21,55 @@ export function normalizeDomain(url: string): string {
 export function normalizeUrl(url: string): string {
   try {
     const u = new URL(url);
-    // Remove trailing slash, hash, and common tracking params
     u.hash = '';
-    u.searchParams.delete('utm_source');
-    u.searchParams.delete('utm_medium');
-    u.searchParams.delete('utm_campaign');
-    u.searchParams.delete('ref');
-    let normalized = `${u.origin}${u.pathname}`;
-    if (u.searchParams.toString()) {
-      normalized += `?${u.searchParams.toString()}`;
-    }
-    return normalized.replace(/\/$/, '');
+    for (const p of TRACKING_PARAMS) u.searchParams.delete(p);
+    const search = u.searchParams.toString();
+    let normalized = `${u.origin}${u.pathname}`.replace(/\/$/, '');
+    if (search) normalized += `?${search}`;
+    return normalized;
   } catch {
     return url;
   }
 }
 
-export function getScopeKey(scope: import('./types').NoteScope, url: string, workspaceId?: string | null): string {
+export function getScopeKey(
+  scope: import('./types').NoteScope,
+  url: string,
+  workspaceId?: string | null
+): string {
   switch (scope) {
-    case 'url':
-      return normalizeUrl(url);
-    case 'domain':
-      return normalizeDomain(url);
-    case 'workspace':
-      return workspaceId ?? 'default';
-    case 'global':
-      return '';
+    case 'url':    return normalizeUrl(url);
+    case 'domain': return normalizeDomain(url);
+    case 'workspace': return workspaceId ?? 'default';
+    case 'global': return '';
   }
 }
 
 export function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  return `${mo}mo ago`;
+}
+
+export function searchNotes(
+  notes: import('./types').Note[],
+  query: string
+): import('./types').Note[] {
+  if (!query.trim()) return notes;
+  const q = query.toLowerCase();
+  return notes.filter(
+    (n) =>
+      n.content.toLowerCase().includes(q) ||
+      (n.title ?? '').toLowerCase().includes(q) ||
+      n.tags.some((t) => t.toLowerCase().includes(q)) ||
+      n.scopeKey.toLowerCase().includes(q)
+  );
 }
