@@ -561,7 +561,111 @@ body {
 }
 
 .sp-search-wrap {
-  padding: 10px 12px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sp-search-wrap > .sp-search-inner { flex: 1; }
+.sp-select-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-subtle);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 7px;
+  line-height: 1;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.sp-select-toggle:hover { background: var(--bg-muted); color: var(--text); }
+.sp-select-toggle.active {
+  background: var(--bg-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ─── Bulk select on cards ───────────────────────────────────── */
+.sp-note-card.select-mode { padding-left: 38px; cursor: pointer; }
+.sp-note-card.bulk-selected { background: var(--accent-soft); }
+.sp-card-checkbox {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: transparent;
+  flex-shrink: 0;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.sp-card-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ─── Bulk action bar ────────────────────────────────────────── */
+.sp-bulk-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.sp-bulk-count {
+  font-size: 11px;
+  color: var(--text-subtle);
+  flex: 1;
+}
+.sp-bulk-select-all {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 3px 8px;
+  transition: background 120ms, color 120ms;
+  font-family: var(--font);
+}
+.sp-bulk-select-all:hover { background: var(--bg-muted); color: var(--text); }
+.sp-bulk-delete {
+  background: color-mix(in srgb, var(--danger, #e55) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger, #e55) 30%, transparent);
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--danger, #e55);
+  cursor: pointer;
+  padding: 3px 10px;
+  transition: background 120ms, border-color 120ms;
+  font-family: var(--font);
+}
+.sp-bulk-delete:hover { background: color-mix(in srgb, var(--danger, #e55) 20%, transparent); }
+.sp-bulk-delete.confirming {
+  background: var(--danger, #e55);
+  border-color: var(--danger, #e55);
+  color: #fff;
+  animation: pulse 600ms ease infinite alternate;
+}
+@keyframes pulse { from { opacity: 1; } to { opacity: 0.75; } }
+
+/* override original search-wrap padding now that it has flex layout */
+.sp-search-wrap {  padding: 10px 12px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
   flex-shrink: 0;

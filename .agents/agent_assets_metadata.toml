@@ -66,3 +66,9 @@ id = "Jd89hJCxk9iUFp1QjabYM"
 uri = "file://store/tabnotes-extension-v1.6.1.zip"
 type = "unspecified"
 title = "TabNotes v1.6.1 — Botón eliminar en cada nota"
+
+[[outputs]]
+id = "sZHTX697u9SAbBfRj-2WQ"
+uri = "file://store/tabnotes-extension-v1.6.2.zip"
+type = "unspecified"
+title = "TabNotes v1.6.2 — Selección múltiple y borrado en bloque"
