@@ -1,13 +1,16 @@
 # TabNotes — Chrome Web Store Listing
 
+## Name
+TabNotes
+
 ## Short description (≤132 chars)
-Contextual notes per tab, domain, or workspace. Local-first, no account needed. Works in a side panel.
+Contextual notes per tab, domain, or workspace. Multiple notes per page. Local-first, no account needed.
 
 ## Detailed description
 
 **TabNotes — Notes that know where you are.**
 
-Take notes that are automatically linked to the page you're on — no copy-pasting URLs, no manual filing. TabNotes brings contextual awareness to your note-taking, right inside Chrome.
+Take notes that are automatically linked to the page you're on — no copy-pasting URLs, no manual filing. TabNotes brings contextual awareness to your note-taking, right inside Chrome's side panel.
 
 ---
 
@@ -23,21 +26,27 @@ Take notes that are automatically linked to the page you're on — no copy-pasti
 
 ---
 
+**Multiple notes per context:**
+
+Create as many notes as you need for the same URL, domain, or workspace. Switch between them instantly using the pill selector — each one saved and accessible independently.
+
+---
+
 **Built for focus, not friction:**
 
 ✎ **Side panel** — Notes open beside your content, never replacing it. Keep reading while you write.
 
 ⚡ **Autosave** — Every keystroke is saved automatically. No Cmd+S, no lost notes.
 
-🏷 **Tags** — Organize with tags, filter by them instantly.
+🔄 **Auto tab sync** — Switch tabs and the panel instantly shows the notes for your new tab. No manual refresh needed.
+
+🏷 **Tags** — Organize with tags, filter by them instantly in full-text search.
 
 ◈ **Markdown preview** — Write in Markdown and toggle a rendered preview without leaving the editor.
 
 🔍 **Full-text search** — Find any note across all your tabs, domains, and workspaces in real time.
 
-⊞ **Workspaces** — Organize notes into projects. Switch between them with one click.
-
-☽ **Dark mode** — Automatic dark/light mode following your system preference.
+☽ **Dark mode** — Automatic dark/light mode following your system preference, or set it manually.
 
 ---
 
@@ -45,7 +54,7 @@ Take notes that are automatically linked to the page you're on — no copy-pasti
 
 TabNotes stores everything locally on your device using chrome.storage.local. No servers. No account. No cloud. Your notes never leave your browser.
 
-Export your notes as JSON anytime. Full data portability, always.
+**Export your notes as JSON** anytime with one click. Restore from backup just as easily — notes are merged, nothing is lost. Full data portability, always.
 
 ---
 
@@ -60,17 +69,20 @@ Productivity
 English
 
 ## Permissions justification
-- **storage** — Save notes locally on your device
-- **tabs** — Read current tab URL to link notes contextually
-- **activeTab** — Access current tab URL when panel is open
-- **sidePanel** — Display notes panel alongside browser content
+- **storage** — Save notes locally on your device using chrome.storage.local
+- **tabs** — Read the current tab's URL to link notes contextually, and detect tab switches to auto-update the panel
+- **activeTab** — Access the current tab's URL when the panel is open
+- **sidePanel** — Display the notes panel alongside browser content without replacing the page
 
 ## Screenshots needed (1280×800 or 640×400)
-1. Side panel open on a webpage — showing a domain note being written
-2. All Notes view — showing list with search and tags
-3. Scope switcher — demonstrating URL vs Domain vs Workspace
-4. Dark mode — side panel in dark theme
-5. Settings view — markdown toggle, workspace selector
+1. Side panel open on a real webpage — writing a domain note with autosave badge visible
+2. Multiple notes (pills) for the same domain — showing Note 1, Note 2, Note 3 + add button
+3. All Notes view — search bar with results, tags, scope icons
+4. Dark mode — side panel in dark theme on a dark website
+5. Settings view — Data section with Export/Import buttons visible
 
 ## Promotional tile (440×280)
 Tagline: "Notes that know where you are"
+Background: deep blue gradient (#1e3a5f → #0f1e30)
+Logo: white T mark, "TabNotes" in white
+Sub: "URL · Domain · Workspace · Global"

@@ -30,3 +30,9 @@ id = "qL6lkzUgiZVN5Y-Ym20Oy"
 uri = "file://store/tabnotes-extension-v1.4.0.zip"
 type = "unspecified"
 title = "TabNotes Extension v1.4.0 — Export/Import backup"
+
+[[outputs]]
+id = "UN8sZPI6Kr3pH0rGxOM8B"
+uri = "file://store/tabnotes-extension-v1.4.0-store.zip"
+type = "unspecified"
+title = "TabNotes v1.4.0 — ZIP para Chrome Web Store"
