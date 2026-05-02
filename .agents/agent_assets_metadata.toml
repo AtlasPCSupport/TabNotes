@@ -6,3 +6,9 @@ id = "8cVMa2UY6N2_sHMAgmi00"
 uri = "file://tabnotes-extension.zip"
 type = "unspecified"
 title = "TabNotes — Extensión Chrome (ZIP)"
+
+[[outputs]]
+id = "yGh-dqiL_8Sp42gBb__Sd"
+uri = "file://store/tabnotes-extension-v1.1.0.zip"
+type = "unspecified"
+title = "TabNotes Extension v1.1.0 — Chrome"
