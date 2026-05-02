@@ -60,3 +60,9 @@ id = "aXfDn7AvsYhuN1xqd-vna"
 uri = "file://store/tabnotes-extension-v1.6.0.zip"
 type = "unspecified"
 title = "TabNotes v1.6.0 — Badge en icóno + Atajo Alt+N"
+
+[[outputs]]
+id = "Jd89hJCxk9iUFp1QjabYM"
+uri = "file://store/tabnotes-extension-v1.6.1.zip"
+type = "unspecified"
+title = "TabNotes v1.6.1 — Botón eliminar en cada nota"
