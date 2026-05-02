@@ -54,3 +54,9 @@ id = "Q1vTvcVXc8UHS7egZbff_"
 uri = "file://store/tabnotes-extension-v1.5.2.zip"
 type = "unspecified"
 title = "TabNotes v1.5.2 — Hotfix: panel en blanco"
+
+[[outputs]]
+id = "aXfDn7AvsYhuN1xqd-vna"
+uri = "file://store/tabnotes-extension-v1.6.0.zip"
+type = "unspecified"
+title = "TabNotes v1.6.0 — Badge en icóno + Atajo Alt+N"
