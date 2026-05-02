@@ -74,9 +74,14 @@ export default function SidePanelApp() {
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [saved, setSaved] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [dataFeedback, setDataFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Pills scroll state
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
 
   // Search
   const [searchQ, setSearchQ] = useState('');
@@ -233,6 +238,24 @@ export default function SidePanelApp() {
     };
   }, [switchToTab]);
 
+  // ── Pills scroll detection ────────────────────────────────────
+  useEffect(() => {
+    const el = pillsRef.current;
+    if (!el) return;
+    const update = () => {
+      setCanScrollLeft(el.scrollLeft > 2);
+      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+    };
+    el.addEventListener('scroll', update, { passive: true });
+    // Use timeout so DOM has rendered with new pills
+    const t = setTimeout(update, 50);
+    return () => { el.removeEventListener('scroll', update); clearTimeout(t); };
+  }, [contextNotes]);
+
+  const scrollPills = (dir: 'left' | 'right') => {
+    pillsRef.current?.scrollBy({ left: dir === 'right' ? 130 : -130, behavior: 'smooth' });
+  };
+
   // ── Scope switch ──────────────────────────────────────────────
   const handleScopeChange = async (s: NoteScope) => {
     setScope(s); scopeRef.current = s;
@@ -305,19 +328,24 @@ export default function SidePanelApp() {
     saveTimer.current = setTimeout(() => saveNote(c, t, tg), 600);
   }, [saveNote]);
 
-  // ── Delete active note ────────────────────────────────────────
-  const deleteActiveNote = async () => {
-    const id = activeNoteIdRef.current;
-    if (!id) return;
+  // ── Delete note by id (from pill ×) ──────────────────────────
+  const deletePillNote = async (id: string) => {
     clearTimeout(saveTimer.current);
     await noteSvc.current.deleteNote(id);
     const url = currentUrlRef.current;
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
     setContextNotes(notes);
-    const next = notes[0] ?? null;
-    setActiveNoteId(next?.id ?? null); activeNoteIdRef.current = next?.id ?? null;
-    setContent(next?.content ?? ''); setTitle(next?.title ?? ''); setTags(next?.tags.join(', ') ?? '');
-    setSaved(false); setConfirmDelete(false);
+    setDeletePillConfirmId(null);
+    // If we deleted the active note, switch to first remaining
+    if (id === activeNoteIdRef.current) {
+      const next = notes[0] ?? null;
+      activeNoteIdRef.current = next?.id ?? null;
+      setActiveNoteId(next?.id ?? null);
+      setContent(next?.content ?? '');
+      setTitle(next?.title ?? '');
+      setTags(next?.tags.join(', ') ?? '');
+      setSaved(false);
+    }
     await refreshAllNotes();
   };
 
@@ -470,26 +498,69 @@ export default function SidePanelApp() {
       {/* ── Note picker pills ── */}
       {view === 'note' && !isRestrictedUrl && (
         <div className="sp-note-picker">
-          <div className="sp-note-pills">
-            {contextNotes.map((n, idx) => (
-              <button
-                key={n.id}
-                className={`sp-note-pill${n.id === activeNoteId ? ' active' : ''}`}
-                onClick={() => selectNote(n)}
-                title={n.title || `Note ${idx + 1}`}
-              >
-                {pillLabel(n, idx)}
-              </button>
-            ))}
+          {/* Left arrow — appears when pills are scrolled */}
+          <button
+            className={`sp-pill-arrow${canScrollLeft ? ' visible' : ''}`}
+            onClick={() => scrollPills('left')}
+            tabIndex={canScrollLeft ? 0 : -1}
+            aria-hidden={!canScrollLeft}
+          >‹</button>
+
+          <div className="sp-note-pills" ref={pillsRef}>
+            {contextNotes.map((n, idx) => {
+              const isActive = n.id === activeNoteId;
+              const isConfirm = deletePillConfirmId === n.id;
+              return (
+                <div
+                  key={n.id}
+                  className={`sp-note-pill${isActive ? ' active' : ''}${isConfirm ? ' confirm' : ''}`}
+                  onClick={() => {
+                    if (isConfirm) {
+                      deletePillNote(n.id);
+                    } else {
+                      setDeletePillConfirmId(null);
+                      selectNote(n);
+                    }
+                  }}
+                  title={isConfirm ? 'Click to confirm delete' : (n.title || `Note ${idx + 1}`)}
+                  role="button"
+                >
+                  <span className="sp-pill-label">
+                    {isConfirm ? 'Delete?' : pillLabel(n, idx)}
+                  </span>
+                  {isActive && !isConfirm && (
+                    <button
+                      className="sp-pill-x"
+                      onClick={(e) => { e.stopPropagation(); setDeletePillConfirmId(n.id); }}
+                      title="Delete this note"
+                    >×</button>
+                  )}
+                  {isConfirm && (
+                    <button
+                      className="sp-pill-x cancel"
+                      onClick={(e) => { e.stopPropagation(); setDeletePillConfirmId(null); }}
+                      title="Cancel"
+                    >×</button>
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {/* Right arrow — appears when more pills are hidden */}
+          <button
+            className={`sp-pill-arrow${canScrollRight ? ' visible' : ''}`}
+            onClick={() => scrollPills('right')}
+            tabIndex={canScrollRight ? 0 : -1}
+            aria-hidden={!canScrollRight}
+          >›</button>
+
           <button
             className="sp-note-pill-add"
-            onClick={addNoteToContext}
+            onClick={() => { setDeletePillConfirmId(null); addNoteToContext(); }}
             title="Add another note for this context"
             disabled={tabLoading}
-          >
-            +
-          </button>
+          >+</button>
         </div>
       )}
 
@@ -553,26 +624,6 @@ export default function SidePanelApp() {
                     </>
                   )}
                   <span className="sp-note-meta-spacer" />
-
-                  {/* Delete note button */}
-                  {activeNoteId && (
-                    confirmDelete ? (
-                      <span className="sp-delete-confirm">
-                        <button className="sp-meta-danger" onClick={deleteActiveNote}>Delete</button>
-                        <button className="sp-meta-toggle" onClick={() => setConfirmDelete(false)}>Cancel</button>
-                      </span>
-                    ) : (
-                      <button
-                        className="sp-meta-toggle"
-                        onClick={() => setConfirmDelete(true)}
-                        title="Delete this note"
-                        style={{ color: 'var(--text-subtle)' }}
-                      >
-                        🗑
-                      </button>
-                    )
-                  )}
-
                   {markdownEnabled && (
                     <button
                       className={`sp-meta-toggle${preview ? ' active' : ''}`}

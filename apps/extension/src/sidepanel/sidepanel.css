@@ -251,12 +251,43 @@ body {
 .sp-note-picker {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  gap: 3px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
   flex-shrink: 0;
-  overflow: hidden;
+}
+
+/* Scroll arrows ◀ ▶ */
+.sp-pill-arrow {
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+  border: none;
+  background: none;
+  color: var(--text-subtle);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  padding: 0;
+  font-family: var(--font);
+  /* Hidden by default — shown only when needed */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms, color 120ms, background 120ms;
+}
+.sp-pill-arrow.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.sp-pill-arrow:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
 }
 
 .sp-note-pills {
@@ -271,9 +302,13 @@ body {
 }
 .sp-note-pills::-webkit-scrollbar { display: none; }
 
+/* Each pill is now a flex row: [label] [×] */
 .sp-note-pill {
   flex-shrink: 0;
-  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px 3px 10px;
   border-radius: var(--r-full);
   border: 1px solid var(--border);
   background: var(--bg-subtle);
@@ -282,14 +317,12 @@ body {
   font-weight: 500;
   font-family: var(--font);
   cursor: pointer;
-  white-space: nowrap;
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 120px;
   transition: all 120ms var(--ease);
   line-height: 1.4;
+  user-select: none;
 }
-.sp-note-pill:hover:not(.active) {
+.sp-note-pill:hover:not(.active):not(.confirm) {
   background: var(--bg-muted);
   color: var(--text);
   border-color: var(--border-strong);
@@ -299,7 +332,55 @@ body {
   border-color: var(--accent);
   color: #fff;
   font-weight: 600;
+  padding-right: 4px;
 }
+/* Confirm state — pill turns red */
+.sp-note-pill.confirm {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+  animation: pulseRed 600ms ease infinite alternate;
+}
+@keyframes pulseRed {
+  from { opacity: 0.85; }
+  to   { opacity: 1; }
+}
+
+.sp-pill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* The × button inside the active pill */
+.sp-pill-x {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: none;
+  background: rgba(255,255,255,0.25);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: var(--font);
+  transition: background 120ms;
+}
+.sp-pill-x:hover { background: rgba(255,255,255,0.45); }
+/* × inside confirm pill */
+.sp-pill-x.cancel {
+  background: rgba(220,38,38,0.15);
+  color: var(--danger);
+}
+.sp-pill-x.cancel:hover { background: rgba(220,38,38,0.3); }
 
 .sp-note-pill-add {
   flex-shrink: 0;
@@ -329,29 +410,6 @@ body {
 .sp-note-pill-add:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* ─── Delete confirm ─────────────────────────────────────────── */
-.sp-delete-confirm {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.sp-meta-danger {
-  padding: 2px 8px;
-  border-radius: var(--r-full);
-  border: 1px solid var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
-  font-size: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font);
-  transition: all 120ms;
-}
-.sp-meta-danger:hover {
-  background: var(--danger);
-  color: #fff;
 }
 
 /* ─── Main content ───────────────────────────────────────────── */
