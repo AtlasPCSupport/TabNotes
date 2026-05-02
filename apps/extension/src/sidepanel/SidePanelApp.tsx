@@ -3,7 +3,9 @@ import {
   Note, NoteScope, Workspace,
   ChromeStorageAdapter, NotesService, WorkspacesService, StorageData,
   normalizeUrl, normalizeDomain, formatRelativeTime, searchNotes,
+  exportData, importData,
 } from '@tabnotes/shared';
+import type { ExportData } from '@tabnotes/shared';
 import './sidepanel.css';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,6 +75,8 @@ export default function SidePanelApp() {
   const [tags, setTags] = useState('');
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dataFeedback, setDataFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Search
   const [searchQ, setSearchQ] = useState('');
@@ -329,6 +333,56 @@ export default function SidePanelApp() {
   const setDefaultScope = async (s: NoteScope) => {
     setDefaultScopeState(s);
     await adapter.current.set({ defaultScope: s });
+  };
+
+  // ── Export / Import ───────────────────────────────────────────
+  const showFeedback = (type: 'success' | 'error', msg: string) => {
+    setDataFeedback({ type, msg });
+    setTimeout(() => setDataFeedback(null), 3500);
+  };
+
+  const handleExport = async () => {
+    try {
+      const data = await adapter.current.get();
+      const payload = exportData(data);
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `tabnotes-backup-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showFeedback('success', `Exported ${payload.notes.length} notes`);
+    } catch {
+      showFeedback('error', 'Export failed');
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as ExportData;
+      if (!Array.isArray(parsed.notes)) throw new Error('Invalid format');
+      const current = await adapter.current.get();
+      const merged = importData(parsed, current);
+      await adapter.current.set({ notes: merged.notes, workspaces: merged.workspaces });
+      const [notes, wsList] = await Promise.all([
+        noteSvc.current.getAllNotes(),
+        wsSvc.current.getAll(),
+      ]);
+      setAllNotes(notes);
+      setWorkspaces(wsList);
+      const added = parsed.notes.length;
+      showFeedback('success', `Imported ${added} note${added !== 1 ? 's' : ''}`);
+    } catch {
+      showFeedback('error', 'Invalid backup file');
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
   };
 
   // ── Derived ──────────────────────────────────────────────────
@@ -716,6 +770,39 @@ export default function SidePanelApp() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Data management */}
+            <div className="sp-settings-section">
+              <div className="sp-settings-label">Data</div>
+              <div className="sp-data-grid">
+                <button className="sp-data-btn export" onClick={handleExport}>
+                  <span className="sp-data-btn-icon">↓</span>
+                  <div className="sp-data-btn-info">
+                    <div className="sp-data-btn-title">Export backup</div>
+                    <div className="sp-data-btn-desc">Download all notes as JSON</div>
+                  </div>
+                </button>
+                <button className="sp-data-btn import" onClick={() => importInputRef.current?.click()}>
+                  <span className="sp-data-btn-icon">↑</span>
+                  <div className="sp-data-btn-info">
+                    <div className="sp-data-btn-title">Import backup</div>
+                    <div className="sp-data-btn-desc">Merge notes from JSON file</div>
+                  </div>
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  style={{ display: 'none' }}
+                  onChange={handleImport}
+                />
+              </div>
+              {dataFeedback && (
+                <div className={`sp-data-feedback ${dataFeedback.type}`}>
+                  {dataFeedback.type === 'success' ? '✓' : '✕'} {dataFeedback.msg}
+                </div>
+              )}
             </div>
 
             <div className="sp-pro-card">
