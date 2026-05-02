@@ -910,6 +910,25 @@ export default function SidePanelApp() {
             title="Add another note for this context"
             disabled={tabLoading}
           >+</button>
+
+          {/* Templates dropdown */}
+          <div style={{ position: 'relative', flexShrink: 0 }} ref={templatesRef}>
+            <button
+              className="sp-note-pill-add"
+              onClick={() => setShowTemplates(!showTemplates)}
+              title="Insert template"
+              style={{ fontSize: 12, borderStyle: 'solid' }}
+            >≡</button>
+            {showTemplates && (
+              <div className="sp-templates-dropdown">
+                {TEMPLATES.map((tpl) => (
+                  <button key={tpl.label} className="sp-template-item" onClick={() => applyTemplate(tpl)}>
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -938,16 +957,19 @@ export default function SidePanelApp() {
                 {preview && markdownEnabled ? (
                   <div
                     className="sp-markdown-preview"
+                    style={activeNoteColor ? { background: activeNoteColor } : undefined}
                     dangerouslySetInnerHTML={{ __html: content ? parseMarkdown(content) : '<p style="color:var(--text-subtle);font-style:italic">Nothing to preview yet.</p>' }}
                   />
                 ) : (
                   <textarea
+                    ref={textareaRef}
                     className={`sp-note-textarea${markdownEnabled ? ' mono' : ''}`}
                     autoFocus={!tabLoading}
                     value={content}
                     onChange={(e) => { setContent(e.target.value); schedule(e.target.value, title, tags); }}
                     placeholder={`Note for this ${scope}…`}
                     disabled={tabLoading}
+                    style={{ fontSize: fontSize, ...(activeNoteColor ? { background: activeNoteColor } : {}) }}
                   />
                 )}
 
@@ -972,28 +994,79 @@ export default function SidePanelApp() {
                       <span className="sp-note-meta-text">{readingTime(content)}</span>
                     </>
                   )}
-                  {activeNote && (
-                    <>
-                      <span className="sp-note-meta-sep">·</span>
-                      <span className="sp-note-meta-text">{formatRelativeTime(activeNote.updatedAt)}</span>
-                    </>
-                  )}
                   <span className="sp-note-meta-spacer" />
+
+                  {/* Insert date */}
+                  <button className="sp-meta-toggle" onClick={insertDatetime} title="Insert date/time (Ctrl+D)">📅</button>
+
+                  {/* Font size */}
+                  <button className="sp-meta-toggle" onClick={() => changeFontSize(-1)} title="Smaller text" style={{ fontWeight: 700 }}>A-</button>
+                  <button className="sp-meta-toggle" onClick={() => changeFontSize(1)} title="Larger text" style={{ fontWeight: 700 }}>A+</button>
+
+                  {/* Pin */}
+                  {activeNoteId && (
+                    <button
+                      className={`sp-meta-toggle${pinnedNotes.has(activeNoteId) ? ' active' : ''}`}
+                      onClick={() => togglePin(activeNoteId)}
+                      title={pinnedNotes.has(activeNoteId) ? 'Unpin note' : 'Pin note'}
+                    >📌</button>
+                  )}
+
+                  {/* Color picker */}
+                  {activeNoteId && (
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        className={`sp-meta-toggle${activeNoteColor ? ' active' : ''}`}
+                        onClick={() => setColorPickerNoteId(colorPickerNoteId ? null : activeNoteId)}
+                        title="Note color"
+                        style={activeNoteColor ? { borderColor: activeNoteColor, background: activeNoteColor, color: '#333' } : undefined}
+                      >🎨</button>
+                      {colorPickerNoteId === activeNoteId && (
+                        <div className="sp-color-picker">
+                          {NOTE_COLORS.map((c) => (
+                            <button
+                              key={c.value}
+                              className={`sp-color-swatch${activeNoteColor === c.value ? ' active' : ''}`}
+                              style={{ background: c.value || 'var(--bg-subtle)', border: '2px solid ' + (activeNoteColor === c.value ? 'var(--accent)' : 'var(--border)') }}
+                              onClick={() => setNoteColor(activeNoteId, c.value)}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Export current note */}
+                  {(content || title) && (
+                    <button className="sp-meta-toggle" onClick={exportCurrentNote} title="Export note as .md">↓md</button>
+                  )}
+
+                  {/* Focus mode */}
+                  <button
+                    className={`sp-meta-toggle${focusMode ? ' active' : ''}`}
+                    onClick={() => setFocusMode(!focusMode)}
+                    title={focusMode ? 'Exit focus mode (Esc)' : 'Focus mode (Ctrl+Shift+F)'}
+                  >{focusMode ? '⊠' : '⊡'}</button>
+
+                  {/* Copy */}
                   {content && (
                     <button
                       className={`sp-meta-toggle${copied ? ' active' : ''}`}
                       onClick={copyNote}
                       title="Copy note to clipboard"
                     >
-                      {copied ? '✓ Copied' : '⎘ Copy'}
+                      {copied ? '✓' : '⎘'}
                     </button>
                   )}
+
+                  {/* Markdown preview */}
                   {markdownEnabled && (
                     <button
                       className={`sp-meta-toggle${preview ? ' active' : ''}`}
                       onClick={() => setPreview(!preview)}
                     >
-                      {preview ? '✎ Edit' : '◈ Preview'}
+                      {preview ? '✎' : '◈'}
                     </button>
                   )}
                 </div>
