@@ -38,3 +38,8 @@ externalPort = 80
 deploymentTarget = "static"
 build = ["pnpm", "--filter", "@tabnotes/web", "build"]
 publicDir = "apps/web/dist"
+
+[userenv]
+
+[userenv.shared]
+VITE_GROQ_KEY = "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"
