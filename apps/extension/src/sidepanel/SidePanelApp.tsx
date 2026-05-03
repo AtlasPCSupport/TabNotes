@@ -400,8 +400,8 @@ export default function SidePanelApp() {
   const [showTemplates, setShowTemplates] = useState(false);
   const templatesRef = useRef<HTMLDivElement>(null);
 
-  // Textarea ref (for cursor-based insertion)
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Rich editor ref (contentEditable div)
+  const editorRef = useRef<HTMLDivElement>(null);
 
   // Services
   const adapter = useRef(new ChromeStorageAdapter());
@@ -508,7 +508,7 @@ export default function SidePanelApp() {
         cr.storage.local.remove('tn_quick_capture');
         addNoteToContextRef.current().then(() => {
           setView('note');
-          setTimeout(() => textareaRef.current?.focus(), 120);
+          setTimeout(() => editorRef.current?.focus(), 120);
         });
         return;
       }
@@ -555,12 +555,24 @@ export default function SidePanelApp() {
 
   // ── Typewriter mode: keep cursor line vertically centered ─────
   useEffect(() => {
-    if (!typewriterMode || !textareaRef.current) return;
-    const el = textareaRef.current;
-    const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
-    const line = el.value.substring(0, el.selectionStart ?? 0).split('\n').length;
-    el.scrollTop = Math.max(0, (line - 1) * lh - el.clientHeight / 2 + lh);
+    if (!typewriterMode || !editorRef.current) return;
+    const el = editorRef.current;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (rect.top !== 0) {
+      el.scrollTop += rect.top - elRect.top - el.clientHeight / 2;
+    }
   }, [content, typewriterMode]);
+
+  // ── Sync editor innerHTML when switching notes or toggling preview ─
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el || document.activeElement === el) return;
+    if (el.innerHTML !== content) el.innerHTML = content;
+  }, [content, preview]);
 
   // ── CLIP_TEXT listener (Web Clipper content script) ──────────
   useEffect(() => {
@@ -782,7 +794,7 @@ export default function SidePanelApp() {
           cr.storage.local.remove('tn_quick_capture');
           await addNoteToContextRef.current();
           setView('note');
-          setTimeout(() => textareaRef.current?.focus(), 120);
+          setTimeout(() => editorRef.current?.focus(), 120);
         }
 
         setLoading(false);
@@ -1019,43 +1031,67 @@ ${parseMarkdown(content)}
   };
 
   // ── Formatting toolbar: wrap selected textarea text ───────────
-  const wrapSel = React.useCallback((before: string, after: string) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const s = ta.selectionStart;
-    const e = ta.selectionEnd;
-    const selected = ta.value.slice(s, e);
-    const newVal = ta.value.slice(0, s) + before + selected + after + ta.value.slice(e);
-    setContent(newVal);
-    schedule(newVal, title, tags);
+  const wrapSel = React.useCallback((cmd: string, _after?: string) => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const execMap: Record<string, string> = {
+      '**': 'bold', '*': 'italic', '__': 'underline', '~~': 'strikeThrough',
+    };
+    if (execMap[cmd]) {
+      document.execCommand(execMap[cmd]);
+    } else if (cmd === '==') {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        try {
+          const mark = document.createElement('mark');
+          range.surroundContents(mark);
+        } catch {
+          document.execCommand('insertHTML', false, `<mark>${sel.toString()}</mark>`);
+        }
+      } else {
+        document.execCommand('insertHTML', false, '<mark>\u200b</mark>');
+      }
+    } else if (cmd === '`') {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const code = document.createElement('code');
+        if (!sel.isCollapsed) {
+          code.appendChild(range.extractContents());
+        }
+        range.insertNode(code);
+        if (sel.isCollapsed) {
+          const r2 = document.createRange();
+          r2.setStart(code, 0); r2.collapse(true);
+          sel.removeAllRanges(); sel.addRange(r2);
+        }
+      }
+    }
     requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(s + before.length, e + before.length);
+      const html = el.innerHTML;
+      setContent(html);
+      schedule(html, title, tags);
     });
     setShowColorPicker(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, tags]);
 
-  // ── Alignment: wrap current line or selection ─────────────────
+  // ── Alignment: apply via execCommand ──────────────────────────
   const wrapAlign = React.useCallback((alignment: string) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const val = ta.value;
-    let s = ta.selectionStart;
-    let e = ta.selectionEnd;
-    if (s === e) {
-      while (s > 0 && val[s - 1] !== '\n') s--;
-      while (e < val.length && val[e] !== '\n') e++;
-    }
-    const selected = val.slice(s, e);
-    const b = `<div style="text-align:${alignment}">`;
-    const a = '</div>';
-    const newVal = val.slice(0, s) + b + selected + a + val.slice(e);
-    setContent(newVal);
-    schedule(newVal, title, tags);
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const cmds: Record<string, string> = {
+      left: 'justifyLeft', center: 'justifyCenter',
+      right: 'justifyRight', justify: 'justifyFull',
+    };
+    if (cmds[alignment]) document.execCommand(cmds[alignment]);
     requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(s + b.length, e + b.length);
+      const html = el.innerHTML;
+      setContent(html);
+      schedule(html, title, tags);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, tags]);
@@ -1178,16 +1214,19 @@ ${parseMarkdown(content)}
 
   // ── Wiki link autocomplete ───────────────────────────────────
   const insertWikiLink = (noteTitle: string) => {
-    if (!wikiAnchor || !textareaRef.current) return;
-    const before = content.slice(0, wikiAnchor.start) + `[[${noteTitle}]]`;
-    const next = before + content.slice(wikiAnchor.end);
-    setContent(next); schedule(next, title, tags);
+    if (!wikiAnchor || !editorRef.current) return;
+    editorRef.current.focus();
+    const sel = window.getSelection();
+    if (!sel) return;
+    const queryLen = wikiAnchor.end - wikiAnchor.start;
+    sel.collapseToEnd();
+    for (let i = 0; i < queryLen; i++) {
+      (sel as any).modify('extend', 'backward', 'character');
+    }
+    document.execCommand('insertText', false, `[[${noteTitle}]]`);
+    const html = editorRef.current.innerHTML;
+    setContent(html); schedule(html, title, tags);
     setWikiQuery(null); setWikiAnchor(null);
-    setTimeout(() => {
-      if (!textareaRef.current) return;
-      textareaRef.current.focus();
-      textareaRef.current.setSelectionRange(before.length, before.length);
-    }, 0);
   };
 
   // ── Bulk delete selected notes ────────────────────────────────
@@ -1280,22 +1319,18 @@ ${parseMarkdown(content)}
 
   // ── Insert date/time at cursor ────────────────────────────────
   const insertDatetime = () => {
-    const ta = textareaRef.current;
+    const el = editorRef.current;
     const now = new Date();
     const str = now.toLocaleString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
-    if (ta) {
-      const start = ta.selectionStart ?? content.length;
-      const end = ta.selectionEnd ?? content.length;
-      const next = content.slice(0, start) + str + content.slice(end);
-      setContent(next);
-      schedule(next, title, tags);
-      setTimeout(() => {
-        ta.focus();
-        ta.setSelectionRange(start + str.length, start + str.length);
-      }, 0);
+    if (el) {
+      el.focus();
+      document.execCommand('insertText', false, str);
+      const html = el.innerHTML;
+      setContent(html);
+      schedule(html, title, tags);
     } else {
       const next = content + (content ? '\n' : '') + str;
       setContent(next);
@@ -1433,7 +1468,7 @@ ${parseMarkdown(content)}
     setContent(newContent);
     schedule(newContent, newTitle, tags);
     setShowTemplates(false);
-    setTimeout(() => textareaRef.current?.focus(), 50);
+    setTimeout(() => editorRef.current?.focus(), 50);
   };
 
   // ── Export / Import ───────────────────────────────────────────
@@ -1983,28 +2018,44 @@ ${parseMarkdown(content)}
                   />
                 ) : (
                   <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <textarea
-                      ref={textareaRef}
-                      className={`sp-note-textarea${markdownEnabled ? ' mono' : ''}${typewriterMode ? ' tn-typewriter' : ''}`}
+                    <div
+                      ref={editorRef}
+                      className={`sp-note-textarea sp-rich-editor${typewriterMode ? ' tn-typewriter' : ''}`}
+                      contentEditable={!tabLoading}
+                      suppressContentEditableWarning
                       autoFocus={!tabLoading}
-                      value={content}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setContent(val); schedule(val, title, tags);
-                        const cursor = e.target.selectionStart;
-                        const before = val.slice(0, cursor);
-                        const m = before.match(/\[\[([^\]]*?)$/);
-                        if (m) { setWikiQuery(m[1]); setWikiAnchor({ start: before.length - m[0].length, end: cursor }); }
-                        else { setWikiQuery(null); setWikiAnchor(null); }
+                      data-placeholder={`Note for this ${scope}…`}
+                      style={{ fontSize: fontSize, textAlign: defaultAlign as React.CSSProperties['textAlign'], ...(activeNoteColor ? { background: activeNoteColor, color: '#1a1a1a' } : {}) }}
+                      onInput={(e) => {
+                        const el = e.currentTarget;
+                        const html = el.innerHTML;
+                        setContent(html);
+                        schedule(html, title, tags);
+                        if (features.wikiLinks) {
+                          const sel = window.getSelection();
+                          if (sel && sel.rangeCount > 0) {
+                            const range = sel.getRangeAt(0);
+                            const node = range.startContainer;
+                            if (node.nodeType === Node.TEXT_NODE) {
+                              const textBefore = (node.textContent ?? '').slice(0, range.startOffset);
+                              const m = textBefore.match(/\[\[([^\]]*?)$/);
+                              if (m) {
+                                setWikiQuery(m[1]);
+                                const r2 = range.cloneRange();
+                                r2.selectNodeContents(el);
+                                r2.setEnd(range.startContainer, range.startOffset);
+                                const anchorEnd = r2.toString().length;
+                                setWikiAnchor({ start: anchorEnd - m[0].length, end: anchorEnd });
+                              } else { setWikiQuery(null); setWikiAnchor(null); }
+                            } else { setWikiQuery(null); setWikiAnchor(null); }
+                          }
+                        }
                       }}
-                      placeholder={`Note for this ${scope}…`}
-                      disabled={tabLoading}
-                      style={{ fontSize: fontSize, textAlign: defaultAlign, ...(activeNoteColor ? { background: activeNoteColor, color: '#1a1a1a' } : {}) }}
                       onKeyDown={(e) => {
                         if (!(e.ctrlKey || e.metaKey)) return;
-                        if (e.key === 'b') { e.preventDefault(); wrapSel('**', '**'); }
-                        if (e.key === 'i') { e.preventDefault(); wrapSel('*', '*'); }
-                        if (e.key === 'u') { e.preventDefault(); wrapSel('__', '__'); }
+                        if (e.key === 'b') { e.preventDefault(); wrapSel('**'); }
+                        if (e.key === 'i') { e.preventDefault(); wrapSel('*'); }
+                        if (e.key === 'u') { e.preventDefault(); wrapSel('__'); }
                       }}
                     />
                     {features.wikiLinks && wikiQuery !== null && (
