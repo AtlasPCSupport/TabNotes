@@ -49,6 +49,7 @@ export interface ExportPrefs {
   features?: Record<string, boolean>;
   digest?: { enabled?: boolean; time?: string };
   streak?: { count?: number; lastDate?: string };
+  backupRemindDays?: number;
 }
 
 export interface ExportData {
