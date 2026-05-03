@@ -549,11 +549,18 @@ body {
   border-radius: 3px;
   padding: 0 4px;
 }
-.sp-rich-editor mark {
+.sp-rich-editor mark,
+.sp-rich-editor .tn-highlight {
   background: #fef08a;
-  color: inherit;
+  color: #1a1a1a;
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 0 2px;
+  display: inline;
+}
+[data-theme="dark"] .sp-rich-editor .tn-highlight,
+[data-theme="dark"] .sp-rich-editor mark {
+  background: #854d0e;
+  color: #fef9c3;
 }
 .sp-rich-editor div { min-height: 1.7em; }
 
