@@ -525,6 +525,38 @@ body {
 .sp-note-textarea.mono { font-family: var(--mono); font-size: 12px; }
 .sp-note-textarea::placeholder { color: var(--text-subtle); }
 
+/* ── Rich (contentEditable) editor ─────────────────────────── */
+.sp-rich-editor {
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  min-height: 0;
+}
+.sp-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+.sp-rich-editor b, .sp-rich-editor strong { font-weight: 700; }
+.sp-rich-editor i, .sp-rich-editor em { font-style: italic; }
+.sp-rich-editor u { text-decoration: underline; }
+.sp-rich-editor s, .sp-rich-editor strike { text-decoration: line-through; }
+.sp-rich-editor code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.sp-rich-editor mark {
+  background: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.sp-rich-editor div { min-height: 1.7em; }
+
 .sp-markdown-preview {
   flex: 1;
   padding: 4px 14px 10px;
