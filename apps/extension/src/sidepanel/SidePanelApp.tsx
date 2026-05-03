@@ -346,6 +346,9 @@ export default function SidePanelApp() {
   const [suggestions, setSuggestions]         = useState<Note[]>([]);
   const suggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Backup reminder ───────────────────────────────────────────
+  const [backupRemindDays, setBackupRemindDays] = useState<number>(7);
+
   // ── Command palette ───────────────────────────────────────────
   const [showCmdPalette, setShowCmdPalette] = useState(false);
   const [cmdQuery, setCmdQuery]             = useState('');
@@ -441,6 +444,12 @@ export default function SidePanelApp() {
       const ft = localStorage.getItem('tn_features');
       if (ft) setFeatures((prev) => ({ ...prev, ...JSON.parse(ft) }));
     } catch { /* ignore */ }
+
+    // Load backup reminder interval from chrome.storage.local
+    cr?.storage?.local?.get('tn_backup_remind', (res: Record<string, unknown>) => {
+      const d = (res?.tn_backup_remind as { days?: number } | undefined)?.days;
+      if (d != null) setBackupRemindDays(d);
+    });
   }, []);
 
   // ── Click outside → close workspace dropdown ─────────────────
@@ -1559,16 +1568,20 @@ ${parseMarkdown(content)}
       if (al)      prefs.align    = al as ExportPrefs['align'];
       if (ft)      prefs.features = JSON.parse(ft);
 
-      // chrome.storage.local prefs (digest + streak)
+      // chrome.storage.local prefs (digest + streak + backup reminder)
       await new Promise<void>((resolve) => {
-        cr?.storage?.local?.get(['tn_digest', 'tn_streak'], (res: Record<string, unknown>) => {
-          if (res?.tn_digest)  prefs.digest  = res.tn_digest as ExportPrefs['digest'];
-          if (res?.tn_streak)  prefs.streak  = res.tn_streak as ExportPrefs['streak'];
+        cr?.storage?.local?.get(['tn_digest', 'tn_streak', 'tn_backup_remind'], (res: Record<string, unknown>) => {
+          if (res?.tn_digest)       prefs.digest           = res.tn_digest as ExportPrefs['digest'];
+          if (res?.tn_streak)       prefs.streak           = res.tn_streak as ExportPrefs['streak'];
+          if (res?.tn_backup_remind) prefs.backupRemindDays = (res.tn_backup_remind as { days?: number })?.days ?? 7;
           resolve();
         });
       });
 
       payload.prefs = prefs;
+
+      // Record this export timestamp so the backup reminder resets
+      cr?.storage?.local?.set({ tn_last_export: Date.now() });
 
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
@@ -1606,8 +1619,13 @@ ${parseMarkdown(content)}
         if (p.fontsize != null) { localStorage.setItem('tn_fontsize', String(p.fontsize));         setFontSize(p.fontsize); }
         if (p.align    != null) { localStorage.setItem('tn_align',    p.align);                    setAlign(p.align); }
         if (p.features != null) { localStorage.setItem('tn_features', JSON.stringify(p.features)); setFeatures((prev) => ({ ...prev, ...p.features })); }
-        if (p.digest   != null) cr?.storage?.local?.set({ tn_digest: p.digest });
-        if (p.streak   != null) cr?.storage?.local?.set({ tn_streak: p.streak });
+        if (p.digest           != null) cr?.storage?.local?.set({ tn_digest: p.digest });
+        if (p.streak           != null) cr?.storage?.local?.set({ tn_streak: p.streak });
+        if (p.backupRemindDays != null) {
+          setBackupRemindDays(p.backupRemindDays);
+          cr?.storage?.local?.set({ tn_backup_remind: { days: p.backupRemindDays } });
+          cr?.runtime?.sendMessage({ type: 'SET_BACKUP_REMIND', days: p.backupRemindDays });
+        }
       }
 
       const [notes, wsList] = await Promise.all([
@@ -3184,6 +3202,29 @@ ${parseMarkdown(content)}
                   {dataFeedback.type === 'success' ? '✓' : '✕'} {dataFeedback.msg}
                 </div>
               )}
+
+              {/* Backup reminder interval */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>Backup reminder</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 1 }}>Notify if you haven't exported in</div>
+                </div>
+                <select
+                  value={backupRemindDays}
+                  onChange={(e) => {
+                    const days = Number(e.target.value);
+                    setBackupRemindDays(days);
+                    cr?.storage?.local?.set({ tn_backup_remind: { days } });
+                    cr?.runtime?.sendMessage({ type: 'SET_BACKUP_REMIND', days });
+                  }}
+                  style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer' }}
+                >
+                  <option value={0}>Off</option>
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days</option>
+                </select>
+              </div>
             </div>
 
             <div className="sp-settings-section sp-coffee-section">

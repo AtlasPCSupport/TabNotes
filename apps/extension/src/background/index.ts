@@ -121,16 +121,49 @@ async function fireDigest(): Promise<void> {
   });
 }
 
+// ── Backup reminder ───────────────────────────────────────────────────────────
+
+async function scheduleBackupCheck(): Promise<void> {
+  chrome.alarms.create('tn_backup_check', { periodInMinutes: 24 * 60, delayInMinutes: 1 });
+}
+
+async function checkBackupReminder(): Promise<void> {
+  const result = await chrome.storage.local.get(['tn_backup_remind', 'tn_last_export']);
+  const days = (result['tn_backup_remind'] as { days?: number } | undefined)?.days ?? 7;
+  if (!days) return; // 0 = off
+
+  const lastExport = (result['tn_last_export'] as number | undefined) ?? 0;
+  const msElapsed = Date.now() - lastExport;
+  const msDue = days * 24 * 60 * 60 * 1000;
+  if (msElapsed < msDue) return;
+
+  const daysSince = lastExport === 0 ? null : Math.floor(msElapsed / (24 * 60 * 60 * 1000));
+  const message = daysSince === null
+    ? 'You have never made a backup. Export your notes now to keep them safe.'
+    : `Last backup was ${daysSince} day${daysSince !== 1 ? 's' : ''} ago. Export to keep your notes safe.`;
+
+  chrome.notifications.create('tn_backup_remind_' + Date.now(), {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: '📦 TabNotes Backup Reminder',
+    message,
+    priority: 1,
+    buttons: [{ title: 'Open TabNotes' }],
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setOptions({ enabled: true });
   updateBadgeForActiveTab();
   scheduleDigest();
+  scheduleBackupCheck();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   scheduleDigest();
+  scheduleBackupCheck();
 });
 
 // ── Open side panel on icon click ─────────────────────────────────────────────
@@ -204,6 +237,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  // SET_BACKUP_REMIND: save backup reminder interval
+  if (msg.type === 'SET_BACKUP_REMIND') {
+    (async () => {
+      await chrome.storage.local.set({ tn_backup_remind: { days: msg.days } });
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
+
   // SET_REMINDER: schedule a chrome.alarms reminder for a note
   if (msg.type === 'SET_REMINDER') {
     const alarmName = 'tn_reminder_' + msg.noteId;
@@ -224,6 +266,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   // Daily digest
   if (alarm.name === 'tn_daily_digest') {
     await fireDigest();
+    return;
+  }
+
+  // Backup reminder check
+  if (alarm.name === 'tn_backup_check') {
+    await checkBackupReminder();
     return;
   }
 
@@ -259,7 +307,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ── Notification click → open sidepanel ───────────────────────────────────────
 
 chrome.notifications.onClicked.addListener(async (notifId) => {
-  if (!notifId.startsWith('tn_notif_') && !notifId.startsWith('tn_digest_')) return;
+  if (!notifId.startsWith('tn_notif_') && !notifId.startsWith('tn_digest_') && !notifId.startsWith('tn_backup_remind_')) return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) chrome.sidePanel.open({ tabId: tab.id });
+  chrome.notifications.clear(notifId);
+});
+
+chrome.notifications.onButtonClicked.addListener(async (notifId) => {
+  if (!notifId.startsWith('tn_backup_remind_')) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.sidePanel.open({ tabId: tab.id });
   chrome.notifications.clear(notifId);
