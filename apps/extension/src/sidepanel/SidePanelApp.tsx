@@ -42,12 +42,13 @@ const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: stri
 ];
 
 const NOTE_COLORS = [
-  { value: '', label: 'Default' },
-  { value: '#fef9c3', label: 'Yellow' },
-  { value: '#dcfce7', label: 'Green' },
-  { value: '#dbeafe', label: 'Blue' },
-  { value: '#fce7f3', label: 'Pink' },
-  { value: '#ede9fe', label: 'Purple' },
+  { value: '',        label: 'Default' },
+  { value: '#f59e0b', label: 'Amber'   },
+  { value: '#10b981', label: 'Green'   },
+  { value: '#3b82f6', label: 'Blue'    },
+  { value: '#ec4899', label: 'Pink'    },
+  { value: '#8b5cf6', label: 'Purple'  },
+  { value: '#ef4444', label: 'Red'     },
 ];
 
 const TEMPLATES = [
@@ -1042,7 +1043,19 @@ ${parseMarkdown(content)}
     if (execMap[cmd]) {
       document.execCommand(execMap[cmd]);
     } else if (cmd === '==') {
-      document.execCommand('hiliteColor', false, '#fef08a');
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        const span = document.createElement('span');
+        span.className = 'tn-highlight';
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+        sel.removeAllRanges();
+        const r2 = document.createRange();
+        r2.selectNodeContents(span);
+        sel.addRange(r2);
+      }
     } else if (cmd === '`') {
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
@@ -1868,7 +1881,7 @@ ${parseMarkdown(content)}
                 <div
                   key={n.id}
                   className={`sp-note-pill${isActive ? ' active' : ''}${isConfirm ? ' confirm' : ''}`}
-                  style={color && !isActive ? { borderColor: color, background: color } : undefined}
+                  style={color && !isActive ? { borderLeftColor: color, borderLeftWidth: 3 } : undefined}
                   onClick={() => {
                     if (isConfirm) {
                       deletePillNote(n.id);
@@ -2037,7 +2050,7 @@ ${parseMarkdown(content)}
                 {preview && markdownEnabled ? (
                   <div
                     className="sp-markdown-preview"
-                    style={activeNoteColor ? { background: activeNoteColor, color: '#1a1a1a' } : undefined}
+                    style={activeNoteColor ? { borderLeft: `3px solid ${activeNoteColor}`, paddingLeft: 11 } : undefined}
                     dangerouslySetInnerHTML={{ __html: content ? parseMarkdown(content) : '<p style="color:var(--text-subtle);font-style:italic">Nothing to preview yet.</p>' }}
                     onClick={(e) => {
                       const t = e.target as HTMLElement;
@@ -2073,7 +2086,7 @@ ${parseMarkdown(content)}
                       suppressContentEditableWarning
                       autoFocus={!tabLoading}
                       data-placeholder={`Note for this ${scope}…`}
-                      style={{ fontSize: fontSize, textAlign: defaultAlign as React.CSSProperties['textAlign'], ...(activeNoteColor ? { background: activeNoteColor, color: '#1a1a1a' } : {}) }}
+                      style={{ fontSize: fontSize, textAlign: defaultAlign as React.CSSProperties['textAlign'], ...(activeNoteColor ? { borderLeft: `3px solid ${activeNoteColor}`, paddingLeft: 11 } : {}) }}
                       onInput={(e) => {
                         const el = e.currentTarget;
                         // Chrome leaves <br> in empty contentEditable — normalize to ''
@@ -2226,7 +2239,7 @@ ${parseMarkdown(content)}
                         className={`sp-meta-toggle${activeNoteColor ? ' active' : ''}`}
                         onClick={() => setColorPickerNoteId(colorPickerNoteId ? null : activeNoteId)}
                         title="Note color"
-                        style={activeNoteColor ? { borderColor: activeNoteColor, background: activeNoteColor, color: '#333' } : undefined}
+                        style={activeNoteColor ? { borderLeftColor: activeNoteColor, borderLeftWidth: 3, color: activeNoteColor } : undefined}
                       >🎨</button>
                       {colorPickerNoteId === activeNoteId && (
                         <div className="sp-color-picker">
@@ -2234,7 +2247,10 @@ ${parseMarkdown(content)}
                             <button
                               key={c.value}
                               className={`sp-color-swatch${activeNoteColor === c.value ? ' active' : ''}`}
-                              style={{ background: c.value || 'var(--bg-subtle)', border: '2px solid ' + (activeNoteColor === c.value ? 'var(--accent)' : 'var(--border)') }}
+                              style={c.value
+                                ? { background: c.value, border: '2px solid ' + (activeNoteColor === c.value ? c.value : 'transparent'), boxShadow: activeNoteColor === c.value ? `0 0 0 2px ${c.value}55` : 'none' }
+                                : { background: 'var(--bg-subtle)', border: '2px solid var(--border)', boxShadow: activeNoteColor === c.value ? '0 0 0 2px var(--accent)' : 'none' }
+                              }
                               onClick={() => setNoteColor(activeNoteId, c.value)}
                               title={c.label}
                             />
