@@ -38,20 +38,20 @@
 }
 
 [data-theme='dark'] {
-  --bg: #0f0f0e;
-  --bg-card: #161614;
-  --bg-subtle: #1c1c1a;
-  --bg-muted: #242420;
-  --bg-input: #1a1a18;
-  --border: #2a2926;
-  --border-strong: #3a3832;
-  --text: #f0ede8;
-  --text-muted: #9a958e;
-  --text-subtle: #6a6560;
-  --accent: #5c83f5;
-  --accent-hover: #7499f6;
-  --accent-soft: #0e1740;
-  --accent-muted: #162258;
+  --bg: #0d0b14;
+  --bg-card: #13111c;
+  --bg-subtle: #1a172b;
+  --bg-muted: #221e38;
+  --bg-input: #181528;
+  --border: #24203b;
+  --border-strong: #352f55;
+  --text: #e0def4;
+  --text-muted: #908caa;
+  --text-subtle: #6e6a86;
+  --accent: #8b5cf6;
+  --accent-hover: #a78bfa;
+  --accent-soft: #1c1538;
+  --accent-muted: #2e2168;
   --success: #22c55e;
   --success-soft: #071a10;
   --danger: #ff8080;
@@ -3344,4 +3344,699 @@ body {
 }
 .tn-enc-confirm:not(:disabled):hover {
   opacity: 0.88;
+}
+
+
+/* ── Folder Settings Modal ── */
+.sp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: fadeIn 0.15s var(--ease);
+}
+
+.sp-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleIn 0.18s var(--ease);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.sp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sp-modal-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+.sp-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sp-modal-close:hover {
+  color: var(--text);
+}
+
+.sp-modal-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sp-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sp-field-group label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-subtle);
+}
+
+.sp-modal-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.sp-modal-input:focus {
+  border-color: var(--accent);
+}
+
+.sp-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.sp-modal-footer button {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  border: none;
+  transition: all 0.12s;
+}
+
+.sp-modal-footer button.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.sp-modal-footer button.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.sp-modal-footer button.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.sp-modal-footer button.btn-secondary:hover {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+.sp-modal-footer button.btn-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-border, transparent);
+}
+.sp-modal-footer button.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ─── Main Layout (Sidebar Tree + Content) ─── */
+.sp-main-layout {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── Folders & Notes Vertical Tree Redesign ─── */
+.sp-notes-tree {
+  display: flex;
+  flex-direction: column;
+  background: #14121f; /* Premium dark purple background */
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 16px 0;
+  flex-shrink: 0;
+  width: 72px; /* Collapsed width matches mockup */
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: width 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  z-index: 10;
+  user-select: none;
+}
+
+[data-theme='light'] .sp-notes-tree {
+  background: #f4f3f6; /* Premium light purple background */
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.sp-notes-tree:hover,
+.sp-notes-tree:focus-within {
+  width: 220px; /* Expanded width on hover */
+  background: #13111c;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
+  padding: 16px 12px;
+}
+
+[data-theme='light'] .sp-notes-tree:hover,
+[data-theme='light'] .sp-notes-tree:focus-within {
+  background: #ffffff;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Static Navigation & Folder Items */
+.sp-tree-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sp-tree-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 12px auto;
+  width: 32px;
+  transition: width 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+[data-theme='light'] .sp-tree-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.sp-notes-tree:hover .sp-tree-divider,
+.sp-notes-tree:focus-within .sp-tree-divider {
+  width: 100%;
+  margin: 16px 0;
+}
+
+/* Row elements base */
+.sp-tree-nav-row,
+.sp-tree-folder-row {
+  display: flex;
+  position: relative;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s var(--ease);
+  background: transparent;
+  color: #a1a1aa; /* Muted text */
+}
+
+[data-theme='light'] .sp-tree-nav-row,
+[data-theme='light'] .sp-tree-folder-row {
+  color: #706f8a;
+}
+
+.sp-tree-nav-row:hover,
+.sp-tree-folder-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-tree-nav-row:hover,
+[data-theme='light'] .sp-tree-folder-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: #1f1e2e;
+}
+
+.sp-tree-nav-row.active,
+.sp-tree-folder-row.active {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-tree-nav-row.active,
+[data-theme='light'] .sp-tree-folder-row.active {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f1e2e;
+}
+
+/* Indicators / Color Pills */
+.sp-tree-folder-pill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  transition: opacity 0.2s var(--ease), height 0.2s var(--ease);
+  opacity: 0; /* Only show active or folder pill */
+}
+
+/* In nav rows, only show pill when active */
+.sp-tree-nav-row.active .sp-tree-folder-pill {
+  opacity: 1;
+}
+
+/* In folders, show their color pill always */
+.sp-tree-folder-row .sp-tree-folder-pill {
+  opacity: 1;
+}
+
+/* Collapsed layout overrides */
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  gap: 4px;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-pill {
+  left: 0;
+  height: 24px;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-icon {
+  margin-right: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-name {
+  display: block !important;
+  font-size: 9px !important;
+  font-weight: 600;
+  text-align: center;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 64px;
+  color: #a1a1aa;
+}
+
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-name {
+  color: #706f8a;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row.active .sp-tree-folder-name,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row.active .sp-tree-folder-name {
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row.active .sp-tree-folder-name,
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row.active .sp-tree-folder-name {
+  color: #1f1e2e;
+}
+
+/* Hide extra metadata when collapsed */
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-title,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-count,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-menu,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-chevron,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-title,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-delete,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-btn,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-header,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-children,
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-row {
+  display: none !important;
+}
+
+/* Expanded layout styles */
+.sp-notes-tree:hover .sp-tree-nav-row,
+.sp-notes-tree:hover .sp-tree-folder-row,
+.sp-notes-tree:focus-within .sp-tree-nav-row,
+.sp-notes-tree:focus-within .sp-tree-folder-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 12px;
+  padding-left: 20px; /* Leave space for left pill */
+  gap: 10px;
+}
+
+.sp-notes-tree:hover .sp-tree-folder-pill,
+.sp-notes-tree:focus-within .sp-tree-folder-pill {
+  left: 0;
+  height: 16px;
+}
+
+.sp-notes-tree:hover .sp-tree-folder-icon,
+.sp-notes-tree:focus-within .sp-tree-folder-icon {
+  margin-right: 0 !important;
+}
+
+.sp-notes-tree:hover .sp-tree-folder-name,
+.sp-notes-tree:focus-within .sp-tree-folder-name {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: inherit;
+  max-width: none;
+}
+
+/* Folders Header & New Folder form in expanded state */
+.sp-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 8px 6px 8px;
+  flex-shrink: 0;
+}
+
+.sp-tree-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e6a86;
+  user-select: none;
+}
+
+.sp-tree-btn {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  color: #908caa;
+  font-family: var(--font);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.12s var(--ease);
+}
+
+[data-theme='light'] .sp-tree-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #706f8a;
+}
+
+.sp-tree-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sp-tree-new-folder-form {
+  display: flex;
+  gap: 4px;
+  margin: 0 8px 8px 8px;
+  flex-shrink: 0;
+}
+
+.sp-tree-input {
+  flex: 1;
+  font-family: var(--font);
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  outline: none;
+}
+
+[data-theme='light'] .sp-tree-input {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.02);
+  color: #1f1e2e;
+}
+
+.sp-tree-input:focus {
+  border-color: var(--accent);
+}
+
+.sp-tree-confirm-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+/* Tree list container */
+.sp-tree-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 2px;
+}
+
+.sp-tree-folder-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-tree-folder-chevron {
+  font-size: 10px;
+  width: 12px;
+  text-align: center;
+  color: #908caa;
+  margin-right: 2px;
+  display: inline-block;
+  transition: transform 0.15s var(--ease);
+}
+
+.sp-tree-folder-count {
+  font-size: 10px;
+  color: #6e6a86;
+  margin-left: 4px;
+}
+
+.sp-tree-folder-menu {
+  background: transparent;
+  border: none;
+  color: #908caa;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  transition: opacity 0.12s, background 0.12s;
+  margin-left: 6px;
+}
+
+.sp-tree-folder-row:hover .sp-tree-folder-menu {
+  opacity: 1;
+}
+
+.sp-tree-folder-menu:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-tree-folder-menu:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f1e2e;
+}
+
+/* Folder children notes list */
+.sp-tree-folder-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 16px;
+  margin-top: 4px;
+  border-left: 1px dashed rgba(255, 255, 255, 0.08);
+  margin-left: 20px;
+  animation: slideDownCascade 0.15s var(--ease) both;
+}
+
+[data-theme='light'] .sp-tree-folder-children {
+  border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+.sp-tree-note-empty {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #6e6a86;
+  font-style: italic;
+}
+
+.sp-tree-note-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.1s var(--ease);
+  color: #908caa;
+  gap: 8px;
+}
+
+[data-theme='light'] .sp-tree-note-row {
+  color: #706f8a;
+}
+
+.sp-tree-note-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-tree-note-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: #1f1e2e;
+}
+
+.sp-tree-note-row.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme='light'] .sp-tree-note-row.active {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f1e2e;
+}
+
+.sp-tree-note-icon {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-tree-note-title {
+  font-size: 11.5px;
+  color: inherit;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sp-tree-note-delete {
+  background: transparent;
+  border: none;
+  color: #6e6a86;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-tree-note-delete:hover {
+  color: var(--danger);
+}
+
+/* Footer layout */
+.sp-tree-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+}
+
+[data-theme='light'] .sp-tree-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer {
+  padding-top: 12px;
+  align-items: center;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn {
+  /* For the Plus button, make it stand out at the bottom */
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn .sp-tree-folder-name {
+  display: none !important;
+}
+
+/* Drag and Drop Visual Feedback */
+.sp-tree-folder-row.drag-over {
+  background: rgba(139, 92, 246, 0.15) !important;
+  outline: 2px dashed var(--accent) !important;
+  outline-offset: -2px;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .sp-tree-folder-row.drag-over {
+  background: rgba(139, 92, 246, 0.1) !important;
+  color: var(--accent) !important;
+}
+
+.sp-tree-list.drag-over {
+  background: rgba(255, 255, 255, 0.02) !important;
+  outline: 1.5px dashed rgba(255, 255, 255, 0.1) !important;
+  outline-offset: -2px;
+  border-radius: var(--r-md);
+}
+
+[data-theme='light'] .sp-tree-list.drag-over {
+  background: rgba(0, 0, 0, 0.02) !important;
+  outline-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Hide focus mode elements */
+.sp-root.focus-mode .sp-notes-tree {
+  display: none !important;
 }

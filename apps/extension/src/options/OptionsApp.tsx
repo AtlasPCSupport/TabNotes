@@ -21,6 +21,17 @@ const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: stri
 
 type Tab = 'notes' | 'workspaces' | 'settings';
 
+const WORKSPACE_COLORS = [
+  { value: '#2f6dff', label: 'Blue' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#f59e0b', label: 'Orange' },
+  { value: '#10b981', label: 'Green' },
+  { value: '#8b5cf6', label: 'Purple' },
+  { value: '#ec4899', label: 'Pink' },
+  { value: '#6366f1', label: 'Indigo' },
+  { value: '#14b8a6', label: 'Teal' },
+];
+
 export default function OptionsApp() {
   const [activeTab, setActiveTab] = useState<Tab>('notes');
   const [notes, setNotes] = useState<Note[]>([]);
@@ -29,6 +40,10 @@ export default function OptionsApp() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [newWsName, setNewWsName] = useState('');
+  const [newWsColor, setNewWsColor] = useState('#2f6dff');
+  const [editWsId, setEditWsId] = useState<string | null>(null);
+  const [editWsName, setEditWsName] = useState('');
+  const [editWsColor, setEditWsColor] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -76,8 +91,17 @@ export default function OptionsApp() {
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWsName.trim()) return;
-    await workspacesService.current.create(newWsName.trim());
+    await workspacesService.current.create(newWsName.trim(), newWsColor);
     setNewWsName('');
+    setNewWsColor('#2f6dff');
+    await load();
+  };
+
+  const handleUpdateWorkspace = async (id: string) => {
+    if (!editWsName.trim()) return;
+    await workspacesService.current.update(id, { name: editWsName.trim(), color: editWsColor });
+    setEditWsId(null);
+    setEditWsName('');
     await load();
   };
 
@@ -194,14 +218,39 @@ export default function OptionsApp() {
               <h1>Workspaces</h1>
               <span className="badge">{workspaces.length}</span>
             </div>
-            <form onSubmit={handleCreateWorkspace} className="create-form">
-              <input
-                value={newWsName}
-                onChange={(e) => setNewWsName(e.target.value)}
-                placeholder="New workspace name..."
-                className="text-input"
-              />
-              <button type="submit" className="btn-primary">Create</button>
+            <form onSubmit={handleCreateWorkspace} className="create-form" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  value={newWsName}
+                  onChange={(e) => setNewWsName(e.target.value)}
+                  placeholder="New workspace name..."
+                  className="text-input"
+                  style={{ flex: 1 }}
+                />
+                <button type="submit" className="btn-primary">Create</button>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Color:</span>
+                {WORKSPACE_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setNewWsColor(c.value)}
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      background: c.value,
+                      border: newWsColor === c.value ? '2px solid var(--color-text)' : '1px solid var(--color-border)',
+                      cursor: 'pointer',
+                      padding: 0,
+                      transform: newWsColor === c.value ? 'scale(1.1)' : 'none',
+                      transition: 'transform 0.1s ease',
+                    }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
             </form>
             <div className="ws-list">
               <div
@@ -215,26 +264,89 @@ export default function OptionsApp() {
                 </div>
                 {activeWorkspaceId === null && <span className="active-badge">Active</span>}
               </div>
-              {workspaces.map((ws) => (
-                <div
-                  key={ws.id}
-                  className={`ws-card ${activeWorkspaceId === ws.id ? 'active' : ''}`}
-                  onClick={() => handleSetActiveWorkspace(ws.id)}
-                >
-                  <div className="ws-avatar">{ws.name[0].toUpperCase()}</div>
-                  <div className="ws-info">
-                    <div className="ws-name">{ws.name}</div>
-                    <div className="ws-count">{notes.filter((n) => n.workspaceId === ws.id).length} notes</div>
-                  </div>
-                  {activeWorkspaceId === ws.id && <span className="active-badge">Active</span>}
-                  <button
-                    className="delete-btn"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteWorkspace(ws.id); }}
+              {workspaces.map((ws) => {
+                const isEditing = editWsId === ws.id;
+                return (
+                  <div
+                    key={ws.id}
+                    className={`ws-card ${activeWorkspaceId === ws.id ? 'active' : ''}`}
+                    onClick={() => !isEditing && handleSetActiveWorkspace(ws.id)}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}
                   >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="ws-avatar" style={{ backgroundColor: ws.color || 'var(--color-accent)' }}>
+                        {ws.name[0].toUpperCase()}
+                      </div>
+                      <div className="ws-info" style={{ flex: 1 }}>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <input
+                                autoFocus
+                                value={editWsName}
+                                onChange={(e) => setEditWsName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateWorkspace(ws.id); if (e.key === 'Escape') setEditWsId(null); }}
+                                className="text-input"
+                                style={{ padding: '4px 8px', fontSize: '13px', flex: 1 }}
+                              />
+                              <button onClick={() => handleUpdateWorkspace(ws.id)} className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }}>Save</button>
+                              <button onClick={() => setEditWsId(null)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '12px' }}>Cancel</button>
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                              {WORKSPACE_COLORS.map((c) => (
+                                <button
+                                  key={c.value}
+                                  type="button"
+                                  onClick={() => setEditWsColor(c.value)}
+                                  style={{
+                                    width: '12px',
+                                    height: '12px',
+                                    borderRadius: '50%',
+                                    background: c.value,
+                                    border: editWsColor === c.value ? '2px solid var(--color-text)' : '1px solid var(--color-border)',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                  title={c.label}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="ws-name">{ws.name}</div>
+                            <div className="ws-count">{notes.filter((n) => n.workspaceId === ws.id).length} notes</div>
+                          </>
+                        )}
+                      </div>
+                      {activeWorkspaceId === ws.id && !isEditing && <span className="active-badge">Active</span>}
+                      {!isEditing && (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            className="btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditWsId(ws.id);
+                              setEditWsName(ws.name);
+                              setEditWsColor(ws.color || '#2f6dff');
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="delete-btn"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteWorkspace(ws.id); }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

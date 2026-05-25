@@ -32,7 +32,11 @@ export interface Workspace {
 }
 
 export interface StorageData {
-  notes: Record<string, Note>;
+  notes?: Record<string, Note>;
+  notes_url: Record<string, Note>;
+  notes_domain: Record<string, Note>;
+  notes_workspace: Record<string, Note>;
+  notes_global: Record<string, Note>;
   workspaces: Record<string, Workspace>;
   activeWorkspaceId: string | null;
   defaultScope: NoteScope;

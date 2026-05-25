@@ -1,11 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useNotesStore } from '../store/notes';
 
+const WORKSPACE_COLORS = [
+  { value: '#2f6dff', label: 'Blue' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#f59e0b', label: 'Orange' },
+  { value: '#10b981', label: 'Green' },
+  { value: '#8b5cf6', label: 'Purple' },
+  { value: '#ec4899', label: 'Pink' },
+  { value: '#6366f1', label: 'Indigo' },
+  { value: '#14b8a6', label: 'Teal' },
+];
+
 export default function WorkspacesPage() {
   const { workspaces, notes, activeWorkspaceId, load, createWorkspace, updateWorkspace, deleteWorkspace, setActiveWorkspace } = useNotesStore();
   const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#2f6dff');
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -16,14 +29,15 @@ export default function WorkspacesPage() {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
-    await createWorkspace(newName.trim());
+    await createWorkspace(newName.trim(), newColor);
     setNewName('');
+    setNewColor('#2f6dff');
     setCreating(false);
   };
 
   const handleUpdate = async (id: string) => {
     if (!editName.trim()) return;
-    await updateWorkspace(id, { name: editName.trim() });
+    await updateWorkspace(id, { name: editName.trim(), color: editColor });
     setEditId(null);
     setEditName('');
   };
@@ -46,41 +60,65 @@ export default function WorkspacesPage() {
       </div>
 
       {/* Create form */}
-      <form onSubmit={handleCreate} style={{ display: 'flex', gap: 'var(--space-2)' }}>
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="New workspace name..."
-          style={{
-            flex: 1,
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-sm)',
-            padding: '8px 12px',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-bg)',
-            color: 'var(--color-text)',
-            outline: 'none',
-          }}
-        />
-        <button
-          type="submit"
-          disabled={creating || !newName.trim()}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 'var(--radius-md)',
-            border: 'none',
-            background: 'var(--color-accent)',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: 'var(--text-sm)',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-            opacity: creating || !newName.trim() ? 0.5 : 1,
-          }}
-        >
-          Create
-        </button>
+      <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New workspace name..."
+            style={{
+              flex: 1,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-sm)',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text)',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={creating || !newName.trim()}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: 'none',
+              background: 'var(--color-accent)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 'var(--text-sm)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              opacity: creating || !newName.trim() ? 0.5 : 1,
+            }}
+          >
+            Create
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>Color:</span>
+          {WORKSPACE_COLORS.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setNewColor(c.value)}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: c.value,
+                border: newColor === c.value ? '2px solid var(--color-text)' : '1px solid var(--color-border)',
+                cursor: 'pointer',
+                padding: 0,
+                transform: newColor === c.value ? 'scale(1.15)' : 'none',
+                transition: 'transform 0.1s ease',
+              }}
+              title={c.label}
+            />
+          ))}
+        </div>
       </form>
 
       {/* No workspaces */}
@@ -157,7 +195,7 @@ export default function WorkspacesPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-accent)',
+                    background: ws.color || 'var(--color-accent)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -172,30 +210,65 @@ export default function WorkspacesPage() {
                 </div>
                 <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setActiveWorkspace(ws.id)}>
                   {isEditing ? (
-                    <input
-                      autoFocus
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onBlur={() => handleUpdate(ws.id)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleUpdate(ws.id); if (e.key === 'Escape') setEditId(null); }}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        fontFamily: 'var(--font-sans)',
-                        fontSize: 'var(--text-sm)',
-                        fontWeight: 600,
-                        border: '1px solid var(--color-accent)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '2px 6px',
-                        background: 'var(--color-bg)',
-                        color: 'var(--color-text)',
-                        outline: 'none',
-                        width: '100%',
-                      }}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleUpdate(ws.id); if (e.key === 'Escape') setEditId(null); }}
+                          style={{
+                            fontFamily: 'var(--font-sans)',
+                            fontSize: 'var(--text-sm)',
+                            fontWeight: 600,
+                            border: '1px solid var(--color-accent)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '2px 6px',
+                            background: 'var(--color-bg)',
+                            color: 'var(--color-text)',
+                            outline: 'none',
+                            width: '100%',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleUpdate(ws.id)}
+                          style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--color-accent)', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditId(null)}
+                          style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        {WORKSPACE_COLORS.map((c) => (
+                          <button
+                            key={c.value}
+                            type="button"
+                            onClick={() => setEditColor(c.value)}
+                            style={{
+                              width: 14,
+                              height: 14,
+                              borderRadius: '50%',
+                              background: c.value,
+                              border: editColor === c.value ? '2px solid var(--color-text)' : '1px solid var(--color-border)',
+                              cursor: 'pointer',
+                              padding: 0,
+                            }}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{ws.name}</div>
+                    <>
+                      <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{ws.name}</div>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{count} notes</div>
+                    </>
                   )}
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{count} notes</div>
                 </div>
                 {isActive && !isEditing && (
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-accent)', fontWeight: 600 }}>Active</span>
@@ -203,7 +276,7 @@ export default function WorkspacesPage() {
                 {!isEditing && (
                   <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
                     <button
-                      onClick={() => { setEditId(ws.id); setEditName(ws.name); }}
+                      onClick={() => { setEditId(ws.id); setEditName(ws.name); setEditColor(ws.color || '#2f6dff'); }}
                       style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', background: 'var(--color-bg-muted)', color: 'var(--color-text-muted)', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
                     >
                       Edit

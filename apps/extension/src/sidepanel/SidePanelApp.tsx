@@ -23,6 +23,20 @@ const cr: any =
     ? (globalThis as Record<string, unknown>).chrome
     : null;
 
+const FolderIcon = ({ color }: { color?: string }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color || 'currentColor'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sp-folder-svg" style={{ flexShrink: 0 }}>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+  </svg>
+);
+
+
+const PlusIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sp-folder-svg" style={{ flexShrink: 0 }}>
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+);
+
 type View = 'note' | 'all' | 'settings' | 'graph' | 'chat' | 'about';
 
 interface ModifiableSelection extends Selection {
@@ -96,6 +110,17 @@ const NOTE_COLORS = [
   { value: '#ec4899', label: 'Pink' },
   { value: '#8b5cf6', label: 'Purple' },
   { value: '#ef4444', label: 'Red' },
+];
+
+const WORKSPACE_COLORS = [
+  { value: '#2f6dff', label: 'Blue' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#f59e0b', label: 'Orange' },
+  { value: '#10b981', label: 'Green' },
+  { value: '#8b5cf6', label: 'Purple' },
+  { value: '#ec4899', label: 'Pink' },
+  { value: '#6366f1', label: 'Indigo' },
+  { value: '#14b8a6', label: 'Teal' },
 ];
 
 const TEMPLATES = [
@@ -401,6 +426,8 @@ export default function SidePanelApp() {
   const [contextNotes, setContextNotes] = useState<Note[]>([]); // notes for current scope+URL
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [editWsName, setEditWsName] = useState('');
+  const [editWsColor, setEditWsColor] = useState('');
   const [defaultScope, setDefaultScopeState] = useState<NoteScope>('domain');
 
   // Editor — active note within context
@@ -416,12 +443,9 @@ export default function SidePanelApp() {
   } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  // Pills scroll state
-  const pillsRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
   const [deleteCardConfirmId, setDeleteCardConfirmId] = useState<string | null>(null);
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   // Search
   const [searchQ, setSearchQ] = useState('');
@@ -531,11 +555,17 @@ export default function SidePanelApp() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [folderMenuId, setFolderMenuId] = useState<string | null>(null);
-  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [renameFolderVal, setRenameFolderVal] = useState('');
   const [showMovePicker, setShowMovePicker] = useState(false);
   const folderMenuRef = useRef<HTMLDivElement>(null);
   const newFolderRef = useRef<HTMLInputElement>(null);
+  const [folderColors, setFolderColors] = useState<Record<string, string>>({});
+  const [settingsFolder, setSettingsFolder] = useState<string | null>(null);
+  const [folderColorVal, setFolderColorVal] = useState('');
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const toggleFolderExpanded = (folder: string) => {
+    setExpandedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
+  };
 
   // Note colors & pins (stored in localStorage)
   const [noteColors, setNoteColors] = useState<Record<string, string>>({});
@@ -586,7 +616,15 @@ export default function SidePanelApp() {
   }, [activeFolder]);
   useEffect(() => {
     wsIdRef.current = activeWorkspaceId;
-  }, [activeWorkspaceId]);
+    const active = workspaces.find((w) => w.id === activeWorkspaceId);
+    if (active) {
+      setEditWsName(active.name);
+      setEditWsColor(active.color || '#2f6dff');
+    } else {
+      setEditWsName('');
+      setEditWsColor('');
+    }
+  }, [activeWorkspaceId, workspaces]);
 
   // ── Load extra prefs from localStorage ───────────────────────
   useEffect(() => {
@@ -601,6 +639,8 @@ export default function SidePanelApp() {
       if (al) setDefaultAlignState(al);
       const ft = localStorage.getItem('tn_features');
       if (ft) setFeatures((prev) => ({ ...prev, ...JSON.parse(ft) }));
+      const fColors = localStorage.getItem('tn_folder_colors');
+      if (fColors) setFolderColors(JSON.parse(fColors));
     } catch {
       /* ignore */
     }
@@ -684,7 +724,7 @@ export default function SidePanelApp() {
         });
         return;
       }
-      if (area !== 'local' || !changes.notes) return;
+      if (area !== 'local' || !changes['tabnotes_data']) return;
       // Skip if this change was triggered by our own save (within 1.2 s window)
       if (Date.now() - lastSaveTs.current < 1200) return;
 
@@ -699,6 +739,13 @@ export default function SidePanelApp() {
           wsIdRef.current
         );
         setContextNotes(ctxUpdated);
+
+        // Also reload workspaces
+        const wsList = await wsSvc.current.getAll();
+        setWorkspaces(wsList);
+        const wsId = await wsSvc.current.getActive();
+        setActiveWorkspaceId(wsId);
+        wsIdRef.current = wsId;
 
         // Sync active note editor only when the user hasn't typed new content
         const id = activeNoteIdRef.current;
@@ -792,7 +839,6 @@ export default function SidePanelApp() {
     const handle = (e: MouseEvent) => {
       if (!folderMenuRef.current?.contains(e.target as Node)) {
         setFolderMenuId(null);
-        setRenamingFolder(null);
       }
       const mp = document.querySelector('.sp-move-picker');
       if (mp && !mp.contains(e.target as Node)) setShowMovePicker(false);
@@ -1039,26 +1085,7 @@ export default function SidePanelApp() {
     };
   }, [switchToTab]);
 
-  // ── Pills scroll detection ────────────────────────────────────
-  useEffect(() => {
-    const el = pillsRef.current;
-    if (!el) return;
-    const update = () => {
-      setCanScrollLeft(el.scrollLeft > 2);
-      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
-    };
-    el.addEventListener('scroll', update, { passive: true });
-    // Use timeout so DOM has rendered with new pills
-    const t = setTimeout(update, 50);
-    return () => {
-      el.removeEventListener('scroll', update);
-      clearTimeout(t);
-    };
-  }, [contextNotes]);
 
-  const scrollPills = (dir: 'left' | 'right') => {
-    pillsRef.current?.scrollBy({ left: dir === 'right' ? 130 : -130, behavior: 'smooth' });
-  };
 
   // ── Scope switch ──────────────────────────────────────────────
   const handleScopeChange = async (s: NoteScope) => {
@@ -1100,16 +1127,19 @@ export default function SidePanelApp() {
     setStreak(newCount);
   }, []);
 
-  const addNoteToContext = async () => {
+  const addNoteToContext = async (folderName?: string) => {
     const url = currentUrlRef.current;
     if (!url || url.startsWith('chrome://')) return;
-    const folder = activeFolderRef.current ?? undefined;
+    const folder = folderName || undefined;
     const created = await noteSvc.current.createNote({
       scope: scopeRef.current,
       url,
       workspaceId: wsIdRef.current,
       folder,
     });
+    if (folder) {
+      setExpandedFolders((prev) => ({ ...prev, [folder]: true }));
+    }
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
     setContextNotes(notes);
     selectNote(created);
@@ -1775,6 +1805,7 @@ ${parseMarkdown(content)}
     setActiveFolder(folder);
     setShowNewFolder(false);
     setNewFolderName('');
+    setExpandedFolders((prev) => ({ ...prev, [folder]: true }));
     // Create a blank note in that folder so it persists
     const url = currentUrlRef.current;
     if (!url || url.startsWith('chrome://')) return;
@@ -1790,19 +1821,56 @@ ${parseMarkdown(content)}
     await refreshAllNotes();
   };
 
-  const renameFolder = async (oldPath: string, newName: string) => {
+  const renameFolder = async (oldPath: string, newName: string, newColor?: string) => {
     const newPath = newName.startsWith('/') ? newName : '/' + newName;
-    const data = await adapter.current.get();
-    const updates: Record<string, Note> = { ...data.notes };
-    for (const [id, note] of Object.entries(updates)) {
-      if (note.folder === oldPath) {
-        updates[id] = { ...note, folder: newPath, updatedAt: Date.now() };
+    if (oldPath !== newPath) {
+      const data = await adapter.current.get();
+      const collections = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const;
+      const updates: Partial<StorageData> = {};
+      for (const colKey of collections) {
+        const col = data[colKey];
+        if (col) {
+          const colUpdates: Record<string, Note> = {};
+          let changed = false;
+          for (const [id, note] of Object.entries(col)) {
+            if (note.folder === oldPath) {
+              colUpdates[id] = { ...note, folder: newPath, updatedAt: Date.now() };
+              changed = true;
+            } else {
+              colUpdates[id] = note;
+            }
+          }
+          if (changed) {
+            updates[colKey] = colUpdates;
+          }
+        }
       }
+      if (Object.keys(updates).length > 0) {
+        await adapter.current.set(updates);
+      }
+      if (activeFolder === oldPath) setActiveFolder(newPath);
     }
-    await adapter.current.set({ notes: updates });
-    if (activeFolder === oldPath) setActiveFolder(newPath);
-    setRenamingFolder(null);
     setFolderMenuId(null);
+
+    // Also update folder color keys and value
+    setFolderColors((prev) => {
+      const updated = { ...prev };
+      if (oldPath !== newPath) {
+        delete updated[oldPath];
+      }
+      if (newColor !== undefined) {
+        if (newColor) {
+          updated[newPath] = newColor;
+        } else {
+          delete updated[newPath];
+        }
+      } else if (prev[oldPath]) {
+        updated[newPath] = prev[oldPath];
+      }
+      localStorage.setItem('tn_folder_colors', JSON.stringify(updated));
+      return updated;
+    });
+
     const url = currentUrlRef.current;
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
     setContextNotes(notes);
@@ -1811,19 +1879,69 @@ ${parseMarkdown(content)}
 
   const deleteFolder = async (path: string) => {
     const data = await adapter.current.get();
-    const updates: Record<string, Note> = { ...data.notes };
-    for (const [id, note] of Object.entries(updates)) {
-      if (note.folder === path) {
-        updates[id] = { ...note, folder: undefined, updatedAt: Date.now() };
+    const collections = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const;
+    const updates: Partial<StorageData> = {};
+    for (const colKey of collections) {
+      const col = data[colKey];
+      if (col) {
+        const colUpdates: Record<string, Note> = {};
+        let changed = false;
+        for (const [id, note] of Object.entries(col)) {
+          if (note.folder === path) {
+            colUpdates[id] = { ...note, folder: undefined, updatedAt: Date.now() };
+            changed = true;
+          } else {
+            colUpdates[id] = note;
+          }
+        }
+        if (changed) {
+          updates[colKey] = colUpdates;
+        }
       }
     }
-    await adapter.current.set({ notes: updates });
+    if (Object.keys(updates).length > 0) {
+      await adapter.current.set(updates);
+    }
     if (activeFolder === path) setActiveFolder(null);
     setFolderMenuId(null);
+
+    // Also delete folder color
+    setFolderColors((prev) => {
+      const updated = { ...prev };
+      delete updated[path];
+      localStorage.setItem('tn_folder_colors', JSON.stringify(updated));
+      return updated;
+    });
+
     const url = currentUrlRef.current;
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
     setContextNotes(notes);
     await refreshAllNotes();
+  };
+
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    e.dataTransfer.setData('text/plain', noteId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, folder: string | null) => {
+    e.preventDefault();
+    if (dragOverFolder !== folder) {
+      setDragOverFolder(folder);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverFolder(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, folder: string | null) => {
+    e.preventDefault();
+    setDragOverFolder(null);
+    const noteId = e.dataTransfer.getData('text/plain');
+    if (noteId) {
+      moveNoteToFolder(noteId, folder || undefined);
+    }
   };
 
   const moveNoteToFolder = async (noteId: string, folder: string | undefined) => {
@@ -1925,7 +2043,7 @@ ${parseMarkdown(content)}
       // Restore notes + workspaces
       const current = await adapter.current.get();
       const merged = importData(parsed, current);
-      await adapter.current.set({ notes: merged.notes, workspaces: merged.workspaces });
+      await adapter.current.set(merged);
 
       // Restore preferences if present in backup
       if (parsed.prefs) {
@@ -2063,24 +2181,21 @@ ${parseMarkdown(content)}
   // ── Derived ──────────────────────────────────────────────────
   const activeNote = contextNotes.find((n) => n.id === activeNoteId) ?? null;
 
-  // Derive folder list from context notes
+  const workspaceAllNotes = allNotes.filter((n) => n.workspaceId === activeWorkspaceId);
+
+  // Derive folder list strictly from contextNotes (current tab scope notes)
   const scopeFolders = [
     ...new Set(contextNotes.map((n) => n.folder).filter(Boolean) as string[]),
   ].sort();
 
-  // Filter by active folder, then sort pinned first
-  const folderFilteredNotes =
-    activeFolder === null
-      ? contextNotes
-      : contextNotes.filter(
-          (n) => (n.folder ?? '') === activeFolder || (activeFolder === '' && !n.folder)
-        );
-
-  const sortedContextNotes = [...folderFilteredNotes].sort((a, b) => {
-    const aPin = pinnedNotes.has(a.id) ? 0 : 1;
-    const bPin = pinnedNotes.has(b.id) ? 0 : 1;
-    return aPin - bPin;
-  });
+  // Loose notes (not in any folder), sorted with pinned first
+  const looseNotes = contextNotes
+    .filter((n) => !n.folder)
+    .sort((a, b) => {
+      const aPin = pinnedNotes.has(a.id) ? 0 : 1;
+      const bPin = pinnedNotes.has(b.id) ? 0 : 1;
+      return aPin - bPin;
+    });
 
   const activeNoteColor = activeNoteId ? (noteColors[activeNoteId] ?? '') : '';
 
@@ -2094,8 +2209,8 @@ ${parseMarkdown(content)}
           : 'Global';
 
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
-  const allTags = [...new Set(allNotes.flatMap((n) => n.tags))].sort();
-  const filteredNotes = searchNotes(allNotes, searchQ)
+  const allTags = [...new Set(workspaceAllNotes.flatMap((n) => n.tags))].sort();
+  const filteredNotes = searchNotes(workspaceAllNotes, searchQ)
     .filter((n) => (tagFilter ? n.tags.includes(tagFilter) : true))
     .sort((a, b) => {
       const aPin = pinnedNotes.has(a.id) ? 0 : 1;
@@ -2131,7 +2246,7 @@ ${parseMarkdown(content)}
           >
             <div
               className="sp-workspace-dot"
-              style={{ background: activeWs ? 'var(--accent)' : 'var(--text-subtle)' }}
+              style={{ background: activeWs ? (activeWs.color || 'var(--accent)') : 'var(--text-subtle)' }}
             />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 80 }}>
               {activeWs ? activeWs.name : 'No Workspace'}
@@ -2165,7 +2280,19 @@ ${parseMarkdown(content)}
                     await loadContextNotes(currentUrlRef.current, scopeRef.current, ws.id);
                   }}
                 >
-                  <span>{ICONS.workspace}</span> {ws.name}
+                  <span
+                    className="sp-workspace-dot"
+                    style={{
+                      background: ws.color || 'var(--accent)',
+                      display: 'inline-block',
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      marginRight: 8,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {ws.name}
                   {activeWorkspaceId === ws.id && <span className="sp-ws-check">✓</span>}
                 </div>
               ))}
@@ -2277,157 +2404,226 @@ ${parseMarkdown(content)}
         </div>
       )}
 
-      {/* ── Folder bar ── */}
-      {view === 'note' && !isRestrictedUrl && (scopeFolders.length > 0 || showNewFolder) && (
-        <div className="sp-folder-bar" ref={folderMenuRef}>
-          {/* All chip */}
-          <button
-            className={`sp-folder-chip${activeFolder === null ? ' active' : ''}`}
-            onClick={() => setActiveFolder(null)}
-          >
-            {ICONS.folder} All
-          </button>
+      {/* ── Main Layout (Sidebar Tree + Content) ── */}
+      <div className="sp-main-layout">
+        {!isRestrictedUrl && (
+          <div className="sp-notes-tree" ref={folderMenuRef}>
 
-          {/* Folder chips */}
-          {scopeFolders.map((f) => (
-            <div key={f} style={{ position: 'relative', flexShrink: 0 }}>
-              {renamingFolder === f ? (
-                <form
-                  style={{ display: 'flex', gap: 3 }}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    renameFolder(f, renameFolderVal);
-                  }}
+
+            {/* 2. Folders & Loose Notes Header */}
+            <div className="sp-tree-header">
+              <span className="sp-tree-title">Folders</span>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <button
+                  className="sp-tree-btn"
+                  onClick={() => setShowNewFolder(true)}
+                  title="Add Folder"
+                  disabled={tabLoading}
                 >
-                  <input
-                    className="sp-folder-rename-input"
-                    value={renameFolderVal}
-                    onChange={(e) => setRenameFolderVal(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setRenamingFolder(null);
-                    }}
-                  />
+                  ＋
+                </button>
+                <div style={{ position: 'relative' }} ref={templatesRef}>
                   <button
-                    type="submit"
-                    className="sp-folder-chip active"
-                    style={{ padding: '2px 6px' }}
+                    className="sp-tree-btn"
+                    onClick={() => setShowTemplates(!showTemplates)}
+                    title="Insert template"
+                    disabled={tabLoading}
                   >
-                    ✓
+                    ≡
                   </button>
-                </form>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <button
-                    className={`sp-folder-chip${activeFolder === f ? ' active' : ''}`}
-                    onClick={() => setActiveFolder(activeFolder === f ? null : f)}
-                  >
-                    {ICONS.folder} {f.replace(/^\//, '')}
-                    <span className="sp-folder-chip-count">
-                      {contextNotes.filter((n) => n.folder === f).length}
-                    </span>
-                  </button>
-                  <button
-                    className="sp-folder-menu-btn"
-                    onClick={() => setFolderMenuId(folderMenuId === f ? null : f)}
-                    title="Folder options"
-                  >
-                    ⋯
-                  </button>
-                  {folderMenuId === f && (
-                    <div className="sp-folder-menu">
-                      <button
-                        className="sp-folder-menu-item"
-                        onClick={() => {
-                          setRenamingFolder(f);
-                          setRenameFolderVal(f.replace(/^\//, ''));
-                          setFolderMenuId(null);
-                        }}
-                      >
-                        ✏ Rename
-                      </button>
-                      <button
-                        className="sp-folder-menu-item danger"
-                        onClick={() => deleteFolder(f)}
-                      >
-                        {ICONS.trash} Delete folder
-                      </button>
+                  {showTemplates && (
+                    <div className="sp-templates-dropdown" style={{ top: 'calc(100% + 4px)', right: 0 }}>
+                      {TEMPLATES.map((tpl) => (
+                        <button
+                          key={tpl.label}
+                          className="sp-template-item"
+                          onClick={() => {
+                            applyTemplate(tpl);
+                            setShowTemplates(false);
+                          }}
+                        >
+                          {tpl.label}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
-          ))}
 
-          {/* New folder input */}
-          {showNewFolder ? (
-            <form
-              style={{ display: 'flex', gap: 3, flexShrink: 0 }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                createFolder();
-              }}
-            >
-              <input
-                ref={newFolderRef}
-                className="sp-folder-rename-input"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Folder name…"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setShowNewFolder(false);
-                    setNewFolderName('');
-                  }
+            {/* New folder form */}
+            {showNewFolder && (
+              <form
+                className="sp-tree-new-folder-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createFolder();
                 }}
-              />
-              <button
-                type="submit"
-                className="sp-folder-chip active"
-                style={{ padding: '2px 6px' }}
               >
-                ✓
-              </button>
-            </form>
-          ) : (
-            <button
-              className="sp-folder-chip new"
-              onClick={() => setShowNewFolder(true)}
-              title="New folder"
+                <input
+                  ref={newFolderRef}
+                  className="sp-tree-input"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name…"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setShowNewFolder(false);
+                      setNewFolderName('');
+                    }
+                  }}
+                />
+                <button type="submit" className="sp-tree-confirm-btn">
+                  ✓
+                </button>
+              </form>
+            )}
+
+            {/* 3. Vertical scrollable tree list */}
+            <div
+              className={`sp-tree-list${dragOverFolder === 'loose' ? ' drag-over' : ''}`}
+              onDragOver={(e) => handleDragOver(e, 'loose')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, null)}
             >
-              ＋
-            </button>
-          )}
-        </div>
-      )}
+              {/* Folders first */}
+              {scopeFolders.map((folder) => {
+                const isExpanded = !!expandedFolders[folder];
+                const folderNotes = contextNotes
+                  .filter((n) => n.folder === folder)
+                  .sort((a, b) => {
+                    const aPin = pinnedNotes.has(a.id) ? 0 : 1;
+                    const bPin = pinnedNotes.has(b.id) ? 0 : 1;
+                    return aPin - bPin;
+                  });
+                const color = folderColors[folder];
 
-      {/* ── Note picker pills ── */}
-      {view === 'note' && !isRestrictedUrl && (
-        <div className="sp-note-picker">
-          {/* Left arrow — appears when pills are scrolled */}
-          <button
-            className={`sp-pill-arrow${canScrollLeft ? ' visible' : ''}`}
-            onClick={() => scrollPills('left')}
-            tabIndex={canScrollLeft ? 0 : -1}
-            aria-hidden={!canScrollLeft}
-          >
-            ‹
-          </button>
+                return (
+                  <div key={folder} className="sp-tree-folder-group">
+                    <div
+                      className={`sp-tree-folder-row${isExpanded ? ' expanded' : ''}${dragOverFolder === folder ? ' drag-over' : ''}`}
+                      onClick={() => toggleFolderExpanded(folder)}
+                      onDragOver={(e) => handleDragOver(e, folder)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, folder)}
+                    >
+                      <div
+                        className="sp-tree-folder-pill"
+                        style={{ backgroundColor: color || 'transparent' }}
+                      />
+                      <span className="sp-tree-folder-chevron">
+                        {isExpanded ? '▾' : '▸'}
+                      </span>
+                      <span className="sp-tree-folder-icon">
+                        <FolderIcon color={color} />
+                      </span>
+                      <span className="sp-tree-folder-name">
+                        {folder.replace(/^\//, '')}
+                      </span>
+                      <span className="sp-tree-folder-count">
+                        ({folderNotes.length})
+                      </span>
 
-          <div className="sp-note-pills" ref={pillsRef}>
-            {sortedContextNotes.map((n, idx) => {
+                      {/* Add note inside folder shortcut */}
+                      <button
+                        className="sp-tree-folder-menu"
+                        style={{ opacity: 1 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addNoteToContext(folder);
+                        }}
+                        title="Add note in folder"
+                      >
+                        ＋
+                      </button>
+
+                      {/* Folder menu ⋯ */}
+                      <button
+                        className="sp-tree-folder-menu"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSettingsFolder(folder);
+                          setRenameFolderVal(folder.replace(/^\//, ''));
+                          setFolderColorVal(folderColors[folder] || '');
+                        }}
+                        title="Folder options"
+                      >
+                        ⋯
+                      </button>
+                    </div>
+
+                    {/* Expanded cascade notes inside folder */}
+                    {isExpanded && (
+                      <div className="sp-tree-folder-children">
+                        {folderNotes.length === 0 ? (
+                          <div className="sp-tree-note-empty">No notes in folder</div>
+                        ) : (
+                          folderNotes.map((n) => {
+                            const isActive = n.id === activeNoteId;
+                            const isConfirm = deletePillConfirmId === n.id;
+                            const isPinned = pinnedNotes.has(n.id);
+                            const noteColor = noteColors[n.id];
+
+                            return (
+                              <div
+                                key={n.id}
+                                className={`sp-tree-note-row${isActive ? ' active' : ''}`}
+                                onClick={() => {
+                                  if (isConfirm) {
+                                    deletePillNote(n.id);
+                                  } else {
+                                    setDeletePillConfirmId(null);
+                                    selectNote(n);
+                                  }
+                                }}
+                                title={isConfirm ? 'Click to confirm delete' : n.title || 'Untitled Note'}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, n.id)}
+                              >
+                                <div
+                                  className="sp-tree-folder-pill"
+                                  style={{ backgroundColor: noteColor || 'transparent' }}
+                                />
+                                <span className="sp-tree-note-icon">
+                                  {isPinned ? ICONS.pin : '📝'}
+                                </span>
+                                <span className="sp-tree-note-title">
+                                  {isConfirm ? 'Delete?' : n.title || 'Untitled Note'}
+                                </span>
+                                {isActive && (
+                                  <button
+                                    className="sp-tree-note-delete"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeletePillConfirmId(isConfirm ? null : n.id);
+                                    }}
+                                    title="Delete note"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+            {/* Loose notes at the end */}
+            {looseNotes.map((n) => {
               const isActive = n.id === activeNoteId;
               const isConfirm = deletePillConfirmId === n.id;
               const isPinned = pinnedNotes.has(n.id);
-              const color = noteColors[n.id];
+              const noteColor = noteColors[n.id];
+
               return (
                 <div
                   key={n.id}
-                  className={`sp-note-pill${isActive ? ' active' : ''}${isConfirm ? ' confirm' : ''}`}
-                  style={
-                    color && !isActive ? { borderLeftColor: color, borderLeftWidth: 3 } : undefined
-                  }
+                  className={`sp-tree-note-row loose${isActive ? ' active' : ''}`}
                   onClick={() => {
                     if (isConfirm) {
                       deletePillNote(n.id);
@@ -2436,33 +2632,30 @@ ${parseMarkdown(content)}
                       selectNote(n);
                     }
                   }}
-                  title={isConfirm ? 'Click to confirm delete' : n.title || `Note ${idx + 1}`}
-                  role="button"
+                  title={isConfirm ? 'Click to confirm delete' : n.title || 'Untitled Note'}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, n.id)}
                 >
-                  {isPinned && <span style={{ fontSize: 9, flexShrink: 0 }}>{ICONS.pin}</span>}
-                  <span className="sp-pill-label">{isConfirm ? 'Delete?' : pillLabel(n, idx)}</span>
-                  {isActive && !isConfirm && (
+                  <div
+                    className="sp-tree-folder-pill"
+                    style={{ backgroundColor: noteColor || 'transparent' }}
+                  />
+                  <span className="sp-tree-note-icon">
+                    {isPinned ? ICONS.pin : '📝'}
+                  </span>
+                  <span className="sp-tree-note-title">
+                    {isConfirm ? 'Delete?' : n.title || 'Untitled Note'}
+                  </span>
+                  {isActive && (
                     <button
-                      className="sp-pill-x"
+                      className="sp-tree-note-delete"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDeletePillConfirmId(n.id);
+                        setDeletePillConfirmId(isConfirm ? null : n.id);
                       }}
-                      title="Delete this note"
+                      title="Delete note"
                     >
-                      ×
-                    </button>
-                  )}
-                  {isConfirm && (
-                    <button
-                      className="sp-pill-x cancel"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletePillConfirmId(null);
-                      }}
-                      title="Cancel"
-                    >
-                      ×
+                      ✕
                     </button>
                   )}
                 </div>
@@ -2470,51 +2663,20 @@ ${parseMarkdown(content)}
             })}
           </div>
 
-          {/* Right arrow — appears when more pills are hidden */}
-          <button
-            className={`sp-pill-arrow${canScrollRight ? ' visible' : ''}`}
-            onClick={() => scrollPills('right')}
-            tabIndex={canScrollRight ? 0 : -1}
-            aria-hidden={!canScrollRight}
-          >
-            ›
-          </button>
+          <div className="sp-tree-divider" />
 
-          <button
-            className="sp-note-pill-add"
-            onClick={() => {
-              setDeletePillConfirmId(null);
-              addNoteToContext();
-            }}
-            title="Add another note for this context"
-            disabled={tabLoading}
-          >
-            +
-          </button>
-
-          {/* Templates dropdown */}
-          <div style={{ position: 'relative', flexShrink: 0 }} ref={templatesRef}>
-            <button
-              className="sp-note-pill-add"
-              onClick={() => setShowTemplates(!showTemplates)}
-              title="Insert template"
-              style={{ fontSize: 12, borderStyle: 'solid' }}
+          {/* 4. Bottom Actions & Settings */}
+          <div className="sp-tree-footer">
+            <div
+              className="sp-tree-nav-row add-btn"
+              onClick={() => addNoteToContext()}
+              title="Add Note"
             >
-              ≡
-            </button>
-            {showTemplates && (
-              <div className="sp-templates-dropdown">
-                {TEMPLATES.map((tpl) => (
-                  <button
-                    key={tpl.label}
-                    className="sp-template-item"
-                    onClick={() => applyTemplate(tpl)}
-                  >
-                    {tpl.label}
-                  </button>
-                ))}
-              </div>
-            )}
+              <span className="sp-tree-folder-icon">
+                <PlusIcon />
+              </span>
+              <span className="sp-tree-folder-name">Add Note</span>
+            </div>
           </div>
         </div>
       )}
@@ -4111,26 +4273,105 @@ ${parseMarkdown(content)}
                   </div>
                   {activeWorkspaceId === null && <span className="sp-scope-row-check">✓</span>}
                 </div>
-                {workspaces.map((ws) => (
-                  <div
-                    key={ws.id}
-                    className={`sp-scope-row${activeWorkspaceId === ws.id ? ' active' : ''}`}
-                    onClick={async () => {
-                      await wsSvc.current.setActive(ws.id);
-                      setActiveWorkspaceId(ws.id);
-                      wsIdRef.current = ws.id;
-                    }}
-                  >
-                    <span className="sp-scope-row-icon">{ICONS.workspace}</span>
-                    <div className="sp-scope-row-info">
-                      <div className="sp-scope-row-name">{ws.name}</div>
-                      <div className="sp-scope-row-desc">
-                        {allNotes.filter((n) => n.workspaceId === ws.id).length} notes
+                {workspaces.map((ws) => {
+                  const isActive = activeWorkspaceId === ws.id;
+                  return (
+                    <div
+                      key={ws.id}
+                      className={`sp-scope-row${isActive ? ' active' : ''}`}
+                      style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}
+                      onClick={async () => {
+                        if (!isActive) {
+                          await wsSvc.current.setActive(ws.id);
+                          setActiveWorkspaceId(ws.id);
+                          wsIdRef.current = ws.id;
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <span
+                          className="sp-scope-row-icon"
+                          style={{
+                            color: ws.color || 'var(--accent)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 16,
+                          }}
+                        >
+                          ●
+                        </span>
+                        <div className="sp-scope-row-info" style={{ flex: 1 }}>
+                          <div className="sp-scope-row-name">{ws.name}</div>
+                          <div className="sp-scope-row-desc">
+                            {allNotes.filter((n) => n.workspaceId === ws.id).length} notes
+                          </div>
+                        </div>
+                        {isActive && <span className="sp-scope-row-check">✓</span>}
                       </div>
+
+                      {isActive && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            borderTop: '1px solid var(--border)',
+                            paddingTop: 6,
+                            marginTop: 2,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <input
+                              className="sp-folder-rename-input"
+                              style={{ flex: 1, height: 24, fontSize: 11 }}
+                              value={editWsName}
+                              onChange={(e) => setEditWsName(e.target.value)}
+                              placeholder="Rename workspace…"
+                            />
+                            <button
+                              className="sp-folder-chip active"
+                              style={{ padding: '2px 8px', fontSize: 10 }}
+                              onClick={async () => {
+                                if (!editWsName.trim()) return;
+                                await wsSvc.current.update(ws.id, {
+                                  name: editWsName.trim(),
+                                  color: editWsColor,
+                                });
+                                const list = await wsSvc.current.getAll();
+                                setWorkspaces(list);
+                              }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            {WORKSPACE_COLORS.map((c) => (
+                              <button
+                                key={c.value}
+                                type="button"
+                                onClick={() => setEditWsColor(c.value)}
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: '50%',
+                                  background: c.value,
+                                  border:
+                                    editWsColor === c.value
+                                      ? '1.5px solid var(--text)'
+                                      : '1px solid var(--border)',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {activeWorkspaceId === ws.id && <span className="sp-scope-row-check">✓</span>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -4523,6 +4764,7 @@ ${parseMarkdown(content)}
           </div>
         )}
       </div>
+      </div>
 
       {/* ── Command palette overlay ── */}
       {showCmdPalette && (
@@ -4660,6 +4902,104 @@ ${parseMarkdown(content)}
                 disabled={!encPassword}
               >
                 {showEncPrompt === 'lock' ? 'Encrypt' : 'Decrypt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Folder settings modal ── */}
+      {settingsFolder && (
+        <div className="sp-modal-overlay" onClick={() => setSettingsFolder(null)}>
+          <div className="sp-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="sp-modal-header">
+              <h3>Folder Settings</h3>
+              <button className="sp-modal-close" onClick={() => setSettingsFolder(null)}>✕</button>
+            </div>
+            <div className="sp-modal-body">
+              <div className="sp-field-group">
+                <label>Folder Name</label>
+                <input
+                  type="text"
+                  className="sp-modal-input"
+                  value={renameFolderVal}
+                  onChange={(e) => setRenameFolderVal(e.target.value)}
+                  placeholder="Folder name..."
+                  autoFocus
+                />
+              </div>
+              <div className="sp-field-group">
+                <label>Color</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={() => setFolderColorVal('')}
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: 'transparent',
+                      border: !folderColorVal ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-subtle)',
+                      padding: 0,
+                    }}
+                    title="None"
+                  >
+                    ✕
+                  </button>
+                  {WORKSPACE_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setFolderColorVal(c.value)}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: '50%',
+                        background: c.value,
+                        border: folderColorVal === c.value ? '2.5px solid var(--text)' : '1px solid var(--border)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="sp-modal-footer">
+              <button
+                className="btn-danger"
+                onClick={async () => {
+                  if (confirm(`Delete folder "${settingsFolder.replace(/^\//, '')}"? Notes will not be deleted.`)) {
+                    await deleteFolder(settingsFolder);
+                    setSettingsFolder(null);
+                  }
+                }}
+              >
+                Delete
+              </button>
+              <div style={{ flex: 1 }} />
+              <button
+                className="btn-secondary"
+                onClick={() => setSettingsFolder(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  if (!renameFolderVal.trim() || !settingsFolder) return;
+                  await renameFolder(settingsFolder, renameFolderVal.trim(), folderColorVal);
+                  setSettingsFolder(null);
+                }}
+              >
+                Save
               </button>
             </div>
           </div>

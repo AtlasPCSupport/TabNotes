@@ -203,6 +203,41 @@ pnpm build:extension
 
 ---
 
+## 📝 Bitácora de Desarrollo Reciente (Resumen para Próximos Agentes)
+
+Este registro documenta los cambios arquitectónicos y de interfaz completados recientemente para asegurar una transición fluida en futuras sesiones de desarrollo:
+
+### 1. Independencia de Base de Datos por Ámbitos (Scopes)
+- Se implementó almacenamiento y filtrado totalmente individualizado para las 4 bases de datos (**URL / Domain / Workspace / Global**). Las notas y carpetas ya no se mezclan ni comparten entre pestañas vacías.
+
+### 2. Explorador de Carpetas Jerárquico
+- Modificado en `SidePanelApp.tsx` para ordenar folders en la parte superior (estilo lista en cascada que se expande con un clic) y notas sueltas al final.
+
+### 3. Barra Lateral Premium Desplazable (Sidebar Layout)
+- **Modo Colapsado (72px):** Muestra los iconos de carpeta centrados con sus nombres posicionados directamente debajo en tipografía miniatura (`9px`). Se ocultan metadatos (chevrons, contadores, menús de opciones y listas de notas) para mantener la limpieza absoluta.
+- **Modo Expandido (220px):** Al pasar el cursor por encima (`hover`/`focus-within`), la barra lateral realiza una transición suave hacia los `220px` y los elementos cambian a disposición horizontal (`flex-direction: row`), restaurando el tamaño de texto (`12px`) y mostrando controles interactivos.
+- **Píldoras Indicadoras de Color (`.sp-tree-folder-pill`):** Barra vertical de `4px` en la extrema izquierda de las filas. Refleja el color persistente de las carpetas creadas o se ilumina reactivamente según el foco.
+- **Botón de Creación "+":** Posicionado en la base del sidebar como un círculo punteado discreto.
+
+### 4. Menú Inferior Restaurado
+- La barra de navegación `.sp-bottom-nav` fue reinstalada en la base para hospedar de forma centralizada las vistas principales (`Note`, `All Notes`, `Ask AI`, `Settings`). 
+- El sidebar izquierdo queda **exclusivamente dedicado** a las carpetas de usuario y al botón rápido "+", removiendo redundancias.
+
+### 5. Armonización Cromática (Tema Deep Amethyst / Obsidian)
+- Se modificaron las variables globales en `sidepanel.css` (`[data-theme='dark']`) para corregir inconsistencias visuales:
+  - Fondo de App (`--bg`): `#0d0b14` (Amatista oscuro)
+  - Fondo de Tarjetas y Headers (`--bg-card`): `#13111c`
+  - Texto Principal (`--text`): `#e0def4` (Blanco lavanda suave)
+  - Acento (`--accent`): `#8b5cf6` (Violeta real)
+- Toda la interfaz (editor, cabecera y barra lateral) quedó perfectamente unificada cromáticamente.
+
+### 6. Drag & Drop de Notas
+- Implementado soporte nativo de arrastrar y soltar utilizando la API HTML5 (`draggable`, `onDragStart`, `onDragOver`, `onDragLeave`, `onDrop`) en `SidePanelApp.tsx`.
+- **Comportamiento:** Arrastrar una nota sobre una carpeta la asocia a esa ruta. Arrastrar una nota al fondo general del explorador (`sp-tree-list`) remueve la carpeta, dejándola como nota suelta.
+- **Retroalimentación Visual:** Clases de estilo `.drag-over` añaden de inmediato bordes discontinuos violetas y fondos translúcidos al interactuar.
+
+---
+
 ## License
 
 MIT © TabNotes contributors

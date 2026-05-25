@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Note, NoteScope,
   ChromeStorageAdapter, NotesService, WorkspacesService, Workspace,
-  normalizeUrl, normalizeDomain, formatRelativeTime,
+  normalizeUrl, normalizeDomain, formatRelativeTime, generateId,
 } from '@tabnotes/shared';
 import './popup.css';
 
@@ -30,6 +30,7 @@ export default function PopupApp() {
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const noteIdRef = useRef<string | null>(null);
 
   const adapter = useRef(new ChromeStorageAdapter());
   const notesService = useRef(new NotesService(adapter.current));
@@ -40,13 +41,17 @@ export default function PopupApp() {
     setTheme(mq.matches ? 'dark' : 'light');
     const handler = (e: MediaQueryListEvent) => setTheme(e.matches ? 'dark' : 'light');
     mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    return () => {
+      mq.removeEventListener('change', handler);
+      clearTimeout(saveTimer.current);
+    };
   }, []);
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
   const loadNote = useCallback(async (s: NoteScope, url: string, wsId: string | null) => {
     const existing = await notesService.current.getNoteByScope(s, url, wsId);
+    noteIdRef.current = existing?.id ?? null;
     setNote(existing);
     setContent(existing?.content ?? '');
     setTitle(existing?.title ?? '');
@@ -77,16 +82,25 @@ export default function PopupApp() {
   }, [loadNote]);
 
   const handleScopeChange = async (s: NoteScope) => {
+    clearTimeout(saveTimer.current);
     setScope(s);
+    noteIdRef.current = null;
     await loadNote(s, currentUrl, activeWorkspaceId);
   };
 
   const saveNote = useCallback(async (c: string, t: string, tg: string) => {
     const parsedTags = tg.split(',').map((s) => s.trim()).filter(Boolean);
-    if (note) {
-      await notesService.current.updateNote(note.id, { content: c, title: t || undefined, tags: parsedTags });
+    const id = noteIdRef.current;
+    if (id) {
+      const updated = await notesService.current.updateNote(id, { content: c, title: t || undefined, tags: parsedTags });
+      if (updated) {
+        setNote(updated);
+      }
     } else {
+      const newId = generateId();
+      noteIdRef.current = newId;
       const created = await notesService.current.createNote({
+        id: newId,
         scope, url: currentUrl, workspaceId: activeWorkspaceId,
         content: c, title: t || undefined, tags: parsedTags,
       });
@@ -94,7 +108,7 @@ export default function PopupApp() {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [note, scope, currentUrl, activeWorkspaceId]);
+  }, [scope, currentUrl, activeWorkspaceId]);
 
   const scheduleAutosave = useCallback((c: string, t: string, tg: string) => {
     setSaved(false);

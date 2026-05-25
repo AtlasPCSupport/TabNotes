@@ -42,12 +42,14 @@ export default function NotesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const workspaceNotes = notes.filter((n) => n.workspaceId === activeWorkspaceId);
+
   const filteredNotes = searchNotes(
-    filterScope === 'all' ? notes : notes.filter((n) => n.scope === filterScope),
+    filterScope === 'all' ? workspaceNotes : workspaceNotes.filter((n) => n.scope === filterScope),
     searchQuery
   );
 
-  const allTags = [...new Set(notes.flatMap((n) => n.tags))].sort();
+  const allTags = [...new Set(workspaceNotes.flatMap((n) => n.tags))].sort();
 
   const selectNote = (note: Note) => {
     setSelectedNote(note);
@@ -94,7 +96,7 @@ export default function NotesPage() {
         <div>
           <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, letterSpacing: '-0.5px' }}>Notes</h1>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 2 }}>
-            {notes.length} note{notes.length !== 1 ? 's' : ''}
+            {workspaceNotes.length} note{workspaceNotes.length !== 1 ? 's' : ''}
             {activeWs ? ` · Workspace: ${activeWs.name}` : ''}
           </p>
         </div>

@@ -3,11 +3,11 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { useThemeStore } from '../store/theme';
 
 const NAV_ITEMS = [
-  { to: '/',           label: 'Home',       icon: '⌂', exact: true },
-  { to: '/notes',      label: 'Notes',      icon: '✎', exact: false },
+  { to: '/', label: 'Home', icon: '⌂', exact: true },
+  { to: '/notes', label: 'Notes', icon: '✎', exact: false },
   { to: '/workspaces', label: 'Workspaces', icon: '⊞', exact: false },
-  { to: '/about',      label: 'About',      icon: '✦', exact: false },
-  { to: '/settings',   label: 'Settings',   icon: '⚙', exact: false },
+  { to: '/about', label: 'About', icon: '✦', exact: false },
+  { to: '/settings', label: 'Settings', icon: '⚙', exact: false },
 ];
 
 export default function Layout() {
@@ -19,73 +19,117 @@ export default function Layout() {
     else setTheme('light');
   };
 
-  const themeIcon = theme === 'light' ? '☀' : theme === 'dark' ? '☽' : '◑';
+  const themeIcon = theme === 'light' ? '☀' : theme === 'dark' ? '☾' : '◑';
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg)' }}>
-
-      {/* ── Header ── */}
-      <header style={{
-        borderBottom: '1px solid var(--color-border)',
-        background: 'rgba(var(--color-bg-rgb, 250,250,249), 0.85)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <div style={{
-          maxWidth: 1140,
-          margin: '0 auto',
-          padding: '0 var(--space-6)',
-          height: 56,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-4)',
-        }}>
-
-          {/* Logo */}
-          <NavLink to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
-            <div style={{
-              width: 30,
-              height: 30,
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              borderRadius: 8,
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+      <header
+        style={{
+          borderBottom: '1px solid color-mix(in srgb, var(--color-border) 75%, transparent)',
+          background: 'rgba(var(--color-bg-rgb), 0.72)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 120,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: '0 auto',
+            padding: '10px var(--space-6)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <NavLink
+            to="/"
+            style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 700,
-              letterSpacing: '-0.5px',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
-            }}>T</div>
-            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.4px' }}>
-              TabNotes
-            </span>
+              gap: 10,
+              textDecoration: 'none',
+              flexShrink: 0,
+              marginRight: 'var(--space-2)',
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                background: 'linear-gradient(140deg, #2f6dff, #2059dc)',
+                borderRadius: 9,
+                display: 'grid',
+                placeItems: 'center',
+                color: '#ffffff',
+                fontFamily: 'var(--font-display)',
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: '-0.4px',
+                boxShadow: 'var(--shadow-accent)',
+              }}
+            >
+              T
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: 'var(--color-text)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                TabNotes
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)' }}>
+                local-first notes
+              </span>
+            </div>
           </NavLink>
 
-          {/* Nav */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, justifyContent: 'center' }}>
+          <nav
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'color-mix(in srgb, var(--color-bg-card) 65%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-border) 82%, transparent)',
+              borderRadius: 'var(--radius-full)',
+              padding: 4,
+              flex: '1 1 420px',
+              minWidth: 260,
+              overflowX: 'auto',
+              scrollbarWidth: 'none',
+            }}
+          >
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.exact}
                 style={({ isActive }) => ({
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 5,
-                  padding: '5px 12px',
-                  borderRadius: 'var(--radius-md)',
+                  gap: 6,
+                  padding: '7px 12px',
+                  borderRadius: 'var(--radius-full)',
                   fontSize: 'var(--text-sm)',
-                  fontWeight: isActive ? 600 : 400,
+                  fontWeight: isActive ? 700 : 500,
                   color: isActive ? 'var(--color-text)' : 'var(--color-text-muted)',
-                  background: isActive ? 'var(--color-bg-muted)' : 'transparent',
+                  background: isActive ? 'var(--color-bg-card)' : 'transparent',
                   textDecoration: 'none',
                   transition: 'all var(--transition-fast)',
                   boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
-                  border: isActive ? '1px solid var(--color-border)' : '1px solid transparent',
+                  border: isActive
+                    ? '1px solid color-mix(in srgb, var(--color-border-strong) 80%, transparent)'
+                    : '1px solid transparent',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 })}
               >
                 <span style={{ fontSize: 12 }}>{item.icon}</span>
@@ -94,51 +138,99 @@ export default function Layout() {
             ))}
           </nav>
 
-          {/* Right */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <a
               href="https://github.com/mikepchelper-spec/TabNotes"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', fontWeight: 500, textDecoration: 'none', transition: 'all var(--transition-fast)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text)'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--color-bg-muted)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text-muted)'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--color-bg-subtle)'; }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 11px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-card)',
+                color: 'var(--color-text-muted)',
+                fontSize: 'var(--text-xs)',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
               GitHub
             </a>
             <button
               onClick={toggleTheme}
               title={`Theme: ${theme}`}
-              style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-bg-muted)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-bg-subtle)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-muted)'; }}
-            >{themeIcon}</button>
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-card)',
+                color: 'var(--color-text)',
+                cursor: 'pointer',
+                fontSize: 13,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              {themeIcon}
+            </button>
           </div>
-
         </div>
       </header>
 
-      {/* ── Main ── */}
-      <main style={{ flex: 1, maxWidth: 1140, width: '100%', margin: '0 auto', padding: 'var(--space-8) var(--space-6)' }}>
+      <main
+        style={{
+          flex: 1,
+          maxWidth: 1200,
+          width: '100%',
+          margin: '0 auto',
+          padding: 'clamp(20px, 4vw, 42px) var(--space-6) clamp(34px, 5vw, 56px)',
+        }}
+      >
         <Outlet />
       </main>
 
-      {/* ── Footer ── */}
-      <footer style={{ borderTop: '1px solid var(--color-border)', padding: 'var(--space-6)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 18, height: 18, background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700 }}>T</div>
-          <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--color-text-subtle)' }}>TabNotes</span>
+      <footer
+        style={{
+          borderTop: '1px solid color-mix(in srgb, var(--color-border) 72%, transparent)',
+          background: 'rgba(var(--color-bg-rgb), 0.55)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: '0 auto',
+            padding: 'var(--space-5) var(--space-6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 'var(--space-3)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)' }}>
+            Local-first. Context-aware. Built for Chrome workflows.
+          </span>
+          <a
+            href="https://github.com/mikepchelper-spec/TabNotes"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            Open source →
+          </a>
         </div>
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-border-strong)' }}>·</span>
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)' }}>Local-first · Privacy-first · No account needed</span>
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-border-strong)' }}>·</span>
-        <a href="https://github.com/mikepchelper-spec/TabNotes" target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', textDecoration: 'none' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-accent)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text-subtle)'; }}
-        >Open source →</a>
       </footer>
     </div>
   );

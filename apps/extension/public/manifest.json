@@ -52,6 +52,7 @@
   },
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "tabs",
     "activeTab",
     "sidePanel",

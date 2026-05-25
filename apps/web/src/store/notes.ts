@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   Note, Workspace, NoteScope,
   LocalStorageAdapter, NotesService, WorkspacesService, StorageData,
+  importData as mergeImport, ExportData,
 } from '@tabnotes/shared';
 
 const adapter = new LocalStorageAdapter();
@@ -75,12 +76,10 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   exportData: () => adapter.get(),
 
   importData: async (jsonStr) => {
-    const parsed = JSON.parse(jsonStr) as Partial<StorageData>;
+    const parsed = JSON.parse(jsonStr) as ExportData;
     const current = await adapter.get();
-    await adapter.set({
-      notes: { ...current.notes, ...(parsed.notes ?? {}) },
-      workspaces: { ...current.workspaces, ...(parsed.workspaces ?? {}) },
-    });
+    const merged = mergeImport(parsed, current);
+    await adapter.set(merged);
     await get().load();
   },
 }));

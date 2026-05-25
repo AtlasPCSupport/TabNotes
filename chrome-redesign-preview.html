@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TabNotes Redesign Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #090b12;
+        --bg-card: #111524;
+        --bg-subtle: #171d30;
+        --bg-muted: #1d2540;
+        --line: #2a3354;
+        --line-strong: #3b4770;
+        --text: #f3f7ff;
+        --text-muted: #bdc9dd;
+        --text-subtle: #8f9cb3;
+        --accent: #2f6dff;
+        --accent-hover: #5788ff;
+        --accent-soft: #152043;
+        --success: #3ebd7d;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 18px;
+        --radius-xl: 24px;
+        --shadow: 0 24px 70px rgba(2, 5, 14, 0.52);
+        --glow: 0 10px 30px rgba(47, 109, 255, 0.32);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: var(--text);
+        min-height: 100vh;
+        background:
+          radial-gradient(900px 480px at 8% -10%, rgba(47, 109, 255, 0.35), transparent 62%),
+          radial-gradient(760px 420px at 90% 0%, rgba(87, 136, 255, 0.18), transparent 60%),
+          linear-gradient(180deg, #090b12 0%, #070910 100%);
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 32px));
+        margin: 20px auto 34px;
+        animation: pageIn 720ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+        border-radius: var(--radius-lg);
+        padding: 14px 18px;
+        backdrop-filter: blur(12px);
+        background: rgba(11, 14, 24, 0.72);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-family: 'Space Grotesk', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        background: linear-gradient(140deg, var(--accent), #2059dc);
+        box-shadow: var(--glow);
+      }
+
+      .brand-copy strong {
+        display: block;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 15px;
+      }
+
+      .brand-copy span {
+        display: block;
+        font-family: 'IBM Plex Mono', monospace;
+        color: var(--text-subtle);
+        font-size: 10px;
+      }
+
+      .badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        border: 1px solid var(--line);
+        background: var(--bg-subtle);
+        color: var(--text-muted);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+
+      .hero {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 16px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(17, 21, 36, 0.96) 0%, rgba(12, 16, 30, 0.96) 100%);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-copy {
+        padding: clamp(20px, 3.5vw, 38px);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .eyebrow {
+        width: fit-content;
+        border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+        background: var(--accent-soft);
+        color: var(--accent-hover);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: clamp(30px, 5vw, 58px);
+        line-height: 1.03;
+        letter-spacing: -0.045em;
+      }
+
+      .hero-copy p {
+        margin: 0;
+        max-width: 60ch;
+        font-size: 16px;
+        line-height: 1.75;
+        color: var(--text-muted);
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .btn.primary {
+        background: var(--accent);
+        color: white;
+        box-shadow: var(--glow);
+      }
+
+      .btn.secondary {
+        background: var(--bg-subtle);
+        color: var(--text);
+        border-color: var(--line);
+      }
+
+      .mock {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .mock-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border: 1px solid var(--line);
+        background: rgba(23, 29, 48, 0.9);
+        border-radius: var(--radius-md);
+        padding: 9px 10px;
+      }
+
+      .tab-set {
+        display: flex;
+        gap: 4px;
+      }
+
+      .tab {
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 11px;
+        color: var(--text-subtle);
+        background: transparent;
+      }
+
+      .tab.active {
+        color: var(--text);
+        border-color: var(--line-strong);
+        background: #11192f;
+      }
+
+      .note-card {
+        border: 1px solid var(--line);
+        background: rgba(17, 21, 36, 0.95);
+        border-radius: var(--radius-md);
+        padding: 10px 12px;
+        display: grid;
+        gap: 5px;
+        animation: cardIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .note-card:nth-child(2) {
+        animation-delay: 80ms;
+      }
+
+      .note-card:nth-child(3) {
+        animation-delay: 160ms;
+      }
+
+      .note-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 10px;
+        color: var(--text-subtle);
+      }
+
+      .note-title {
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .note-body {
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .tokens {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 10px;
+      }
+
+      .token {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: rgba(17, 21, 36, 0.9);
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .swatch {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .token code {
+        display: block;
+        margin-top: 2px;
+        color: var(--text-subtle);
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 10px;
+      }
+
+      .footer {
+        margin-top: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        padding: 10px 12px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 920px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @keyframes pageIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cardIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top">
+        <div class="brand">
+          <div class="brand-mark">T</div>
+          <div class="brand-copy">
+            <strong>TabNotes Redesign</strong>
+            <span>chrome-preview / linear-adapted</span>
+          </div>
+        </div>
+        <div class="badges">
+          <span class="badge">Local-first</span>
+          <span class="badge">No account</span>
+          <span class="badge">Context-aware</span>
+        </div>
+      </header>
+
+      <section class="hero">
+        <article class="panel hero-copy">
+          <span class="eyebrow">Design Direction · Linear Adapted</span>
+          <h1>Capture context and keep work moving.</h1>
+          <p>
+            This standalone file previews the new TabNotes visual system: dark product canvas, electric-blue accent,
+            denser hierarchy, and sidepanel-ready ergonomics.
+          </p>
+          <div class="actions">
+            <button class="btn primary">Open Notes</button>
+            <button class="btn secondary">Load in Chrome</button>
+          </div>
+        </article>
+
+        <article class="panel mock">
+          <div class="mock-header">
+            <strong style="font-size: 12px">Workspace: BEDROCK</strong>
+            <div class="tab-set">
+              <span class="tab active">URL</span>
+              <span class="tab">Domain</span>
+              <span class="tab">Global</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <div class="note-meta"><span>🔗 github.com/repo</span><span>2m</span></div>
+            <div class="note-title">Release Checklist</div>
+            <div class="note-body">Confirm changelog, test sidepanel resizing, publish v3.0 assets.</div>
+          </div>
+
+          <div class="note-card">
+            <div class="note-meta"><span>⊞ Workspace</span><span>14m</span></div>
+            <div class="note-title">Sprint Highlights</div>
+            <div class="note-body">Migrated tokens to dark-canvas system and aligned extension + web style.</div>
+          </div>
+
+          <div class="note-card">
+            <div class="note-meta"><span>🌍 Global</span><span>1h</span></div>
+            <div class="note-title">Writing Prompt</div>
+            <div class="note-body">Document three UX wins and one friction point after each release.</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="tokens">
+        <div class="token"><span class="swatch" style="background:#2f6dff"></span>Accent<code>#2f6dff</code></div>
+        <div class="token"><span class="swatch" style="background:#111524"></span>Surface 1<code>#111524</code></div>
+        <div class="token"><span class="swatch" style="background:#171d30"></span>Surface 2<code>#171d30</code></div>
+        <div class="token"><span class="swatch" style="background:#2a3354"></span>Hairline<code>#2a3354</code></div>
+        <div class="token"><span class="swatch" style="background:#f3f7ff"></span>Ink<code>#f3f7ff</code></div>
+        <div class="token"><span class="swatch" style="background:#3ebd7d"></span>Success<code>#3ebd7d</code></div>
+      </section>
+
+      <div class="footer">
+        Open this file directly in Chrome (double-click or drag into a tab) to inspect the redesign without running the app.
+      </div>
+    </div>
+  </body>
+</html>

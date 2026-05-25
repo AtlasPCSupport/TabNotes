@@ -20,15 +20,6 @@ function normalizeUrl(url: string): string {
   } catch { return url; }
 }
 
-// Returns all scope keys that could match a given tab URL
-function scopeKeysForUrl(url: string, workspaceId: string | null): string[] {
-  return [
-    normalizeUrl(url),    // url scope
-    normalizeDomain(url), // domain scope
-    workspaceId ?? 'default', // workspace scope
-    '',                   // global scope
-  ];
-}
 
 // ── Badge updater ─────────────────────────────────────────────────────────────
 
@@ -42,18 +33,36 @@ async function updateBadge(tabId: number, url: string): Promise<void> {
   try {
     const result = await chrome.storage.local.get('tabnotes_data');
     const data = result['tabnotes_data'] as {
-      notes?: Record<string, { scopeKey: string; url?: string }>;
+      notes_url?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+      notes_domain?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+      notes_workspace?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+      notes_global?: Record<string, { scope: string; scopeKey: string; url?: string }>;
       activeWorkspaceId?: string | null;
     } | undefined;
 
-    if (!data?.notes) {
+    const allNotes = [
+      ...Object.values(data?.notes_url ?? {}),
+      ...Object.values(data?.notes_domain ?? {}),
+      ...Object.values(data?.notes_workspace ?? {}),
+      ...Object.values(data?.notes_global ?? {}),
+    ];
+
+    if (allNotes.length === 0) {
       chrome.action.setBadgeText({ text: '', tabId });
       return;
     }
 
-    const wsId = data.activeWorkspaceId ?? null;
-    const validKeys = new Set(scopeKeysForUrl(url, wsId));
-    const count = Object.values(data.notes).filter(n => validKeys.has(n.scopeKey)).length;
+    const wsId = data?.activeWorkspaceId ?? null;
+    const currentUrlKey = normalizeUrl(url);
+    const currentDomainKey = normalizeDomain(url);
+    const currentWorkspaceKey = wsId ?? 'default';
+
+    const count = allNotes.filter(n => {
+      if (n.scope === 'url') return n.scopeKey === currentUrlKey;
+      if (n.scope === 'domain') return n.scopeKey === currentDomainKey;
+      if (n.scope === 'workspace') return n.scopeKey === currentWorkspaceKey;
+      return false;
+    }).length;
 
     if (count > 0) {
       chrome.action.setBadgeText({ text: count > 99 ? '99+' : String(count), tabId });
@@ -100,10 +109,18 @@ async function fireDigest(): Promise<void> {
   if (!settings.enabled) return;
 
   const data = result['tabnotes_data'] as {
-    notes?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
+    notes_url?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
+    notes_domain?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
+    notes_workspace?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
+    notes_global?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
   } | undefined;
 
-  const notes = Object.values(data?.notes ?? {});
+  const notes = [
+    ...Object.values(data?.notes_url ?? {}),
+    ...Object.values(data?.notes_domain ?? {}),
+    ...Object.values(data?.notes_workspace ?? {}),
+    ...Object.values(data?.notes_global ?? {}),
+  ];
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recent = notes.filter(n => (n.updatedAt ?? 0) > cutoff || (n.createdAt ?? 0) > cutoff);
   const total = notes.length;
@@ -281,10 +298,27 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   try {
     const result = await chrome.storage.local.get('tabnotes_data');
     const data = result['tabnotes_data'] as {
-      notes?: Record<string, { title?: string; content?: string }>;
+      notes_url?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
+      notes_domain?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
+      notes_workspace?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
+      notes_global?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
     } | undefined;
-    const note = data?.notes?.[noteId];
-    const title = note?.title || (note?.content?.trim().split('\n')[0].slice(0, 60)) || 'TabNotes reminder';
+
+    let foundScope: 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global' | null = null;
+    let note: { title?: string; content?: string; reminderAt?: number } | null = null;
+    const collections = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const;
+
+    for (const colKey of collections) {
+      if (data?.[colKey]?.[noteId]) {
+        note = data[colKey][noteId];
+        foundScope = colKey;
+        break;
+      }
+    }
+
+    if (!note || !foundScope) return;
+
+    const title = note.title || (note.content?.trim().split('\n')[0].slice(0, 60)) || 'TabNotes reminder';
 
     chrome.notifications.create('tn_notif_' + noteId, {
       type: 'basic',
@@ -294,12 +328,16 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       priority: 2,
     });
 
-    const notes = { ...(data?.notes ?? {}) };
-    if (notes[noteId]) {
-      notes[noteId] = { ...notes[noteId], reminderAt: undefined } as typeof notes[string];
+    const updatedCol = { ...(data?.[foundScope] ?? {}) };
+    if (updatedCol[noteId]) {
+      updatedCol[noteId] = { ...updatedCol[noteId], reminderAt: undefined };
     }
+
     await chrome.storage.local.set({
-      tabnotes_data: { ...(data ?? {}), notes },
+      tabnotes_data: {
+        ...(data ?? {}),
+        [foundScope]: updatedCol,
+      },
     });
   } catch {
     // Notification cleanup is best-effort.
