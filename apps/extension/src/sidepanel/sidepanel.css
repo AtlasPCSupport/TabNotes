@@ -3530,15 +3530,18 @@ body {
 }
 
 .sp-notes-tree:hover,
-.sp-notes-tree:focus-within {
-  width: 220px; /* Expanded width on hover */
+.sp-notes-tree:focus-within,
+.sp-notes-tree.dragging-active {
+  width: 200px; /* Expanded width on hover */
+  overflow-x: hidden;
   background: #13111c;
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
-  padding: 16px 12px;
+  padding: 16px 8px;
 }
 
 [data-theme='light'] .sp-notes-tree:hover,
-[data-theme='light'] .sp-notes-tree:focus-within {
+[data-theme='light'] .sp-notes-tree:focus-within,
+[data-theme='light'] .sp-notes-tree.dragging-active {
   background: #ffffff;
   box-shadow: 4px 0 16px rgba(0, 0, 0, 0.08);
 }
@@ -3563,7 +3566,8 @@ body {
 }
 
 .sp-notes-tree:hover .sp-tree-divider,
-.sp-notes-tree:focus-within .sp-tree-divider {
+.sp-notes-tree:focus-within .sp-tree-divider,
+.sp-notes-tree.dragging-active .sp-tree-divider {
   width: 100%;
   margin: 16px 0;
 }
@@ -3633,8 +3637,8 @@ body {
 }
 
 /* Collapsed layout overrides */
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-nav-row,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-row {
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -3642,12 +3646,12 @@ body {
   gap: 4px;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-pill {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-pill {
   left: 0;
   height: 24px;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-icon {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-icon {
   margin-right: 0 !important;
   display: flex;
   align-items: center;
@@ -3656,7 +3660,7 @@ body {
   height: 24px;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-name {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-name {
   display: block !important;
   font-size: 9px !important;
   font-weight: 600;
@@ -3670,31 +3674,31 @@ body {
   color: #a1a1aa;
 }
 
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-name {
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-name {
   color: #706f8a;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row.active .sp-tree-folder-name,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row.active .sp-tree-folder-name {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-nav-row.active .sp-tree-folder-name,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-row.active .sp-tree-folder-name {
   color: #ffffff;
 }
 
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-nav-row.active .sp-tree-folder-name,
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-row.active .sp-tree-folder-name {
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-nav-row.active .sp-tree-folder-name,
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-row.active .sp-tree-folder-name {
   color: #1f1e2e;
 }
 
 /* Hide extra metadata when collapsed */
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-title,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-count,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-menu,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-chevron,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-title,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-delete,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-btn,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-header,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-folder-children,
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-note-row {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-title,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-count,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-menu,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-chevron,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-note-title,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-note-delete,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-btn,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-header,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-children,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-note-row {
   display: none !important;
 }
 
@@ -3702,7 +3706,9 @@ body {
 .sp-notes-tree:hover .sp-tree-nav-row,
 .sp-notes-tree:hover .sp-tree-folder-row,
 .sp-notes-tree:focus-within .sp-tree-nav-row,
-.sp-notes-tree:focus-within .sp-tree-folder-row {
+.sp-notes-tree:focus-within .sp-tree-folder-row,
+.sp-notes-tree.dragging-active .sp-tree-nav-row,
+.sp-notes-tree.dragging-active .sp-tree-folder-row {
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
@@ -3712,18 +3718,21 @@ body {
 }
 
 .sp-notes-tree:hover .sp-tree-folder-pill,
-.sp-notes-tree:focus-within .sp-tree-folder-pill {
+.sp-notes-tree:focus-within .sp-tree-folder-pill,
+.sp-notes-tree.dragging-active .sp-tree-folder-pill {
   left: 0;
   height: 16px;
 }
 
 .sp-notes-tree:hover .sp-tree-folder-icon,
-.sp-notes-tree:focus-within .sp-tree-folder-icon {
+.sp-notes-tree:focus-within .sp-tree-folder-icon,
+.sp-notes-tree.dragging-active .sp-tree-folder-icon {
   margin-right: 0 !important;
 }
 
 .sp-notes-tree:hover .sp-tree-folder-name,
-.sp-notes-tree:focus-within .sp-tree-folder-name {
+.sp-notes-tree:focus-within .sp-tree-folder-name,
+.sp-notes-tree.dragging-active .sp-tree-folder-name {
   display: block !important;
   font-size: 12px !important;
   font-weight: 500;
@@ -3851,15 +3860,12 @@ body {
   color: #908caa;
   font-size: 11px;
   cursor: pointer;
-  opacity: 0;
+  opacity: 1;
   padding: 2px 4px;
   border-radius: var(--r-sm);
-  transition: opacity 0.12s, background 0.12s;
-  margin-left: 6px;
-}
-
-.sp-tree-folder-row:hover .sp-tree-folder-menu {
-  opacity: 1;
+  transition: background 0.12s;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .sp-tree-folder-menu:hover {
@@ -3976,12 +3982,12 @@ body {
   border-top-color: rgba(0, 0, 0, 0.08);
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer {
   padding-top: 12px;
   align-items: center;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer .sp-tree-nav-row.add-btn {
   /* For the Plus button, make it stand out at the bottom */
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 50%;
@@ -3994,20 +4000,20 @@ body {
   margin-top: 4px;
 }
 
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn {
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer .sp-tree-nav-row.add-btn {
   border-color: rgba(0, 0, 0, 0.15);
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
   border-color: var(--accent);
   background: rgba(255, 255, 255, 0.06);
 }
 
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
+[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer .sp-tree-nav-row.add-btn:hover {
   background: rgba(0, 0, 0, 0.03);
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within) .sp-tree-footer .sp-tree-nav-row.add-btn .sp-tree-folder-name {
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-footer .sp-tree-nav-row.add-btn .sp-tree-folder-name {
   display: none !important;
 }
 
@@ -4039,4 +4045,9 @@ body {
 /* Hide focus mode elements */
 .sp-root.focus-mode .sp-notes-tree {
   display: none !important;
+}
+
+/* Disable pointer-events on folder row children while dragging to avoid triggering dragenter/leave glitches */
+.sp-notes-tree.dragging-active .sp-tree-folder-row * {
+  pointer-events: none;
 }

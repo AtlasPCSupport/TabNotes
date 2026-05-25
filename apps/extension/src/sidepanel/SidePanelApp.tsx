@@ -428,6 +428,8 @@ export default function SidePanelApp() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [editWsName, setEditWsName] = useState('');
   const [editWsColor, setEditWsColor] = useState('');
+  const [newWsNameInput, setNewWsNameInput] = useState('');
+  const [newWsColorInput, setNewWsColorInput] = useState('#2b5be8');
   const [defaultScope, setDefaultScopeState] = useState<NoteScope>('domain');
 
   // Editor — active note within context
@@ -446,6 +448,8 @@ export default function SidePanelApp() {
   const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
   const [deleteCardConfirmId, setDeleteCardConfirmId] = useState<string | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const draggedNoteIdRef = useRef<string | null>(null);
 
   // Search
   const [searchQ, setSearchQ] = useState('');
@@ -1922,10 +1926,19 @@ ${parseMarkdown(content)}
   const handleDragStart = (e: React.DragEvent, noteId: string) => {
     e.dataTransfer.setData('text/plain', noteId);
     e.dataTransfer.effectAllowed = 'move';
+    draggedNoteIdRef.current = noteId;
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDragOverFolder(null);
+    draggedNoteIdRef.current = null;
   };
 
   const handleDragOver = (e: React.DragEvent, folder: string | null) => {
     e.preventDefault();
+    e.stopPropagation();
     if (dragOverFolder !== folder) {
       setDragOverFolder(folder);
     }
@@ -1937,11 +1950,14 @@ ${parseMarkdown(content)}
 
   const handleDrop = (e: React.DragEvent, folder: string | null) => {
     e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
     setDragOverFolder(null);
-    const noteId = e.dataTransfer.getData('text/plain');
+    const noteId = draggedNoteIdRef.current || e.dataTransfer.getData('text/plain');
     if (noteId) {
       moveNoteToFolder(noteId, folder || undefined);
     }
+    draggedNoteIdRef.current = null;
   };
 
   const moveNoteToFolder = async (noteId: string, folder: string | undefined) => {
@@ -2407,7 +2423,7 @@ ${parseMarkdown(content)}
       {/* ── Main Layout (Sidebar Tree + Content) ── */}
       <div className="sp-main-layout">
         {!isRestrictedUrl && (
-          <div className="sp-notes-tree" ref={folderMenuRef}>
+          <div className={`sp-notes-tree${isDragging ? ' dragging-active' : ''}`} ref={folderMenuRef}>
 
 
             {/* 2. Folders & Loose Notes Header */}
@@ -2578,8 +2594,9 @@ ${parseMarkdown(content)}
                                   }
                                 }}
                                 title={isConfirm ? 'Click to confirm delete' : n.title || 'Untitled Note'}
-                                draggable
+                                draggable={true}
                                 onDragStart={(e) => handleDragStart(e, n.id)}
+                                onDragEnd={handleDragEnd}
                               >
                                 <div
                                   className="sp-tree-folder-pill"
@@ -2633,8 +2650,9 @@ ${parseMarkdown(content)}
                     }
                   }}
                   title={isConfirm ? 'Click to confirm delete' : n.title || 'Untitled Note'}
-                  draggable
+                  draggable={true}
                   onDragStart={(e) => handleDragStart(e, n.id)}
+                  onDragEnd={handleDragEnd}
                 >
                   <div
                     className="sp-tree-folder-pill"
@@ -4345,6 +4363,23 @@ ${parseMarkdown(content)}
                             >
                               Save
                             </button>
+                            <button
+                              className="sp-folder-chip"
+                              style={{ padding: '2px 8px', fontSize: 10, background: 'rgba(239, 68, 68, 0.1)', color: 'rgb(239, 68, 68)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                              onClick={async () => {
+                                if (confirm(`Delete workspace "${ws.name}"? All notes in this workspace will be deleted.`)) {
+                                  await wsSvc.current.delete(ws.id);
+                                  const list = await wsSvc.current.getAll();
+                                  setWorkspaces(list);
+                                  if (activeWorkspaceId === ws.id) {
+                                    setActiveWorkspaceId(null);
+                                    wsIdRef.current = null;
+                                  }
+                                }
+                              }}
+                            >
+                              Delete
+                            </button>
                           </div>
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                             {WORKSPACE_COLORS.map((c) => (
@@ -4373,6 +4408,72 @@ ${parseMarkdown(content)}
                   );
                 })}
               </div>
+
+              {/* Form to create a new workspace */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newWsNameInput.trim()) return;
+                  await wsSvc.current.create(newWsNameInput.trim(), newWsColorInput);
+                  const list = await wsSvc.current.getAll();
+                  setWorkspaces(list);
+                  setNewWsNameInput('');
+                  setNewWsColorInput('#2b5be8');
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  marginTop: 14,
+                  padding: '10px 12px',
+                  border: '1px dashed var(--border)',
+                  borderRadius: 'var(--r-md)',
+                  background: 'rgba(255, 255, 255, 0.01)',
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-subtle)', textTransform: 'uppercase' }}>
+                  Create New Workspace
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    className="sp-folder-rename-input"
+                    style={{ flex: 1, height: 26, fontSize: 11, padding: '3px 8px' }}
+                    value={newWsNameInput}
+                    onChange={(e) => setNewWsNameInput(e.target.value)}
+                    placeholder="Workspace name…"
+                  />
+                  <button
+                    type="submit"
+                    className="sp-folder-chip active"
+                    style={{ padding: '2px 10px', fontSize: 10, height: 26 }}
+                  >
+                    Create
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-subtle)', marginRight: 4 }}>Color:</span>
+                  {WORKSPACE_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setNewWsColorInput(c.value)}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: c.value,
+                        border:
+                          newWsColorInput === c.value
+                            ? '1.5px solid var(--text)'
+                            : '1px solid var(--border)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </form>
             </div>
 
             <div className="sp-settings-section">
