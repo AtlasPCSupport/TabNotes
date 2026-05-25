@@ -3515,7 +3515,7 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   padding: 16px 0;
   flex-shrink: 0;
-  width: 56px; /* Collapsed width matches mockup */
+  width: 40px; /* Collapsed width matches Option B */
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -3642,8 +3642,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 4px;
-  gap: 4px;
+  padding: 10px 0;
+  gap: 0;
 }
 
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-pill {
@@ -3662,36 +3662,9 @@ body {
   height: 24px;
 }
 
-.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-name {
-  display: block !important;
-  font-size: 9px !important;
-  font-weight: 600;
-  text-align: center;
-  text-transform: capitalize;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 48px;
-  color: #a1a1aa;
-}
-
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-name {
-  color: #706f8a;
-}
-
-.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-nav-row.active .sp-tree-folder-name,
-.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-row.active .sp-tree-folder-name {
-  color: #ffffff;
-}
-
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-nav-row.active .sp-tree-folder-name,
-[data-theme='light'] .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-row.active .sp-tree-folder-name {
-  color: #1f1e2e;
-}
-
 /* Hide extra metadata when collapsed */
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-title,
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-name,
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-count,
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-menu,
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-chevron,
@@ -3993,8 +3966,8 @@ body {
   /* For the Plus button, make it stand out at the bottom */
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   padding: 0 !important;
   display: flex;
   align-items: center;
