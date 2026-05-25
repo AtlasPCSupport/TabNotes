@@ -98,7 +98,7 @@ const HIGHLIGHT_COLORS = [
 const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: string }[] = [
   { value: 'url', label: 'URL', icon: ICONS.url, desc: 'Exact page URL' },
   { value: 'domain', label: 'Domain', icon: ICONS.domain, desc: 'Entire site' },
-  { value: 'workspace', label: 'Workspace', icon: ICONS.workspace, desc: 'Your project' },
+  { value: 'workspace', label: 'Proyecto', icon: ICONS.workspace, desc: 'Your project' },
   { value: 'global', label: 'Global', icon: ICONS.global, desc: 'Everywhere' },
 ];
 
@@ -2195,7 +2195,7 @@ ${parseMarkdown(content)}
       { label: 'Scope: URL', icon: ICONS.url, run: () => handleScopeChange('url') },
       { label: 'Scope: Domain', icon: ICONS.domain, run: () => handleScopeChange('domain') },
       {
-        label: 'Scope: Workspace',
+        label: 'Scope: Proyecto',
         icon: ICONS.workspace,
         run: () => handleScopeChange('workspace'),
       },
@@ -2247,7 +2247,7 @@ ${parseMarkdown(content)}
       : scope === 'domain'
         ? currentDomain
         : scope === 'workspace'
-          ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Workspace')
+          ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Proyecto')
           : 'Global';
 
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -4756,7 +4756,7 @@ ${parseMarkdown(content)}
                 icon: ICONS.folder,
                 color: '#0ea5e9',
                 items: [
-                  '4 scopes: URL · Domain · Workspace · Global',
+                  '4 scopes: URL · Domain · Proyecto · Global',
                   'Multiple notes per scope (pills)',
                   'Workspaces & folders',
                   'Tags, pin notes & note colors',
