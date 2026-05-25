@@ -3721,8 +3721,8 @@ body {
   align-items: center;
   justify-content: flex-start;
   padding: 6px 12px;
-  padding-left: 20px; /* Leave space for left pill */
-  gap: 10px;
+  padding-left: 12px; /* Leave space for left pill */
+  gap: 6px;
 }
 
 .sp-notes-tree:hover .sp-tree-folder-pill,
