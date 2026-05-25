@@ -3515,7 +3515,7 @@ body {
   border-right: 1px solid rgba(255, 255, 255, 0.05);
   padding: 16px 0;
   flex-shrink: 0;
-  width: 40px; /* Collapsed width matches Option B */
+  width: 32px; /* Collapsed width matches Option C */
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -3557,7 +3557,7 @@ body {
   height: 1px;
   background: rgba(255, 255, 255, 0.06);
   margin: 12px auto;
-  width: 32px;
+  width: 16px; /* Reduced to fit 32px sidebar */
   transition: width 0.2s var(--ease), background 0.2s var(--ease);
 }
 
@@ -3642,14 +3642,15 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px 0;
+  padding: 3px 0;
   gap: 0;
 }
 
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-pill {
   left: 0;
-  top: 10px !important;
+  top: 3px !important;
   height: 24px !important;
+  width: 2px !important;
   transform: none !important;
 }
 
@@ -3675,6 +3676,10 @@ body {
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-folder-children,
 .sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-note-row {
   display: none !important;
+}
+
+.sp-notes-tree:not(:hover):not(:focus-within):not(.dragging-active) .sp-tree-list {
+  gap: 2px !important;
 }
 
 /* Expanded layout styles */
@@ -3966,8 +3971,8 @@ body {
   /* For the Plus button, make it stand out at the bottom */
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   padding: 0 !important;
   display: flex;
   align-items: center;
