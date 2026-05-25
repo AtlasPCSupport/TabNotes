@@ -1367,19 +1367,45 @@ ${parseMarkdown(content)}
         if (existing) {
           // Toggle OFF — unwrap the code element
           const p = existing.parentNode!;
-          while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
-          p.removeChild(existing);
-          p.normalize();
+          const children = Array.from(existing.childNodes);
+          if (children.length > 0) {
+            const first = children[0];
+            const last = children[children.length - 1];
+            while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
+            p.removeChild(existing);
+            p.normalize();
+            
+            // Re-select the contents
+            const r2 = document.createRange();
+            r2.setStartBefore(first);
+            r2.setEndAfter(last);
+            sel.removeAllRanges();
+            sel.addRange(r2);
+          } else {
+            p.removeChild(existing);
+            p.normalize();
+          }
         } else {
           // Toggle ON — wrap selection in code element
           const code = document.createElement('code');
           if (!sel.isCollapsed) {
             code.appendChild(range.extractContents());
-          }
-          range.insertNode(code);
-          if (sel.isCollapsed) {
+            range.insertNode(code);
+            // Select the code element contents
+            sel.removeAllRanges();
             const r2 = document.createRange();
-            r2.setStart(code, 0);
+            r2.selectNodeContents(code);
+            sel.addRange(r2);
+          } else {
+            // If selection is collapsed, insert a zero-width space so the element is not empty,
+            // allowing text to be typed inside it.
+            const zwsp = document.createTextNode('\u200B');
+            code.appendChild(zwsp);
+            range.insertNode(code);
+            
+            // Position the cursor inside the code element, after the zero-width space
+            const r2 = document.createRange();
+            r2.setStart(zwsp, 1);
             r2.collapse(true);
             sel.removeAllRanges();
             sel.addRange(r2);
