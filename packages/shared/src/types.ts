@@ -42,6 +42,7 @@ export interface StorageData {
   defaultScope: NoteScope;
   theme: 'light' | 'dark' | 'system';
   markdownEnabled: boolean;
+  language?: 'en' | 'es';
   version: number;
 }
 
@@ -54,6 +55,7 @@ export interface ExportPrefs {
   digest?: { enabled?: boolean; time?: string };
   streak?: { count?: number; lastDate?: string };
   backupRemindDays?: number;
+  language?: 'en' | 'es';
 }
 
 export interface ExportData {

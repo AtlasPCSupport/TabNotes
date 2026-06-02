@@ -65,7 +65,25 @@ Run before opening or updating a PR:
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
+```
+
+Unit tests live in `packages/shared/src/*.test.ts` (Vitest + jsdom) and cover:
+
+- `sanitize.test.ts` — HTML sanitization / stored-XSS guards (DOMPurify allowlist)
+- `markdown.test.ts` — sanitized markdown rendering
+- `crypto.test.ts` — AES-256-GCM note encryption round-trip
+- `storage.test.ts` — note/workspace services + concurrent-write serialization
+- `utils.test.ts` — URL/scope normalization and search
+- `text.test.ts` — title derivation and formatting stripping
+- `wikilinks.test.ts` — wiki-link trigger detection and matching
+- `checklist.test.ts` — checklist parse/serialize round-trip
+
+Run only the shared unit tests (fast):
+
+```bash
+pnpm --filter @tabnotes/shared test
 ```
 
 For faster extension-only type checking:
@@ -73,3 +91,33 @@ For faster extension-only type checking:
 ```bash
 pnpm --filter @tabnotes/extension typecheck
 ```
+
+## Automated browser verification (Playwright)
+
+End-to-end checks drive the built, unpacked extension in Chromium.
+
+One-time browser install:
+
+```bash
+pnpm --filter @tabnotes/extension exec playwright install chromium
+```
+
+Run the suite (builds `dist/` first via the `e2e` script):
+
+```bash
+pnpm --filter @tabnotes/extension e2e
+```
+
+Notes:
+
+- Tests live in `apps/extension/e2e/`. The fixture in `fixtures.ts` loads the extension from
+  `dist/` into a persistent Chromium context and resolves the side panel URL from the MV3 service
+  worker. The `openPanelWithRealTab` helper opens a normal page and brings it to front so the
+  panel adopts a real (non-restricted) tab context and renders the editor.
+- Passing scenarios: boot, persistent chrome, bottom-nav view switching, PIN lock/unlock,
+  editor renders, **editor autosave-to-storage**, **fixed-chrome scrolling**, and **checklist mode**.
+- Two scenarios remain `test.fixme`: folder drag-and-drop (HTML5 DnD is unreliable in headless
+  Chromium — verified manually) and the in-editor encryption lock/unlock UI (encryption
+  correctness is covered by `packages/shared/src/crypto.test.ts`; the UI trigger is verified
+  manually).
+- CI runs `playwright test` after `pnpm build` (see `.github/workflows/ci.yml`).

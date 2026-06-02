@@ -1,0 +1,83 @@
+import React from 'react';
+import { ICONS } from '../../icons';
+import { useTranslation } from '@tabnotes/i18n';
+
+/**
+ * AI Assistant (Groq API key) settings section. The actual persistence is done
+ * by the parent via `saveGroqKey`. Extracted verbatim — no behavior change.
+ */
+export function AiSettings({
+  groqKey,
+  groqKeyInput,
+  setGroqKeyInput,
+  groqKeyVisible,
+  setGroqKeyVisible,
+  saveGroqKey,
+  onOpenChat,
+}: {
+  groqKey: string;
+  groqKeyInput: string;
+  setGroqKeyInput: (v: string) => void;
+  groqKeyVisible: boolean;
+  setGroqKeyVisible: (updater: (v: boolean) => boolean) => void;
+  saveGroqKey: (key: string) => void;
+  onOpenChat: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="sp-settings-section">
+      <div className="sp-settings-label">{t('settingsSections.aiAssistant')}</div>
+      <div className="sp-settings-row-info" style={{ marginBottom: 10 }}>
+        <div className="sp-settings-row-title">{t('settings.groqKey')}</div>
+        <div className="sp-settings-row-desc">
+          {t('settingsSections.groqKeyDesc')}{' '}
+          <a
+            href="https://console.groq.com"
+            target="_blank"
+            rel="noopener"
+            style={{ color: 'var(--accent)' }}
+          >
+            console.groq.com
+          </a>
+        </div>
+      </div>
+      <div className="sp-groq-key-row">
+        <input
+          className="sp-groq-key-input"
+          type={groqKeyVisible ? 'text' : 'password'}
+          placeholder="gsk_…"
+          value={groqKeyInput}
+          onChange={(e) => setGroqKeyInput(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              saveGroqKey(groqKeyInput.trim());
+            }
+          }}
+        />
+        <button
+          className="sp-groq-key-eye"
+          onClick={() => setGroqKeyVisible((v) => !v)}
+          title={groqKeyVisible ? t('settingsSections.hide') : t('settingsSections.show')}
+        >
+          {groqKeyVisible ? ICONS.unlock : ICONS.lock}
+        </button>
+        <button className="sp-groq-key-save" onClick={() => saveGroqKey(groqKeyInput.trim())}>
+          {t('common.save')}
+        </button>
+      </div>
+      {groqKey && (
+        <div className="sp-groq-key-status">
+          ✓ {t('settingsSections.keySaved')} —{' '}
+          <button className="sp-groq-open-chat" onClick={onOpenChat}>
+            {t('settingsSections.openChat')} →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default AiSettings;

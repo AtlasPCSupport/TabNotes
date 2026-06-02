@@ -18,5 +18,11 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm build
+      - name: Install Playwright browser
+        run: pnpm --filter @tabnotes/extension exec playwright install --with-deps chromium
+      - name: Extension e2e (Playwright)
+        run: pnpm --filter @tabnotes/extension exec playwright test

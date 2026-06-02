@@ -1,0 +1,80 @@
+{
+  "appName": {
+    "message": "TabNotes"
+  },
+  "appDesc": {
+    "message": "Notas contextuales por pestaña, dominio o proyecto. Varias notas por página. Local primero, sin cuenta."
+  },
+  "actionTitle": {
+    "message": "Abrir TabNotes"
+  },
+  "cmdToggleSidePanel": {
+    "message": "Abrir el panel lateral de TabNotes"
+  },
+  "cmdQuickCapture": {
+    "message": "Captura rápida: abre TabNotes y crea una nota al instante"
+  },
+  "digestTitle": {
+    "message": "📓 Resumen Diario de TabNotes"
+  },
+  "digestRecent_one": {
+    "message": "1 nota actualizada en las últimas 24h — $total$ en total",
+    "description": "One note updated daily digest message",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "digestRecent_other": {
+    "message": "$recent$ notas actualizadas en las últimas 24h — $total$ en total",
+    "description": "Multiple notes updated daily digest message",
+    "placeholders": {
+      "recent": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "digestNoChanges_one": {
+    "message": "Sin cambios ayer — 1 nota en tu colección",
+    "description": "No changes, one note in collection"
+  },
+  "digestNoChanges_other": {
+    "message": "Sin cambios ayer — $total$ notas en tu colección",
+    "description": "No changes, multiple notes in collection",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "backupReminderTitle": {
+    "message": "📦 Recordatorio de Respaldo de TabNotes"
+  },
+  "backupNever": {
+    "message": "Nunca has hecho una copia de seguridad. Exporta tus notas ahora para mantenerlas seguras."
+  },
+  "backupReminderMessage_one": {
+    "message": "El último respaldo fue hace 1 día. Exporta para mantener tus notas seguras."
+  },
+  "backupReminderMessage_other": {
+    "message": "El último respaldo fue hace $days$ días. Exporta para mantener tus notas seguras.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "backupOpenButton": {
+    "message": "Abrir TabNotes"
+  },
+  "noteReminderTitle": {
+    "message": "⏰ Recordatorio de TabNotes"
+  },
+  "noteReminderDefault": {
+    "message": "Recordatorio de TabNotes"
+  }
+}

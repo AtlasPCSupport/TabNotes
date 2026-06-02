@@ -1,0 +1,80 @@
+{
+  "appName": {
+    "message": "TabNotes"
+  },
+  "appDesc": {
+    "message": "Contextual notes per tab, domain, or workspace. Multiple notes per page. Local-first, no account needed."
+  },
+  "actionTitle": {
+    "message": "Open TabNotes"
+  },
+  "cmdToggleSidePanel": {
+    "message": "Open TabNotes side panel"
+  },
+  "cmdQuickCapture": {
+    "message": "Quick capture: open TabNotes and create a new note instantly"
+  },
+  "digestTitle": {
+    "message": "📓 TabNotes Daily Digest"
+  },
+  "digestRecent_one": {
+    "message": "1 note updated in the last 24h — $total$ total",
+    "description": "One note updated daily digest message",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "digestRecent_other": {
+    "message": "$recent$ notes updated in the last 24h — $total$ total",
+    "description": "Multiple notes updated daily digest message",
+    "placeholders": {
+      "recent": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "digestNoChanges_one": {
+    "message": "No changes yesterday — 1 note in your collection",
+    "description": "No changes, one note in collection"
+  },
+  "digestNoChanges_other": {
+    "message": "No changes yesterday — $total$ notes in your collection",
+    "description": "No changes, multiple notes in collection",
+    "placeholders": {
+      "total": {
+        "content": "$1"
+      }
+    }
+  },
+  "backupReminderTitle": {
+    "message": "📦 TabNotes Backup Reminder"
+  },
+  "backupNever": {
+    "message": "You have never made a backup. Export your notes now to keep them safe."
+  },
+  "backupReminderMessage_one": {
+    "message": "Last backup was 1 day ago. Export to keep your notes safe."
+  },
+  "backupReminderMessage_other": {
+    "message": "Last backup was $days$ days ago. Export to keep your notes safe.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "backupOpenButton": {
+    "message": "Open TabNotes"
+  },
+  "noteReminderTitle": {
+    "message": "⏰ TabNotes Reminder"
+  },
+  "noteReminderDefault": {
+    "message": "TabNotes reminder"
+  }
+}

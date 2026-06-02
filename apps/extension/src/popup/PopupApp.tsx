@@ -9,7 +9,7 @@ import './popup.css';
 const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string }[] = [
   { value: 'url',       label: 'URL',       icon: '🔗' },
   { value: 'domain',    label: 'Domain',    icon: '🌐' },
-  { value: 'workspace', label: 'Proyecto', icon: '⊞' },
+  { value: 'workspace', label: 'Projects', icon: '⊞' },
   { value: 'global',    label: 'Global',    icon: '🌍' },
 ];
 
@@ -118,7 +118,7 @@ export default function PopupApp() {
 
   const scopeKey = scope === 'url' ? normalizeUrl(currentUrl)
     : scope === 'domain' ? currentDomain
-    : scope === 'workspace' ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Proyecto')
+    : scope === 'workspace' ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? 'Projects')
     : 'Global';
 
   if (loading) {

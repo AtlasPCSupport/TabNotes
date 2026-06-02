@@ -13,12 +13,19 @@ export const DEFAULT_STORAGE: StorageData = {
   defaultScope: 'domain',
   theme: 'system',
   markdownEnabled: false,
+  language: undefined,
   version: STORAGE_VERSION,
 };
 
 export interface StorageAdapter {
   get(): Promise<StorageData>;
   set(data: Partial<StorageData>): Promise<void>;
+  /**
+   * Atomically read-modify-write. The mutator receives the freshest state and
+   * returns a partial patch to merge. The whole operation runs inside the
+   * serialized write chain, so concurrent updates cannot clobber each other.
+   */
+  update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData>;
   clear(): Promise<void>;
 }
 
@@ -52,6 +59,8 @@ function migrateNote(raw: Partial<Note>): Note {
 
 export class LocalStorageAdapter implements StorageAdapter {
   private key = 'tabnotes_data';
+  /** Serializes writes so concurrent set() calls cannot clobber each other. */
+  private writeChain: Promise<void> = Promise.resolve();
 
   async get(): Promise<StorageData> {
     try {
@@ -87,16 +96,41 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
-    const current = await this.get();
-    localStorage.setItem(this.key, JSON.stringify({ ...current, ...data }));
+    // Queue this write behind any in-flight write. The read happens inside the
+    // chained task so it always observes the result of the previous write.
+    const run = this.writeChain.then(async () => {
+      const current = await this.get();
+      localStorage.setItem(this.key, JSON.stringify({ ...current, ...data }));
+    });
+    // Keep the chain alive even if a write rejects.
+    this.writeChain = run.catch(() => undefined);
+    return run;
+  }
+
+  async update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData> {
+    const run = this.writeChain.then(async () => {
+      const current = await this.get();
+      const next = { ...current, ...mutator(current) };
+      localStorage.setItem(this.key, JSON.stringify(next));
+      return next;
+    });
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
   }
 
   async clear(): Promise<void> {
-    localStorage.removeItem(this.key);
+    const run = this.writeChain.then(async () => {
+      localStorage.removeItem(this.key);
+    });
+    this.writeChain = run.catch(() => undefined);
+    return run;
   }
 }
 
 export class ChromeStorageAdapter implements StorageAdapter {
+  /** Serializes writes so concurrent set() calls cannot clobber each other. */
+  private writeChain: Promise<void> = Promise.resolve();
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private get api(): any {
     return typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).chrome
@@ -140,21 +174,46 @@ export class ChromeStorageAdapter implements StorageAdapter {
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
-    const current = await this.get();
-    const updated = { ...current, ...data };
-    const api = this.api;
-    return new Promise((resolve) => {
-      if (!api?.storage) { resolve(); return; }
-      api.storage.local.set({ tabnotes_data: updated }, resolve);
+    // Queue this write behind any in-flight write so the read-modify-write is
+    // atomic relative to other writes (prevents last-write-wins clobbering).
+    const run = this.writeChain.then(async () => {
+      const current = await this.get();
+      const updated = { ...current, ...data };
+      const api = this.api;
+      await new Promise<void>((resolve) => {
+        if (!api?.storage) { resolve(); return; }
+        api.storage.local.set({ tabnotes_data: updated }, () => resolve());
+      });
     });
+    this.writeChain = run.catch(() => undefined);
+    return run;
+  }
+
+  async update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData> {
+    const run = this.writeChain.then(async () => {
+      const current = await this.get();
+      const next = { ...current, ...mutator(current) };
+      const api = this.api;
+      await new Promise<void>((resolve) => {
+        if (!api?.storage) { resolve(); return; }
+        api.storage.local.set({ tabnotes_data: next }, () => resolve());
+      });
+      return next;
+    });
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
   }
 
   async clear(): Promise<void> {
-    const api = this.api;
-    return new Promise((resolve) => {
-      if (!api?.storage) { resolve(); return; }
-      api.storage.local.remove('tabnotes_data', resolve);
+    const run = this.writeChain.then(async () => {
+      const api = this.api;
+      await new Promise<void>((resolve) => {
+        if (!api?.storage) { resolve(); return; }
+        api.storage.local.remove('tabnotes_data', () => resolve());
+      });
     });
+    this.writeChain = run.catch(() => undefined);
+    return run;
   }
 }
 
@@ -191,7 +250,6 @@ export class NotesService {
     workspaceId?: string | null; content?: string; title?: string; tags?: string[]; folder?: string;
     id?: string;
   }): Promise<Note> {
-    const data = await this.adapter.get();
     const now = Date.now();
     const note: Note = {
       id: params.id ?? generateId(),
@@ -207,8 +265,9 @@ export class NotesService {
       updatedAt: now,
     };
     const collKey = getScopeCollectionKey(params.scope);
-    const notes = { ...(data[collKey] ?? {}), [note.id]: note };
-    await this.adapter.set({ [collKey]: notes });
+    await this.adapter.update((data) => ({
+      [collKey]: { ...(data[collKey] ?? {}), [note.id]: note },
+    }));
     return note;
   }
 
@@ -216,45 +275,47 @@ export class NotesService {
     id: string,
     updates: Partial<Pick<Note, 'content' | 'title' | 'tags' | 'folder' | 'reminderAt' | 'encrypted' | 'encryptedData'>>,
   ): Promise<Note | null> {
-    const data = await this.adapter.get();
-    let foundScope: NoteScope | null = null;
-    let note: Note | null = null;
-    for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
-      const collKey = getScopeCollectionKey(scope);
-      if (data[collKey]?.[id]) {
-        foundScope = scope;
-        note = data[collKey][id];
-        break;
+    let result: Note | null = null;
+    await this.adapter.update((data) => {
+      let foundScope: NoteScope | null = null;
+      let note: Note | null = null;
+      for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
+        const collKey = getScopeCollectionKey(scope);
+        if (data[collKey]?.[id]) {
+          foundScope = scope;
+          note = data[collKey][id];
+          break;
+        }
       }
-    }
-    if (!foundScope || !note) return null;
+      if (!foundScope || !note) return {};
 
-    // Snapshot version before content changes (keep max 5)
-    const versions: NoteVersion[] = [...(note.versions ?? [])];
-    if (updates.content !== undefined && updates.content !== note.content) {
-      versions.push({ content: note.content, title: note.title, savedAt: note.updatedAt });
-      if (versions.length > 5) versions.splice(0, versions.length - 5);
-    }
+      // Snapshot version before content changes (keep max 5)
+      const versions: NoteVersion[] = [...(note.versions ?? [])];
+      if (updates.content !== undefined && updates.content !== note.content) {
+        versions.push({ content: note.content, title: note.title, savedAt: note.updatedAt });
+        if (versions.length > 5) versions.splice(0, versions.length - 5);
+      }
 
-    const updated: Note = { ...note, ...updates, versions, updatedAt: Date.now() };
-    const collKey = getScopeCollectionKey(foundScope);
-    await this.adapter.set({
-      [collKey]: { ...(data[collKey] ?? {}), [id]: updated }
+      const updated: Note = { ...note, ...updates, versions, updatedAt: Date.now() };
+      result = updated;
+      const collKey = getScopeCollectionKey(foundScope);
+      return { [collKey]: { ...(data[collKey] ?? {}), [id]: updated } };
     });
-    return updated;
+    return result;
   }
 
   async deleteNote(id: string): Promise<void> {
-    const data = await this.adapter.get();
-    for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
-      const collKey = getScopeCollectionKey(scope);
-      if (data[collKey]?.[id]) {
-        const notes = { ...data[collKey] };
-        delete notes[id];
-        await this.adapter.set({ [collKey]: notes });
-        break;
+    await this.adapter.update((data) => {
+      for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
+        const collKey = getScopeCollectionKey(scope);
+        if (data[collKey]?.[id]) {
+          const notes = { ...data[collKey] };
+          delete notes[id];
+          return { [collKey]: notes };
+        }
       }
-    }
+      return {};
+    });
   }
 
   async getOrCreateNote(params: { scope: NoteScope; url: string; workspaceId?: string | null }): Promise<Note> {
@@ -272,36 +333,41 @@ export class WorkspacesService {
   }
 
   async create(name: string, color?: string): Promise<Workspace> {
-    const data = await this.adapter.get();
     const now = Date.now();
     const workspace: Workspace = { id: generateId(), name, color, createdAt: now, updatedAt: now };
-    await this.adapter.set({ workspaces: { ...data.workspaces, [workspace.id]: workspace } });
+    await this.adapter.update((data) => ({
+      workspaces: { ...data.workspaces, [workspace.id]: workspace },
+    }));
     return workspace;
   }
 
   async update(id: string, updates: Partial<Pick<Workspace, 'name' | 'color'>>): Promise<Workspace | null> {
-    const data = await this.adapter.get();
-    const ws = data.workspaces[id];
-    if (!ws) return null;
-    const updated: Workspace = { ...ws, ...updates, updatedAt: Date.now() };
-    await this.adapter.set({ workspaces: { ...data.workspaces, [id]: updated } });
-    return updated;
+    let result: Workspace | null = null;
+    await this.adapter.update((data) => {
+      const ws = data.workspaces[id];
+      if (!ws) return {};
+      const updated: Workspace = { ...ws, ...updates, updatedAt: Date.now() };
+      result = updated;
+      return { workspaces: { ...data.workspaces, [id]: updated } };
+    });
+    return result;
   }
 
   async delete(id: string): Promise<void> {
-    const data = await this.adapter.get();
-    const workspaces = { ...data.workspaces };
-    delete workspaces[id];
-    
-    // Cascading delete notes belonging to this workspace
-    const notes_workspace = { ...data.notes_workspace };
-    for (const noteId of Object.keys(notes_workspace)) {
-      if (notes_workspace[noteId].workspaceId === id) {
-        delete notes_workspace[noteId];
+    await this.adapter.update((data) => {
+      const workspaces = { ...data.workspaces };
+      delete workspaces[id];
+
+      // Cascading delete notes belonging to this workspace
+      const notes_workspace = { ...data.notes_workspace };
+      for (const noteId of Object.keys(notes_workspace)) {
+        if (notes_workspace[noteId].workspaceId === id) {
+          delete notes_workspace[noteId];
+        }
       }
-    }
-    const activeWorkspaceId = data.activeWorkspaceId === id ? null : data.activeWorkspaceId;
-    await this.adapter.set({ workspaces, activeWorkspaceId, notes_workspace });
+      const activeWorkspaceId = data.activeWorkspaceId === id ? null : data.activeWorkspaceId;
+      return { workspaces, activeWorkspaceId, notes_workspace };
+    });
   }
 
   async setActive(id: string | null): Promise<void> {

@@ -14,6 +14,7 @@ export default defineConfig({
     alias: {
       '@tabnotes/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
       '@tabnotes/ui': resolve(__dirname, '../../packages/ui/src/index.ts'),
+      '@tabnotes/i18n': resolve(__dirname, '../../packages/i18n/src/index.ts'),
     },
   },
 });

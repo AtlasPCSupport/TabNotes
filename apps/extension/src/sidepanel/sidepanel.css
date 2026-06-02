@@ -35,6 +35,32 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ─── Shared design-system aliases ──────────────────────────
+     Bridge the extension's local token names to the `--color-*`
+     namespace consumed by @tabnotes/ui components, so shared
+     primitives inherit this surface's real theme. */
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-bg-muted: var(--bg-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-soft);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-full: var(--r-full);
+  --transition-fast: 120ms var(--ease);
+  --transition-base: 200ms var(--ease);
 }
 
 [data-theme='dark'] {
@@ -74,6 +100,41 @@ body {
   -webkit-font-smoothing: antialiased;
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* ─── Accessibility: visible keyboard focus ──────────────────────
+   Many controls set `outline: none` for the mouse-driven design.
+   Restore a clear focus ring for keyboard users only (`:focus-visible`
+   does not match mouse clicks), using box-shadow so it is never
+   suppressed by the per-element `outline: none` rules. */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+  border-radius: var(--r-sm);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ─── Layout ─────────────────────────────────────────────────── */
@@ -3801,6 +3862,7 @@ body {
 
 .sp-tree-input {
   flex: 1;
+  min-width: 0; /* allow the input to shrink so the ✓ button stays visible */
   font-family: var(--font);
   font-size: 11.5px;
   padding: 3px 8px;
@@ -3822,6 +3884,7 @@ body {
 }
 
 .sp-tree-confirm-btn {
+  flex-shrink: 0; /* never let the confirm button get squeezed out of view */
   background: var(--accent);
   color: #fff;
   border: none;
@@ -4230,3 +4293,197 @@ body {
   gap: 2px;
   margin-top: 4px;
 }
+
+/* ─── PIN lock screen ────────────────────────────────────────── */
+.sp-pin-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100vh;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+}
+.sp-pin-lock-icon {
+  font-family: var(--mono);
+  font-size: 30px;
+  color: var(--accent);
+  line-height: 1;
+}
+.sp-pin-lock-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sp-pin-lock-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 260px;
+  line-height: 1.5;
+}
+.sp-pin-lock-form {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 260px;
+  margin-top: 4px;
+}
+.sp-pin-lock-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  letter-spacing: 4px;
+  text-align: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+}
+.sp-pin-lock-input:focus {
+  border-color: var(--accent);
+}
+.sp-pin-lock-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.sp-pin-lock-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sp-pin-lock-error {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* ─── PIN settings ───────────────────────────────────────────── */
+.sp-pin-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sp-pin-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.sp-pin-field {
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+}
+.sp-pin-field:focus {
+  border-color: var(--accent);
+}
+.sp-pin-buttons {
+  display: flex;
+  gap: 6px;
+}
+.sp-pin-action {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-muted);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 120ms var(--ease);
+}
+.sp-pin-action:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sp-pin-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sp-pin-action.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+.sp-pin-action.danger:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.sp-pin-feedback {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ─── Language selector (Country Flags) ───────────────────────── */
+.sp-lang-selector {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: 2px;
+  border-radius: var(--r-md);
+  margin-left: 6px;
+  flex-shrink: 0;
+  transition: border-color 150ms var(--ease);
+}
+
+.sp-lang-selector:hover {
+  border-color: var(--border-strong);
+}
+
+.sp-lang-flag-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  opacity: 0.45;
+  filter: grayscale(85%);
+  transition: all 120ms var(--ease);
+}
+
+.sp-lang-flag-btn:hover {
+  opacity: 0.85;
+  filter: grayscale(30%);
+  transform: scale(1.05);
+}
+
+.sp-lang-flag-btn.active {
+  opacity: 1;
+  filter: grayscale(0%);
+  background: var(--bg-card);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-xs);
+  cursor: default;
+  transform: none;
+}
+

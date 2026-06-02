@@ -126,13 +126,13 @@ async function fireDigest(): Promise<void> {
   const total = notes.length;
 
   const message = recent.length > 0
-    ? `${recent.length} note${recent.length !== 1 ? 's' : ''} updated in the last 24h — ${total} total`
-    : `No changes yesterday — ${total} note${total !== 1 ? 's' : ''} in your collection`;
+    ? chrome.i18n.getMessage(recent.length === 1 ? 'digestRecent_one' : 'digestRecent_other', [String(recent.length), String(total)])
+    : chrome.i18n.getMessage(total === 1 ? 'digestNoChanges_one' : 'digestNoChanges_other', [String(total)]);
 
   chrome.notifications.create('tn_digest_' + Date.now(), {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
-    title: '📓 TabNotes Daily Digest',
+    title: chrome.i18n.getMessage('digestTitle'),
     message,
     priority: 1,
   });
@@ -156,16 +156,17 @@ async function checkBackupReminder(): Promise<void> {
 
   const daysSince = lastExport === 0 ? null : Math.floor(msElapsed / (24 * 60 * 60 * 1000));
   const message = daysSince === null
-    ? 'You have never made a backup. Export your notes now to keep them safe.'
-    : `Last backup was ${daysSince} day${daysSince !== 1 ? 's' : ''} ago. Export to keep your notes safe.`;
+    ? chrome.i18n.getMessage('backupNever')
+    : chrome.i18n.getMessage(daysSince === 1 ? 'backupReminderMessage_one' : 'backupReminderMessage_other', [String(daysSince)]);
+  const btnTitle = chrome.i18n.getMessage('backupOpenButton');
 
   chrome.notifications.create('tn_backup_remind_' + Date.now(), {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
-    title: '📦 TabNotes Backup Reminder',
+    title: chrome.i18n.getMessage('backupReminderTitle'),
     message,
     priority: 1,
-    buttons: [{ title: 'Open TabNotes' }],
+    buttons: [{ title: btnTitle }],
   });
 }
 
@@ -318,12 +319,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
     if (!note || !foundScope) return;
 
-    const title = note.title || (note.content?.trim().split('\n')[0].slice(0, 60)) || 'TabNotes reminder';
+    const title = note.title || (note.content?.trim().split('\n')[0].slice(0, 60)) || chrome.i18n.getMessage('noteReminderDefault');
 
     chrome.notifications.create('tn_notif_' + noteId, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
-      title: '⏰ TabNotes Reminder',
+      title: chrome.i18n.getMessage('noteReminderTitle'),
       message: title,
       priority: 2,
     });

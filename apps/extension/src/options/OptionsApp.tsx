@@ -15,7 +15,7 @@ import './options.css';
 const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: string }[] = [
   { value: 'url', label: 'URL', icon: '🔗', desc: 'Notes tied to exact page URLs' },
   { value: 'domain', label: 'Domain', icon: '🌐', desc: 'One note shared across a site' },
-  { value: 'workspace', label: 'Proyecto', icon: '⊞', desc: 'Notes linked to your active project' },
+  { value: 'workspace', label: 'Projects', icon: '⊞', desc: 'Notes linked to your active project' },
   { value: 'global', label: 'Global', icon: '🌍', desc: 'A single global scratchpad' },
 ];
 

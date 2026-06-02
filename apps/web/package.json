@@ -12,6 +12,7 @@
   "dependencies": {
     "@tabnotes/shared": "workspace:*",
     "@tabnotes/ui": "workspace:*",
+    "@tabnotes/i18n": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.23.1",

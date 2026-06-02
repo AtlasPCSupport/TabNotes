@@ -104,6 +104,7 @@ TabNotes is a Chrome extension (Manifest V3) that keeps contextual notes right w
 | **Backup Reminders** | Configurable notifications if you haven't exported in N days |
 | **Local-first** | All data lives in Chrome storage — no server, no account, no tracking |
 | **Note Encryption** | Encrypt individual notes with AES-256 and a personal password |
+| **PIN Lock** | Optionally require a PIN to open the side panel. A privacy screen (UI deterrence), not full encryption — the PIN is stored as a salted PBKDF2 hash, never plaintext. For sensitive notes use Note Encryption. |
 | **Open Source** | MIT licensed — read, fork, contribute |
 
 ### 🎨 User Experience
