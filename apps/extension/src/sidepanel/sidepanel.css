@@ -1639,6 +1639,121 @@ select:focus-visible,
   border: 1px solid var(--danger);
 }
 
+.sp-drive-sync {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.sp-drive-sync-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sp-drive-sync-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.sp-drive-sync-desc {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.sp-drive-sync-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  white-space: nowrap;
+}
+.sp-drive-sync-badge.ok {
+  border-color: var(--success);
+  color: var(--success);
+  background: var(--success-soft);
+}
+.sp-drive-sync-badge.warn {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.sp-drive-sync-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-subtle);
+}
+.sp-drive-sync-warning,
+.sp-drive-sync-feedback {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  line-height: 1.4;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+}
+.sp-drive-sync-warning {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.sp-drive-sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.sp-drive-btn {
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease),
+    background 120ms var(--ease),
+    color 120ms var(--ease);
+}
+.sp-drive-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.sp-drive-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.sp-drive-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: #fff;
+}
+.sp-drive-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.sp-drive-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ─── Bottom nav ─────────────────────────────────────────────── */
 .sp-bottom-nav {
   display: flex;

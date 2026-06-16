@@ -175,7 +175,9 @@ ${renderMarkdown(content)}
       const fs = localStorage.getItem('tn_fontsize');
       const al = localStorage.getItem('tn_align');
       const ft = localStorage.getItem('tn_features');
+      const fColors = localStorage.getItem('tn_folder_colors');
       if (colors) prefs.colors = JSON.parse(colors);
+      if (fColors) prefs.folderColors = JSON.parse(fColors);
       if (pins) prefs.pins = JSON.parse(pins);
       if (fs) prefs.fontsize = Number(fs);
       if (al) prefs.align = al as ExportPrefs['align'];
@@ -229,6 +231,9 @@ ${renderMarkdown(content)}
         if (p.colors != null) {
           localStorage.setItem('tn_colors', JSON.stringify(p.colors));
           setNoteColors(p.colors);
+        }
+        if (p.folderColors != null) {
+          localStorage.setItem('tn_folder_colors', JSON.stringify(p.folderColors));
         }
         if (p.pins != null) {
           localStorage.setItem('tn_pins', JSON.stringify(p.pins));

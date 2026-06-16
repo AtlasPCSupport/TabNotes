@@ -48,6 +48,7 @@ export interface StorageData {
 
 export interface ExportPrefs {
   colors?: Record<string, string>;
+  folderColors?: Record<string, string>;
   pins?: string[];
   fontsize?: number;
   align?: 'left' | 'center' | 'right';

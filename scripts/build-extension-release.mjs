@@ -12,11 +12,42 @@ const version = process.argv[2] ?? manifest.version;
 manifest.version = version;
 await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-execFileSync('pnpm', ['build:extension'], { stdio: 'inherit' });
+function run(command, args, options = {}) {
+  execFileSync(command, args, { stdio: 'inherit', ...options });
+}
+
+function quotePowerShell(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+if (process.platform === 'win32') {
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    '$ErrorActionPreference = "Stop"; pnpm build:extension',
+  ]);
+} else {
+  run('pnpm', ['build:extension']);
+}
 
 await fs.mkdir(storeDir, { recursive: true });
 const zipName = `tabnotes-extension-v${version}.zip`;
 const zipPath = path.join(storeDir, zipName);
+await fs.rm(zipPath, { force: true });
 
-execFileSync('bash', ['-lc', `cd "${distDir}" && zip -qr "${zipPath}" .`], { stdio: 'inherit' });
+if (process.platform === 'win32') {
+  const sourcePattern = path.join(distDir, '*');
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    `$ErrorActionPreference = 'Stop'; Compress-Archive -Path ${quotePowerShell(sourcePattern)} -DestinationPath ${quotePowerShell(zipPath)} -CompressionLevel Optimal -Force`,
+  ]);
+} else {
+  run('zip', ['-qr', zipPath, '.'], { cwd: distDir });
+}
+
 console.log(zipPath);

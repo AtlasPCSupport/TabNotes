@@ -1,4 +1,6 @@
-// ── Helpers (inline, no imports needed in service worker) ────────────────────
+import { handleDriveAlarm, handleDriveMessage, scheduleDriveAutoSync } from './driveSync';
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalizeDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
@@ -225,12 +227,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area === 'local' && changes['tabnotes_data']) {
     await updateBadgeForActiveTab();
+    await scheduleDriveAutoSync();
   }
 });
 
 // ── Message handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (handleDriveMessage(msg, sendResponse)) return true;
+
   // CAPTURE_TAB: take a screenshot of the active tab
   if (msg.type === 'CAPTURE_TAB') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
@@ -281,6 +286,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // ── Alarm handler ─────────────────────────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (await handleDriveAlarm(alarm.name)) return;
+
   // Daily digest
   if (alarm.name === 'tn_daily_digest') {
     await fireDigest();

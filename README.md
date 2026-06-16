@@ -22,7 +22,8 @@
 
 | Version | What's new | Download |
 |---|---|---|
-| **v2.9.1** *(latest)* | Note-body scrolling · Visible scrollbar · Refined monochrome icons | [**⬇ Download v2.9.1**](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.9.1/tabnotes-extension-v2.9.1.zip) |
+| **v2.10.0** *(latest)* | Optional Google Drive backup · Pro-ready licensing gate · Privacy policy refresh | [Download v2.10.0](./tabnotes-extension.zip) |
+| v2.9.1 | Note-body scrolling · Visible scrollbar · Refined monochrome icons | [Download v2.9.1](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.9.1/tabnotes-extension-v2.9.1.zip) |
 | v2.9.0 | Scroll fix · Clip-to-note button · Release generation repair | [Download v2.9.0](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.9.0/tabnotes-extension-v2.9.0.zip) |
 | v2.8.9 | Full backup/restore · Backup reminders · Active format indicators | [Download v2.8.9](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.8.9/tabnotes-extension-v2.8.9.zip) |
 | v2.8.5 | Formatting toggles (B/I/U/S/H/code) | [Releases page](https://github.com/mikepchelper-spec/TabNotes/releases) |
@@ -101,8 +102,9 @@ TabNotes is a Chrome extension (Manifest V3) that keeps contextual notes right w
 | **Note History** | Every note is auto-versioned — restore any previous version with one click |
 | **Export as Markdown** | Download any note as a clean `.md` file |
 | **Export / Import JSON** | Back up all notes as JSON and restore them on any device |
+| **Optional Google Drive Backup** | Opt-in automatic backup to the user's private Google Drive app data folder |
 | **Backup Reminders** | Configurable notifications if you haven't exported in N days |
-| **Local-first** | All data lives in Chrome storage — no server, no account, no tracking |
+| **Local-first** | Data lives in Chrome storage by default — no TabNotes server, no tracking |
 | **Note Encryption** | Encrypt individual notes with AES-256 and a personal password |
 | **PIN Lock** | Optionally require a PIN to open the side panel. A privacy screen (UI deterrence), not full encryption — the PIN is stored as a salted PBKDF2 hash, never plaintext. For sensitive notes use Note Encryption. |
 | **Open Source** | MIT licensed — read, fork, contribute |
@@ -153,6 +155,18 @@ Create `apps/web/.env.local` for local development (this file is git-ignored):
 
 ```bash
 VITE_GROQ_KEY=your_key_here
+```
+
+### Google Drive backup setup
+
+Drive backup uses the Chrome extension OAuth client ID in
+`apps/extension/public/manifest.json`. Before publishing a build with Drive backup enabled, replace
+`REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com` with a Chrome Extension OAuth 2.0
+client ID for the final Chrome Web Store extension ID, and enable the Google Drive API with only
+this scope:
+
+```text
+https://www.googleapis.com/auth/drive.appdata
 ```
 
 ### Install

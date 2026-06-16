@@ -7,3 +7,5 @@ export * from './crypto';
 export * from './text';
 export * from './wikilinks';
 export * from './checklist';
+export * from './backup';
+export * from './entitlements';

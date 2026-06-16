@@ -45,6 +45,15 @@ test.describe('TabNotes side panel — baseline', () => {
     await expect(page.locator('.sp-note-view')).toBeVisible();
   });
 
+  test('Settings shows Drive backup in setup-safe state', async ({ context, sidePanelUrl }) => {
+    const page = await context.newPage();
+    await page.goto(sidePanelUrl);
+    await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
+    await expect(page.locator('.sp-drive-sync')).toBeVisible();
+    await expect(page.getByText('Google Drive backup')).toBeVisible();
+    await expect(page.getByText('Setup required')).toBeVisible();
+  });
+
   test('PIN lock gate: enabling a PIN locks the panel and the correct PIN unlocks it', async ({
     context,
     sidePanelUrl,

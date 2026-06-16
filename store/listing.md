@@ -60,6 +60,8 @@ TabNotes stores everything locally on your device using chrome.storage.local. Ze
 
 **Export / import** your notes as JSON anytime. Full backup and restore in one click — notes are merged, nothing is overwritten.
 
+**Optional Google Drive backup** can save an automatic backup to your private Google Drive app data folder. This is opt-in, uses Google's limited `drive.appdata` scope, and never touches a TabNotes server.
+
 ---
 
 **Free forever. Open source.**
@@ -77,10 +79,14 @@ Productivity
 English
 
 ## Permissions justification (for Store review form)
-- **storage** — Saves all notes locally on your device (chrome.storage.local). No external server involved.
+- **storage** — Saves all notes locally on your device (chrome.storage.local).
 - **tabs** — Reads the current tab's URL to automatically link notes to the right context, and detects tab switches to update the panel instantly.
 - **activeTab** — Accesses the current tab's URL when the side panel is open.
 - **sidePanel** — Displays the notes panel alongside the page content without replacing it.
+- **identity** — Lets the user optionally connect a Google account for Google Drive backup.
+- **alarms** — Schedules reminders, daily digest, and delayed Drive backup sync.
+- **notifications** — Shows backup reminders, daily digest, and note reminders.
+- **https://www.googleapis.com/** — Sends optional backup data directly to Google Drive when the user enables Drive backup.
 
 ---
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '@tabnotes/i18n';
+import { DriveSyncSettings } from './DriveSyncSettings';
 
 /**
  * Data management settings: export/import backup + backup-reminder interval.
@@ -54,6 +55,8 @@ export function DataSettings({
           {dataFeedback.type === 'success' ? '✓' : '✕'} {dataFeedback.msg}
         </div>
       )}
+
+      <DriveSyncSettings />
 
       {/* Backup reminder interval */}
       <div

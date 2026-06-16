@@ -1,25 +1,43 @@
 # Privacy Policy — TabNotes
 
-**Last updated: May 2026**
+**Last updated: June 2026**
 
 ## Overview
 
-TabNotes is a local-first browser extension. Your notes never leave your device.
+TabNotes is a local-first browser extension. By default, your notes stay on your device. If you
+choose to enable the optional Google Drive backup feature, TabNotes sends your backup directly to
+your own Google Drive app data folder.
 
 ## Data We Collect
 
 **We collect no data.**
 
-TabNotes does not collect, transmit, store, or share any personal information, browsing data, or note content with any server, third party, or developer.
+TabNotes does not collect, store, sell, or share any personal information, browsing data, or note
+content with the TabNotes developer or any TabNotes server.
 
 ## How Your Data Is Stored
 
-All notes, workspaces, and settings created in TabNotes are stored exclusively in your browser's local storage (`chrome.storage.local`) on your own device. This data:
+All notes, workspaces, and settings created in TabNotes are stored in your browser's local storage
+(`chrome.storage.local`) on your own device. This data:
 
-- Never leaves your device
-- Is never sent to any external server
+- Never leaves your device unless you explicitly enable Google Drive backup
+- Is never sent to any TabNotes server
 - Is never accessible to the TabNotes developer or any third party
 - Is never used for analytics, advertising, or profiling
+
+## Optional Google Drive Backup
+
+If you connect Google Drive, TabNotes uses Chrome's `identity` API and the Google Drive
+`drive.appdata` scope to create or update a JSON backup file in your private Google Drive
+`appDataFolder`.
+
+When enabled:
+
+- Your notes backup is transmitted directly between the extension and Google Drive
+- The backup is stored in your own Google account, not on TabNotes infrastructure
+- The backup file is hidden from your normal "My Drive" view by Google Drive
+- TabNotes does not persist your Google access token in extension storage
+- You can disconnect Google Drive from TabNotes at any time
 
 ## Permissions Used
 
@@ -31,16 +49,22 @@ TabNotes requests the following Chrome permissions:
 | `tabs` | Read the current tab's URL to link notes to the right page |
 | `activeTab` | Access the active tab's URL when the panel is open |
 | `sidePanel` | Display the notes panel alongside your browser content |
+| `identity` | Optional Google sign-in for Google Drive backup |
+| `alarms` | Schedule reminders and delayed backup sync |
+| `notifications` | Show reminders and daily digest notifications |
+| `https://www.googleapis.com/*` | Optional Google Drive backup API calls |
 
 No permission is used for data collection or tracking.
 
 ## Export & Import
 
-The Export feature downloads your notes as a JSON file directly to your device. This file never passes through any server. The Import feature reads a local file from your device. No data is transmitted externally.
+The Export feature downloads your notes as a JSON file directly to your device. This file never
+passes through a TabNotes server. The Import feature reads a local file from your device.
 
 ## Third-Party Services
 
 TabNotes does not use any third-party analytics, crash reporting, advertising, or tracking services.
+Google Drive is used only if you opt in to Drive backup.
 
 ## Children's Privacy
 
@@ -48,7 +72,8 @@ TabNotes does not collect any information from anyone, including children.
 
 ## Changes to This Policy
 
-If this policy ever changes (for example, if a cloud sync Pro tier is introduced), the updated policy will be published here and users will be notified via the extension update notes.
+If this policy changes, the updated policy will be published here and users will be notified via
+the extension update notes.
 
 ## Contact
 

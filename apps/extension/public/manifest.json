@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_appName__",
   "default_locale": "en",
-  "version": "2.9.1",
+  "version": "2.10.0",
   "description": "__MSG_appDesc__",
   "icons": {
     "16": "icons/icon16.png",
@@ -58,9 +58,17 @@
     "activeTab",
     "sidePanel",
     "alarms",
-    "notifications"
+    "notifications",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.appdata"
+    ]
+  },
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "https://www.googleapis.com/*"
   ]
 }
