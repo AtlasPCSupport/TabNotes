@@ -1,9 +1,9 @@
 import React from 'react';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
 import type { NoteScope, PinHash } from '@tabnotes/shared';
-import type { Features, Theme, Align } from '../store/types';
+import type { Features, Theme, Align, SettingsTarget } from '../store/types';
 import { useTranslation } from '@tabnotes/i18n';
+import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 import { FeatureToggles } from '../components/settings/FeatureToggles';
 import { AiSettings } from '../components/settings/AiSettings';
@@ -16,11 +16,11 @@ import { DataSettings } from '../components/settings/DataSettings';
 import { SupportSettings } from '../components/settings/SupportSettings';
 import { LanguageSettings } from '../components/settings/LanguageSettings';
 
-const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: string }[] = [
-  { value: 'url', label: 'URL', icon: ICONS.url, desc: 'Exact page URL' },
-  { value: 'domain', label: 'Domain', icon: ICONS.domain, desc: 'Entire site' },
-  { value: 'workspace', label: 'Projects', icon: ICONS.workspace, desc: 'Your project' },
-  { value: 'global', label: 'Global', icon: ICONS.global, desc: 'Everywhere' },
+const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: AppIconName; desc: string }[] = [
+  { value: 'url', label: 'URL', icon: 'url', desc: 'Exact page URL' },
+  { value: 'domain', label: 'Domain', icon: 'domain', desc: 'Entire site' },
+  { value: 'workspace', label: 'Projects', icon: 'workspace', desc: 'Your project' },
+  { value: 'global', label: 'Global', icon: 'global', desc: 'Everywhere' },
 ];
 
 const WORKSPACE_COLORS = [
@@ -33,6 +33,8 @@ const WORKSPACE_COLORS = [
   { value: '#6366f1', label: 'Indigo' },
   { value: '#14b8a6', label: 'Teal' },
 ];
+
+const SETTINGS_HIGHLIGHT_MS = 1400;
 
 export interface SettingsViewProps {
   // Feature Toggles
@@ -155,102 +157,223 @@ export function SettingsView({
   const fontSize = useSidePanelStore((s) => s.fontSize);
   const defaultAlign = useSidePanelStore((s) => s.defaultAlign);
   const defaultScope = useSidePanelStore((s) => s.defaultScope);
+  const settingsTarget = useSidePanelStore((s) => s.settingsTarget);
+  const settingsTargetVersion = useSidePanelStore((s) => s.settingsTargetVersion);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
+  const sectionRefs = React.useRef<Partial<Record<SettingsTarget, HTMLDivElement | null>>>({});
+  const [highlightedTarget, setHighlightedTarget] = React.useState<SettingsTarget | null>(null);
+
+  const registerSection = React.useCallback(
+    (target: SettingsTarget) => (node: HTMLDivElement | null) => {
+      sectionRefs.current[target] = node;
+    },
+    []
+  );
+
+  const sectionClassName = (target: SettingsTarget) =>
+    `sp-settings-anchor${highlightedTarget === target ? ' highlight' : ''}`;
+
+  React.useEffect(() => {
+    if (!settingsTarget) return;
+
+    const target = settingsTarget;
+    const timer = window.setTimeout(() => {
+      const node = sectionRefs.current[target];
+      if (!node) return;
+
+      node.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+      node.focus({ preventScroll: true });
+      setHighlightedTarget(target);
+      setSettingsTarget(null);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [settingsTarget, settingsTargetVersion, setSettingsTarget]);
+
+  React.useEffect(() => {
+    if (!highlightedTarget) return;
+    const timer = window.setTimeout(() => setHighlightedTarget(null), SETTINGS_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [highlightedTarget]);
 
   return (
     <div className="sp-settings-view">
-      <FeatureToggles features={features} toggleFeature={toggleFeature} />
+      <div
+        ref={registerSection('features')}
+        className={sectionClassName('features')}
+        data-settings-section="features"
+        tabIndex={-1}
+      >
+        <FeatureToggles features={features} toggleFeature={toggleFeature} />
+      </div>
 
-      <AiSettings
-        groqKey={groqKey}
-        groqKeyInput={groqKeyInput}
-        setGroqKeyInput={setGroqKeyInput}
-        groqKeyVisible={groqKeyVisible}
-        setGroqKeyVisible={setGroqKeyVisible}
-        saveGroqKey={saveGroqKey}
-        onOpenChat={onOpenChat}
-      />
+      <div
+        ref={registerSection('ai')}
+        className={sectionClassName('ai')}
+        data-settings-section="ai"
+        tabIndex={-1}
+      >
+        <AiSettings
+          groqKey={groqKey}
+          groqKeyInput={groqKeyInput}
+          setGroqKeyInput={setGroqKeyInput}
+          groqKeyVisible={groqKeyVisible}
+          setGroqKeyVisible={setGroqKeyVisible}
+          saveGroqKey={saveGroqKey}
+          onOpenChat={onOpenChat}
+        />
+      </div>
 
-      <div className="sp-settings-section">
-        <div className="sp-settings-label">{translate('settings.appearance')}</div>
-        <div className="sp-theme-grid">
-          {(['light', 'dark', 'system'] as const).map((t) => (
-            <button
-              key={t}
-              className={`sp-theme-btn${theme === t ? ' active' : ''}`}
-              onClick={() => setTheme(t)}
-            >
-              {t === 'light'
-                ? `${ICONS.light} ${translate('settings.themeLight')}`
-                : t === 'dark'
-                  ? `${ICONS.dark} ${translate('settings.themeDark')}`
-                  : translate('settings.themeSystem')}
-            </button>
-          ))}
+      <div
+        ref={registerSection('appearance')}
+        className={sectionClassName('appearance')}
+        data-settings-section="appearance"
+        tabIndex={-1}
+      >
+        <div className="sp-settings-section">
+          <div className="sp-settings-label">{translate('settings.appearance')}</div>
+          <div className="sp-theme-grid">
+            {(['light', 'dark', 'system'] as const).map((t) => (
+              <button
+                key={t}
+                className={`sp-theme-btn${theme === t ? ' active' : ''}`}
+                onClick={() => setTheme(t)}
+              >
+                <AppIcon
+                  name={t === 'light' ? 'light' : t === 'dark' ? 'dark' : 'settings'}
+                  size={14}
+                />
+                <span>
+                  {t === 'light'
+                    ? translate('settings.themeLight')
+                    : t === 'dark'
+                      ? translate('settings.themeDark')
+                      : translate('settings.themeSystem')}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <LanguageSettings language={language} setLanguage={setLanguage} />
+      <div
+        ref={registerSection('language')}
+        className={sectionClassName('language')}
+        data-settings-section="language"
+        tabIndex={-1}
+      >
+        <LanguageSettings language={language} setLanguage={setLanguage} />
+      </div>
 
-      <PinSettings
-        pinHash={pinHash}
-        pinSetInput={pinSetInput}
-        setPinSetInput={setPinSetInput}
-        pinSetConfirm={pinSetConfirm}
-        setPinSetConfirm={setPinSetConfirm}
-        pinSetFeedback={pinSetFeedback}
-        savePin={savePin}
-        removePin={removePin}
-        lockNow={lockNow}
-      />
+      <div
+        ref={registerSection('pin')}
+        className={sectionClassName('pin')}
+        data-settings-section="pin"
+        tabIndex={-1}
+      >
+        <PinSettings
+          pinHash={pinHash}
+          pinSetInput={pinSetInput}
+          setPinSetInput={setPinSetInput}
+          pinSetConfirm={pinSetConfirm}
+          setPinSetConfirm={setPinSetConfirm}
+          pinSetFeedback={pinSetFeedback}
+          savePin={savePin}
+          removePin={removePin}
+          lockNow={lockNow}
+        />
+      </div>
 
-      <EditorSettings
-        markdownEnabled={markdownEnabled}
-        setMarkdown={setMarkdown}
-        fontSize={fontSize}
-        changeFontSize={changeFontSize}
-        defaultAlign={defaultAlign}
-        setDefaultAlign={setDefaultAlign}
-      />
+      <div
+        ref={registerSection('editor')}
+        className={sectionClassName('editor')}
+        data-settings-section="editor"
+        tabIndex={-1}
+      >
+        <EditorSettings
+          markdownEnabled={markdownEnabled}
+          setMarkdown={setMarkdown}
+          fontSize={fontSize}
+          changeFontSize={changeFontSize}
+          defaultAlign={defaultAlign}
+          setDefaultAlign={setDefaultAlign}
+        />
+      </div>
 
-      <ScopeDigestSettings
-        scopeOptions={SCOPE_OPTIONS}
-        defaultScope={defaultScope}
-        setDefaultScope={setDefaultScope}
-        digestEnabled={digestEnabled}
-        setDigestEnabled={setDigestEnabled}
-        digestTime={digestTime}
-        setDigestTime={setDigestTime}
-        saveDigest={saveDigest}
-      />
+      <div
+        ref={registerSection('scope')}
+        className={sectionClassName('scope')}
+        data-settings-section="scope"
+        tabIndex={-1}
+      >
+        <ScopeDigestSettings
+          scopeOptions={SCOPE_OPTIONS}
+          defaultScope={defaultScope}
+          setDefaultScope={setDefaultScope}
+          digestEnabled={digestEnabled}
+          setDigestEnabled={setDigestEnabled}
+          digestTime={digestTime}
+          setDigestTime={setDigestTime}
+          saveDigest={saveDigest}
+        />
+      </div>
 
-      <WorkspaceSettings
-        workspaceColors={WORKSPACE_COLORS}
-        editWsName={editWsName}
-        setEditWsName={setEditWsName}
-        editWsColor={editWsColor}
-        setEditWsColor={setEditWsColor}
-        newWsNameInput={newWsNameInput}
-        setNewWsNameInput={setNewWsNameInput}
-        newWsColorInput={newWsColorInput}
-        setNewWsColorInput={setNewWsColorInput}
-        onSetActive={onSetActiveWorkspace}
-        onUpdate={onUpdateWorkspace}
-        onDelete={onDeleteWorkspace}
-        onCreate={onCreateWorkspace}
-      />
+      <div
+        ref={registerSection('workspace')}
+        className={sectionClassName('workspace')}
+        data-settings-section="workspace"
+        tabIndex={-1}
+      >
+        <WorkspaceSettings
+          workspaceColors={WORKSPACE_COLORS}
+          editWsName={editWsName}
+          setEditWsName={setEditWsName}
+          editWsColor={editWsColor}
+          setEditWsColor={setEditWsColor}
+          newWsNameInput={newWsNameInput}
+          setNewWsNameInput={setNewWsNameInput}
+          newWsColorInput={newWsColorInput}
+          setNewWsColorInput={setNewWsColorInput}
+          onSetActive={onSetActiveWorkspace}
+          onUpdate={onUpdateWorkspace}
+          onDelete={onDeleteWorkspace}
+          onCreate={onCreateWorkspace}
+        />
+      </div>
 
-      <StatsSettings />
+      <div
+        ref={registerSection('stats')}
+        className={sectionClassName('stats')}
+        data-settings-section="stats"
+        tabIndex={-1}
+      >
+        <StatsSettings />
+      </div>
 
-      <DataSettings
-        handleExport={handleExport}
-        handleImport={handleImport}
-        importInputRef={importInputRef}
-        dataFeedback={dataFeedback}
-        backupRemindDays={backupRemindDays}
-        setBackupRemind={setBackupRemind}
-      />
+      <div
+        ref={registerSection('data')}
+        className={sectionClassName('data')}
+        data-settings-section="data"
+        tabIndex={-1}
+      >
+        <DataSettings
+          handleExport={handleExport}
+          handleImport={handleImport}
+          importInputRef={importInputRef}
+          dataFeedback={dataFeedback}
+          backupRemindDays={backupRemindDays}
+          setBackupRemind={setBackupRemind}
+        />
+      </div>
 
-      <SupportSettings />
+      <div
+        ref={registerSection('support')}
+        className={sectionClassName('support')}
+        data-settings-section="support"
+        tabIndex={-1}
+      >
+        <SupportSettings />
+      </div>
     </div>
   );
 }

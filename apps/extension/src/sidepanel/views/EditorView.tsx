@@ -2,17 +2,49 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useSidePanelStore, runtime } from '../store';
 import {
   Note,
+  NoteScope,
+  normalizeDomain,
+  type MoveNoteTarget,
   renderMarkdown,
   stripFormatting,
   autoTitleFromContent,
   sanitizeHtml,
   formatRelativeTime,
 } from '@tabnotes/shared';
-import { ICONS } from '../icons';
 import { FormattingToolbar } from '../components/FormattingToolbar';
 import { ChecklistEditor } from '../components/ChecklistEditor';
 import { WikiAutocomplete } from '../components/WikiAutocomplete';
+import { AppIcon } from '../components/AppIcon';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
+import {
+  AlarmClock,
+  CalendarDays,
+  Camera,
+  Check,
+  Copy as CopyIcon,
+  Download,
+  Eye,
+  Folder as FolderIcon,
+  Focus as FocusIcon,
+  History,
+  Keyboard,
+  ListChecks,
+  Lock,
+  LockOpen,
+  Palette,
+  PanelRightOpen,
+  Pin as PinIcon,
+  Printer,
+  SquarePen,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  formatDateTimeLocal,
+  getDefaultReminderTimestamp,
+  getMinimumReminderTimestamp,
+  isSchedulableReminderTimestamp,
+  parseDateTimeLocalInput,
+} from '../../shared/reminders';
 
 export interface EditorViewProps {
   // Loading states
@@ -41,8 +73,7 @@ export interface EditorViewProps {
   // Folder selection and new folder states
   showMovePicker: boolean;
   setShowMovePicker: (v: boolean) => void;
-  setShowNewFolder: (v: boolean) => void;
-  moveNoteToFolder: (noteId: string, folder: string | undefined) => void;
+  moveNote: (noteId: string, target: MoveNoteTarget) => Promise<void>;
 
   // DateTime and sizing handlers
   insertDatetime: () => void;
@@ -103,8 +134,6 @@ const NOTE_COLORS = [
   { value: '#ef4444', label: 'Red' },
 ];
 
-
-
 export function EditorView({
   tabLoading,
   checklistMode,
@@ -121,8 +150,7 @@ export function EditorView({
   setNoteColor,
   showMovePicker,
   setShowMovePicker,
-  setShowNewFolder,
-  moveNoteToFolder,
+  moveNote,
   insertDatetime,
   changeFontSize,
   exportCurrentNote,
@@ -156,6 +184,7 @@ export function EditorView({
   const scope = useSidePanelStore((s) => s.scope);
   const view = useSidePanelStore((s) => s.view);
   const allNotes = useSidePanelStore((s) => s.allNotes);
+  const workspaces = useSidePanelStore((s) => s.workspaces);
   const activeNoteId = useSidePanelStore((s) => s.activeNoteId);
   const setView = useSidePanelStore((s) => s.setView);
   const content = useSidePanelStore((s) => s.content);
@@ -182,9 +211,24 @@ export function EditorView({
 
   const activeNote = contextNotes.find((n) => n.id === activeNoteId) ?? null;
   const activeNoteColor = activeNoteId ? (noteColors[activeNoteId] ?? '') : '';
-  const scopeFolders = React.useMemo(() => {
-    return [...new Set(contextNotes.map((n) => n.folder).filter(Boolean) as string[])].sort();
-  }, [contextNotes]);
+  const hasNoteBody = Boolean(content || title);
+  const hasHistory = (activeNote?.versions?.length ?? 0) > 0;
+  const reminderNow = Date.now();
+  const reminderMinValue = formatDateTimeLocal(getMinimumReminderTimestamp(reminderNow));
+  const parsedReminderAt = parseDateTimeLocalInput(reminderInput);
+  const canSetReminder = isSchedulableReminderTimestamp(parsedReminderAt, reminderNow);
+  const showReminderValidation = Boolean(reminderInput) && !canSetReminder;
+  const metaIcon = (Icon: LucideIcon) => (
+    <Icon aria-hidden="true" size={14} strokeWidth={2.35} />
+  );
+  const metaAction = (icon: React.ReactNode, label: React.ReactNode) => (
+    <>
+      <span className="sp-meta-toggle-icon" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="sp-meta-toggle-label">{label}</span>
+    </>
+  );
 
   // Local state for WikiAutocomplete suggest dropdown
   const [wikiQuery, setWikiQuery] = useState<string | null>(null);
@@ -194,6 +238,12 @@ export function EditorView({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [colorMode, setColorMode] = useState<'text' | 'highlight'>('text');
   const fmtRef = useRef<HTMLDivElement>(null);
+  const reminderInputRef = useRef<HTMLInputElement>(null);
+  const [moveScope, setMoveScope] = useState<NoteScope>('domain');
+  const [moveWorkspaceIdInput, setMoveWorkspaceIdInput] = useState<string>('__none__');
+  const [moveFolderInput, setMoveFolderInput] = useState('');
+  const [moveBusy, setMoveBusy] = useState(false);
+  const [moveError, setMoveError] = useState<TranslationKey | null>(null);
   const [fmtActive, setFmtActive] = useState({
     bold: false,
     italic: false,
@@ -206,6 +256,19 @@ export function EditorView({
   // Related note suggestions states
   const [suggestions, setSuggestions] = useState<Note[]>([]);
   const suggDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const moveWorkspaceId = moveWorkspaceIdInput === '__none__' ? null : moveWorkspaceIdInput;
+  const moveFolderDatalistId = activeNoteId ? `sp-move-folders-${activeNoteId}` : 'sp-move-folders';
+  const moveFolderSuggestions = React.useMemo(() => {
+    return [
+      ...new Set(
+        allNotes
+          .filter((note) => note.workspaceId === moveWorkspaceId)
+          .map((note) => note.folder)
+          .filter(Boolean) as string[]
+      ),
+    ].sort();
+  }, [allNotes, moveWorkspaceId]);
 
   // ── Track active format state at cursor position ─────────────────────
   useEffect(() => {
@@ -237,6 +300,55 @@ export function EditorView({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showColorPicker]);
+
+  useEffect(() => {
+    if (!showMovePicker || !activeNote) return;
+    setMoveScope(activeNote.scope);
+    setMoveWorkspaceIdInput(activeNote.workspaceId ?? '__none__');
+    setMoveFolderInput(activeNote.folder ?? '');
+    setMoveError(null);
+  }, [showMovePicker, activeNote]);
+
+  const handleMoveSubmit = useCallback(async () => {
+    if (!activeNoteId) return;
+    if ((moveScope === 'url' || moveScope === 'domain') && !currentUrl) {
+      setMoveError('editor.moveNeedsUrl');
+      return;
+    }
+
+    setMoveBusy(true);
+    setMoveError(null);
+    const trimmedFolder = moveFolderInput.trim();
+    const normalizedFolder = trimmedFolder
+      ? (trimmedFolder.startsWith('/') ? trimmedFolder : `/${trimmedFolder}`)
+      : null;
+
+    const target: MoveNoteTarget = {
+      scope: moveScope,
+      workspaceId: moveWorkspaceId,
+      folder: normalizedFolder,
+    };
+    if (moveScope === 'url' || moveScope === 'domain') {
+      target.url = currentUrl;
+    }
+
+    try {
+      await moveNote(activeNoteId, target);
+      setShowMovePicker(false);
+    } catch {
+      setMoveError('editor.moveFailed');
+    } finally {
+      setMoveBusy(false);
+    }
+  }, [
+    activeNoteId,
+    moveScope,
+    currentUrl,
+    moveFolderInput,
+    moveWorkspaceId,
+    moveNote,
+    setShowMovePicker,
+  ]);
 
   // ── Smart suggestions: debounced related-note lookup ──────────
   useEffect(() => {
@@ -399,7 +511,7 @@ export function EditorView({
             while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
             p.removeChild(existing);
             p.normalize();
-            
+
             // Re-select the contents
             const r2 = document.createRange();
             r2.setStartBefore(first);
@@ -427,7 +539,7 @@ export function EditorView({
             const zwsp = document.createTextNode('\u200B');
             code.appendChild(zwsp);
             range.insertNode(code);
-            
+
             // Position the cursor inside the code element, after the zero-width space
             const r2 = document.createRange();
             r2.setStart(zwsp, 1);
@@ -478,11 +590,11 @@ export function EditorView({
     <div className="sp-note-view">
       {isRestrictedUrl ? (
         <div className="sp-empty-state" style={{ flex: 1 }}>
-          <div className="sp-empty-icon">{ICONS.lock}</div>
-          <div className="sp-empty-title">{t('editor.restrictedTitle')}</div>
-          <div className="sp-empty-desc">
-            {t('editor.restricted')}
+          <div className="sp-empty-icon">
+            <AppIcon name="lock" size={30} />
           </div>
+          <div className="sp-empty-title">{t('editor.restrictedTitle')}</div>
+          <div className="sp-empty-desc">{t('editor.restricted')}</div>
         </div>
       ) : (
         <>
@@ -518,6 +630,10 @@ export function EditorView({
               fmtActive={fmtActive}
               wrapSel={wrapSel}
               applyColor={applyColor}
+              fontSize={fontSize}
+              changeFontSize={changeFontSize}
+              fontSizeMinusTitle={t('editor.fontSizeMinus')}
+              fontSizePlusTitle={t('editor.fontSizePlus')}
               showColorPicker={showColorPicker}
               setShowColorPicker={setShowColorPicker}
               colorMode={colorMode}
@@ -587,7 +703,9 @@ export function EditorView({
                 contentEditable={!tabLoading}
                 suppressContentEditableWarning
                 autoFocus={!tabLoading}
-                data-placeholder={t('editor.placeholder', { scope: t(`scope.${scope}` as TranslationKey) })}
+                data-placeholder={t('editor.placeholder', {
+                  scope: t(`scope.${scope}` as TranslationKey),
+                })}
                 style={{
                   fontSize: fontSize,
                   textAlign: defaultAlign as React.CSSProperties['textAlign'],
@@ -715,10 +833,14 @@ export function EditorView({
 
           <div className="sp-note-meta">
             <span className="sp-note-meta-text">
-              {stripFormatting(content).split(/\s+/).filter(Boolean).length}{t('editor.words')}
+              {stripFormatting(content).split(/\s+/).filter(Boolean).length}
+              {t('editor.words')}
             </span>
             <span className="sp-note-meta-sep">·</span>
-            <span className="sp-note-meta-text">{stripFormatting(content).length}{t('editor.characters')}</span>
+            <span className="sp-note-meta-text">
+              {stripFormatting(content).length}
+              {t('editor.characters')}
+            </span>
             {(() => {
               const wordCount = stripFormatting(content).split(/\s+/).filter(Boolean).length;
               if (wordCount >= 50) {
@@ -736,340 +858,479 @@ export function EditorView({
             })()}
             <span className="sp-note-meta-spacer" />
 
-            {/* Move to folder */}
-            {activeNoteId && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={`sp-meta-toggle${activeNote?.folder ? ' active' : ''}`}
-                  onClick={() => setShowMovePicker(!showMovePicker)}
-                  title={activeNote?.folder ? t('editor.inFolder', { name: activeNote.folder.replace(/^\//, '') }) : t('editor.folderTooltip')}
-                >
-                  {ICONS.folder}
-                  {activeNote?.folder ? ' ' + activeNote.folder.replace(/^\//, '') : ''}
-                </button>
-                {showMovePicker && (
-                  <div className="sp-move-picker">
-                    <button
-                      className={`sp-move-item${!activeNote?.folder ? ' active' : ''}`}
-                      onClick={() => moveNoteToFolder(activeNoteId, undefined)}
-                    >
-                      {ICONS.doc} {t('folders.noFolder')}
-                    </button>
-                    {scopeFolders.map((f) => (
-                      <button
-                        key={f}
-                        className={`sp-move-item${activeNote?.folder === f ? ' active' : ''}`}
-                        onClick={() => moveNoteToFolder(activeNoteId, f)}
-                      >
-                        {ICONS.folder} {f.replace(/^\//, '')}
-                      </button>
-                    ))}
-                    <div className="sp-move-divider" />
-                    <button
-                      className="sp-move-item new"
-                      onClick={() => {
-                        setShowMovePicker(false);
-                        setShowNewFolder(true);
-                      }}
-                    >
-                      ＋ {t('folders.newFolder')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Insert date */}
-            <button
-              className="sp-meta-toggle"
-              onClick={insertDatetime}
-              title={t('editor.datetimeTooltip') + ' (Ctrl+D)'}
-            >
-              {ICONS.calendar}
-            </button>
-
-            {/* Font size */}
-            <button
-              className="sp-meta-toggle"
-              onClick={() => changeFontSize(-1)}
-              title={t('editor.fontSizeMinus')}
-              style={{ fontWeight: 700 }}
-            >
-              A-
-            </button>
-            <button
-              className="sp-meta-toggle"
-              onClick={() => changeFontSize(1)}
-              title={t('editor.fontSizePlus')}
-              style={{ fontWeight: 700 }}
-            >
-              A+
-            </button>
-
-            {/* Pin */}
-            {activeNoteId && (
+            <div className="sp-note-meta-actions">
               <button
-                className={`sp-meta-toggle${pinnedNotes.has(activeNoteId) ? ' active' : ''}`}
-                onClick={() => togglePin(activeNoteId)}
-                title={pinnedNotes.has(activeNoteId) ? t('editor.unpinTooltip') : t('editor.pinTooltip')}
+                type="button"
+                className="sp-meta-more-trigger"
+                aria-haspopup="true"
+                aria-label={t('editor.moreOptions')}
               >
-                {ICONS.pin}
+                <span className="sp-meta-more-dot" aria-hidden="true" />
+                {t('editor.moreOptions')}
               </button>
-            )}
 
-            {/* Color picker */}
-            {activeNoteId && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={`sp-meta-toggle${activeNoteColor ? ' active' : ''}`}
-                  onClick={() => setColorPickerNoteId(colorPickerNoteId ? null : activeNoteId)}
-                  title={t('editor.paletteTooltip')}
-                  style={
-                    activeNoteColor
-                      ? {
-                          borderLeftColor: activeNoteColor,
-                          borderLeftWidth: 3,
-                          color: activeNoteColor,
-                        }
-                      : undefined
-                  }
-                >
-                  {ICONS.palette}
-                </button>
-                {colorPickerNoteId === activeNoteId && (
-                  <div className="sp-color-picker">
-                    {NOTE_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        className={`sp-color-swatch${activeNoteColor === c.value ? ' active' : ''}`}
-                        style={
-                          c.value
-                            ? {
-                                background: c.value,
-                                border:
-                                  '2px solid ' +
-                                  (activeNoteColor === c.value ? c.value : 'transparent'),
-                                boxShadow:
-                                  activeNoteColor === c.value
-                                    ? `0 0 0 2px ${c.value}55`
-                                    : 'none',
-                              }
-                            : {
-                                background: 'var(--bg-subtle)',
-                                border: '2px solid var(--border)',
-                                boxShadow:
-                                  activeNoteColor === c.value
-                                    ? '0 0 0 2px var(--accent)'
-                                    : 'none',
-                              }
-                        }
-                        onClick={() => setNoteColor(activeNoteId, c.value)}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Export current note */}
-            {(content || title) && (
-              <button
-                className="sp-meta-toggle"
-                onClick={exportCurrentNote}
-                title={t('editor.exportTooltip')}
+              <div
+                className="sp-note-meta-action-panel"
+                role="toolbar"
+                aria-label={t('editor.moreOptions')}
               >
-                ↓md
-              </button>
-            )}
-
-            {/* Export to PDF */}
-            {(content || title) && (
-              <button
-                className="sp-meta-toggle"
-                onClick={exportToPDF}
-                title={t('editor.printTooltip')}
-              >
-                {ICONS.print}
-              </button>
-            )}
-
-            {/* Screenshot capture */}
-            {markdownEnabled && (
-              <button
-                className="sp-meta-toggle"
-                onClick={captureScreenshot}
-                title={t('editor.screenshotTooltip')}
-              >
-                {ICONS.camera}
-              </button>
-            )}
-
-            {/* Typewriter mode */}
-            <button
-              className={`sp-meta-toggle${typewriterMode ? ' active' : ''}`}
-              onClick={() => setTypewriterMode(!typewriterMode)}
-              title={
-                typewriterMode
-                  ? t('editor.typewriterExitTooltip') + ' (Ctrl+Shift+T)'
-                  : t('editor.typewriterTooltip') + ' (Ctrl+Shift+T)'
-              }
-            >
-              {ICONS.typewriter}
-            </button>
-
-            {/* Encrypt note */}
-            {activeNoteId && (
-              <button
-                className={`sp-meta-toggle${activeNote?.encrypted ? ' active' : ''}`}
-                onClick={() => {
-                  setShowEncPrompt(activeNote?.encrypted ? 'unlock' : 'lock');
-                }}
-                title={activeNote?.encrypted ? t('editor.decryptTooltip') : t('editor.encryptTooltip')}
-              >
-                {activeNote?.encrypted ? ICONS.lock : ICONS.unlock}
-              </button>
-            )}
-
-            {/* Focus mode */}
-            <button
-              className={`sp-meta-toggle${focusMode ? ' active' : ''}`}
-              onClick={() => setFocusMode(!focusMode)}
-              title={focusMode ? t('editor.focusExitTooltip') + ' (Esc)' : t('editor.focusTooltip') + ' (Ctrl+Shift+F)'}
-            >
-              {focusMode ? '⊠' : '⊡'}
-            </button>
-
-            {/* Reference panel (dual view) */}
-            <button
-              className={`sp-meta-toggle${showRefPanel ? ' active' : ''}`}
-              onClick={() => setShowRefPanel(!showRefPanel)}
-              title={showRefPanel ? t('editor.refPanelExitTooltip') : t('editor.refPanelTooltip')}
-            >
-              ⊟
-            </button>
-
-            {/* Copy */}
-            {content && (
-              <button
-                className={`sp-meta-toggle${copied ? ' active' : ''}`}
-                onClick={copyNote}
-                title={copied ? t('editor.copySuccessTooltip') : t('editor.copyTooltip')}
-              >
-                {copied ? '✓' : '⎘'}
-              </button>
-            )}
-
-            {/* Version history */}
-            {activeNoteId && (activeNote?.versions?.length ?? 0) > 0 && (
-              <div style={{ position: 'relative' }} ref={historyRef}>
-                <button
-                  className={`sp-meta-toggle${showHistory ? ' active' : ''}`}
-                  onClick={() => setShowHistory(!showHistory)}
-                  title={t('editor.historyTooltip')}
-                >
-                  {ICONS.history}
-                </button>
-                {showHistory && (
-                  <div className="sp-history-panel">
-                    <div className="sp-history-header">{t('editor.historyTooltip')}</div>
-                    {[...(activeNote!.versions ?? [])].reverse().map((v, i) => (
-                      <button
-                        key={i}
-                        className="sp-history-item"
-                        onClick={() => {
-                          setContent(v.content);
-                          if (v.title !== undefined) setTitle(v.title ?? '');
-                          schedule(v.content, v.title ?? title, tags);
-                          setShowHistory(false);
-                        }}
-                      >
-                        <span className="sp-history-time">
-                          {formatRelativeTimeText(v.savedAt)}
-                        </span>
-                        <span className="sp-history-preview">
-                          {stripFormatting(v.content).slice(0, 55) || t('editor.emptyVersion')}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Reminder */}
-            {activeNoteId && (
-              <div style={{ position: 'relative' }} ref={reminderRef}>
-                <button
-                  className={`sp-meta-toggle${activeNote?.reminderAt ? ' active' : ''}`}
-                  onClick={() => {
-                    if (activeNote?.reminderAt) {
-                      onClearReminder();
-                    } else {
-                      setShowReminderPicker(!showReminderPicker);
+                {/* Move note */}
+                <div className="sp-meta-popover-anchor">
+                  <button
+                    className={`sp-meta-toggle${activeNote?.folder ? ' active' : ''}`}
+                    disabled={!activeNoteId}
+                    onClick={() => {
+                      if (!activeNoteId) return;
+                      setShowMovePicker(!showMovePicker);
+                    }}
+                    title={
+                      activeNote?.folder
+                        ? t('editor.inFolder', { name: activeNote.folder.replace(/^\//, '') })
+                        : t('editor.folderTooltip')
                     }
-                  }}
-                  title={
-                    activeNote?.reminderAt
-                      ? t('editor.reminderSetFor', { date: new Date(activeNote.reminderAt).toLocaleString() })
-                      : t('editor.reminderTooltip')
-                  }
-                >
-                  {activeNote?.reminderAt ? '⏰✓' : '⏰'}
-                </button>
-                {showReminderPicker && (
-                  <div className="sp-reminder-picker">
-                    <div className="sp-reminder-label">{t('editor.remindMeAt')}</div>
-                    <input
-                      type="datetime-local"
-                      className="sp-reminder-input"
-                      value={reminderInput}
-                      onChange={(e) => setReminderInput(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                    />
-                    <button
-                      className="sp-reminder-set-btn"
-                      disabled={!reminderInput}
-                      onClick={async () => {
-                        const ts = new Date(reminderInput).getTime();
-                        await onSetReminder(ts);
+                  >
+                    {metaAction(metaIcon(FolderIcon), t('editor.actionFolder'))}
+                  </button>
+                  {activeNoteId && showMovePicker && (
+                    <form
+                      className="sp-move-picker sp-move-picker-advanced"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void handleMoveSubmit();
                       }}
                     >
-                      {t('editor.setReminder')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                      <div className="sp-move-field">
+                        <label className="sp-move-label" htmlFor="tn-move-workspace">
+                          {t('editor.moveWorkspaceLabel')}
+                        </label>
+                        <select
+                          id="tn-move-workspace"
+                          className="sp-move-select"
+                          value={moveWorkspaceIdInput}
+                          onChange={(event) => setMoveWorkspaceIdInput(event.target.value)}
+                          disabled={moveBusy}
+                        >
+                          <option value="__none__">{t('settingsSections.noWorkspace')}</option>
+                          {workspaces.map((workspace) => (
+                            <option key={workspace.id} value={workspace.id}>
+                              {workspace.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-            {/* Clip feedback badge */}
-            {clipFeedback && <span className="sp-clip-badge">{ICONS.check} {t('editor.clippedFeedback')}</span>}
+                      <div className="sp-move-field">
+                        <label className="sp-move-label" htmlFor="tn-move-scope">
+                          {t('editor.moveScopeLabel')}
+                        </label>
+                        <select
+                          id="tn-move-scope"
+                          className="sp-move-select"
+                          value={moveScope}
+                          onChange={(event) => setMoveScope(event.target.value as NoteScope)}
+                          disabled={moveBusy}
+                        >
+                          <option value="url">{t('scope.url')}</option>
+                          <option value="domain">{t('scope.domain')}</option>
+                          <option value="workspace">{t('scope.workspace')}</option>
+                          <option value="global">{t('scope.global')}</option>
+                        </select>
+                        {(moveScope === 'url' || moveScope === 'domain') && (
+                          <div className="sp-move-hint">
+                            {moveScope === 'url'
+                              ? t('editor.moveUsesCurrentUrl')
+                              : t('editor.moveUsesCurrentDomain', {
+                                  domain: normalizeDomain(currentUrl),
+                                })}
+                          </div>
+                        )}
+                      </div>
 
-            {/* Checklist mode toggle */}
-            {activeNoteId && (
+                      <div className="sp-move-field">
+                        <label className="sp-move-label" htmlFor="tn-move-folder">
+                          {t('editor.moveFolderLabel')}
+                        </label>
+                        <input
+                          id="tn-move-folder"
+                          className="sp-move-input"
+                          value={moveFolderInput}
+                          onChange={(event) => setMoveFolderInput(event.target.value)}
+                          placeholder={t('editor.moveNoFolder')}
+                          list={moveFolderDatalistId}
+                          disabled={moveBusy}
+                        />
+                        <datalist id={moveFolderDatalistId}>
+                          {moveFolderSuggestions.map((folder) => (
+                            <option key={folder} value={folder} />
+                          ))}
+                        </datalist>
+                      </div>
+
+                      {moveError && <div className="sp-move-error">{t(moveError)}</div>}
+
+                      <div className="sp-move-actions">
+                        <button
+                          type="button"
+                          className="sp-move-cancel-btn"
+                          onClick={() => setShowMovePicker(false)}
+                          disabled={moveBusy}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button type="submit" className="sp-move-submit-btn" disabled={moveBusy}>
+                          {moveBusy ? t('editor.moving') : t('editor.moveApply')}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+
+              {/* Insert date */}
               <button
-                className={`sp-meta-toggle${checklistMode ? ' active' : ''}`}
-                onClick={toggleChecklistMode}
+                className="sp-meta-toggle"
+                onClick={insertDatetime}
+                title={t('editor.datetimeTooltip') + ' (Ctrl+D)'}
+              >
+                {metaAction(metaIcon(CalendarDays), t('editor.actionDate'))}
+              </button>
+
+              {/* Pin */}
+              <button
+                className={`sp-meta-toggle${
+                  activeNoteId && pinnedNotes.has(activeNoteId) ? ' active' : ''
+                }`}
+                disabled={!activeNoteId}
+                onClick={() => {
+                  if (!activeNoteId) return;
+                  togglePin(activeNoteId);
+                }}
                 title={
-                  checklistMode
-                    ? t('editor.checklistExitTooltip')
-                    : t('editor.checklistTooltip')
+                  activeNoteId && pinnedNotes.has(activeNoteId)
+                    ? t('editor.unpinTooltip')
+                    : t('editor.pinTooltip')
                 }
               >
-                {checklistMode ? '☑' : '☐'}
+                {metaAction(
+                  metaIcon(PinIcon),
+                  activeNoteId && pinnedNotes.has(activeNoteId)
+                    ? t('editor.actionPinned')
+                    : t('editor.actionPin')
+                )}
               </button>
-            )}
 
-            {/* Markdown preview */}
-            {markdownEnabled && (
+              {/* Color picker */}
+              <div className="sp-meta-popover-anchor">
+                  <button
+                    className={`sp-meta-toggle${activeNoteColor ? ' active' : ''}`}
+                    disabled={!activeNoteId}
+                    onClick={() => {
+                      if (!activeNoteId) return;
+                      setColorPickerNoteId(colorPickerNoteId ? null : activeNoteId);
+                    }}
+                    title={t('editor.paletteTooltip')}
+                    style={
+                      activeNoteColor
+                        ? {
+                            borderLeftColor: activeNoteColor,
+                            borderLeftWidth: 3,
+                            color: activeNoteColor,
+                          }
+                        : undefined
+                    }
+                  >
+                    {metaAction(metaIcon(Palette), t('editor.actionColor'))}
+                  </button>
+                  {activeNoteId && colorPickerNoteId === activeNoteId && (
+                    <div className="sp-color-picker">
+                      {NOTE_COLORS.map((c) => (
+                        <button
+                          key={c.value}
+                          className={`sp-color-swatch${activeNoteColor === c.value ? ' active' : ''}`}
+                          style={
+                            c.value
+                              ? {
+                                  background: c.value,
+                                  border:
+                                    '2px solid ' +
+                                    (activeNoteColor === c.value ? c.value : 'transparent'),
+                                  boxShadow:
+                                    activeNoteColor === c.value ? `0 0 0 2px ${c.value}55` : 'none',
+                                }
+                              : {
+                                  background: 'var(--bg-subtle)',
+                                  border: '2px solid var(--border)',
+                                  boxShadow:
+                                    activeNoteColor === c.value
+                                      ? '0 0 0 2px var(--accent)'
+                                      : 'none',
+                                }
+                          }
+                          onClick={() => setNoteColor(activeNoteId, c.value)}
+                          title={c.label}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              {/* Export current note */}
+                <button
+                  className="sp-meta-toggle"
+                  disabled={!hasNoteBody}
+                  onClick={exportCurrentNote}
+                  title={t('editor.exportTooltip')}
+                >
+                  {metaAction(metaIcon(Download), t('editor.actionExportMd'))}
+                </button>
+
+              {/* Export to PDF */}
+                <button
+                  className="sp-meta-toggle"
+                  disabled={!hasNoteBody}
+                  onClick={exportToPDF}
+                  title={t('editor.printTooltip')}
+                >
+                  {metaAction(metaIcon(Printer), t('editor.actionPdf'))}
+                </button>
+
+              {/* Screenshot capture */}
+              {markdownEnabled && (
+                <button
+                  className="sp-meta-toggle"
+                  onClick={captureScreenshot}
+                  title={t('editor.screenshotTooltip')}
+                >
+                  {metaAction(metaIcon(Camera), t('editor.actionScreenshot'))}
+                </button>
+              )}
+
+              {/* Typewriter mode */}
               <button
-                className={`sp-meta-toggle${preview ? ' active' : ''}`}
-                onClick={() => setPreview(!preview)}
-                title={t('editor.markdownTooltip')}
+                className={`sp-meta-toggle${typewriterMode ? ' active' : ''}`}
+                onClick={() => setTypewriterMode(!typewriterMode)}
+                title={
+                  typewriterMode
+                    ? t('editor.typewriterExitTooltip') + ' (Ctrl+Shift+T)'
+                    : t('editor.typewriterTooltip') + ' (Ctrl+Shift+T)'
+                }
               >
-                {preview ? ICONS.note : ICONS.markdown}
+                {metaAction(metaIcon(Keyboard), t('editor.actionTypewriter'))}
               </button>
-            )}
+
+              {/* Encrypt note */}
+                <button
+                  className={`sp-meta-toggle${activeNote?.encrypted ? ' active' : ''}`}
+                  disabled={!activeNoteId}
+                  onClick={() => {
+                    if (!activeNoteId) return;
+                    setShowEncPrompt(activeNote?.encrypted ? 'unlock' : 'lock');
+                  }}
+                  title={
+                    activeNote?.encrypted ? t('editor.decryptTooltip') : t('editor.encryptTooltip')
+                  }
+                >
+                  {metaAction(
+                    metaIcon(activeNote?.encrypted ? LockOpen : Lock),
+                    activeNote?.encrypted ? t('editor.actionDecrypt') : t('editor.actionEncrypt')
+                  )}
+                </button>
+
+              {/* Focus mode */}
+              <button
+                className={`sp-meta-toggle${focusMode ? ' active' : ''}`}
+                onClick={() => setFocusMode(!focusMode)}
+                title={
+                  focusMode
+                    ? t('editor.focusExitTooltip') + ' (Esc)'
+                    : t('editor.focusTooltip') + ' (Ctrl+Shift+F)'
+                }
+              >
+                {metaAction(metaIcon(FocusIcon), t('editor.actionFocus'))}
+              </button>
+
+              {/* Reference panel (dual view) */}
+              <button
+                className={`sp-meta-toggle${showRefPanel ? ' active' : ''}`}
+                onClick={() => setShowRefPanel(!showRefPanel)}
+                title={showRefPanel ? t('editor.refPanelExitTooltip') : t('editor.refPanelTooltip')}
+              >
+                {metaAction(
+                  metaIcon(PanelRightOpen),
+                  showRefPanel ? t('editor.actionRefClose') : t('editor.actionReference')
+                )}
+              </button>
+
+              {/* Copy */}
+                <button
+                  className={`sp-meta-toggle${copied ? ' active' : ''}`}
+                  disabled={!content}
+                  onClick={copyNote}
+                  title={copied ? t('editor.copySuccessTooltip') : t('editor.copyTooltip')}
+                >
+                  {metaAction(
+                    metaIcon(copied ? Check : CopyIcon),
+                    copied ? t('editor.actionCopied') : t('editor.actionCopy')
+                  )}
+                </button>
+
+              {/* Version history */}
+                <div className="sp-meta-popover-anchor" ref={historyRef}>
+                  <button
+                    className={`sp-meta-toggle${showHistory ? ' active' : ''}`}
+                    disabled={!hasHistory}
+                    onClick={() => {
+                      if (!hasHistory) return;
+                      setShowHistory(!showHistory);
+                    }}
+                    title={t('editor.historyTooltip')}
+                  >
+                    {metaAction(metaIcon(History), t('editor.actionHistory'))}
+                  </button>
+                  {activeNoteId && hasHistory && showHistory && (
+                    <div className="sp-history-panel">
+                      <div className="sp-history-header">{t('editor.historyTooltip')}</div>
+                      {[...(activeNote!.versions ?? [])].reverse().map((v, i) => (
+                        <button
+                          key={i}
+                          className="sp-history-item"
+                          onClick={() => {
+                            setContent(v.content);
+                            if (v.title !== undefined) setTitle(v.title ?? '');
+                            schedule(v.content, v.title ?? title, tags);
+                            setShowHistory(false);
+                          }}
+                        >
+                          <span className="sp-history-time">
+                            {formatRelativeTimeText(v.savedAt)}
+                          </span>
+                          <span className="sp-history-preview">
+                            {stripFormatting(v.content).slice(0, 55) || t('editor.emptyVersion')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              {/* Reminder */}
+                <div className="sp-meta-popover-anchor" ref={reminderRef}>
+                  <button
+                    className={`sp-meta-toggle${activeNote?.reminderAt ? ' active' : ''}`}
+                    disabled={!activeNoteId}
+                    onClick={() => {
+                      if (!activeNoteId) return;
+                      if (activeNote?.reminderAt) {
+                        onClearReminder();
+                      } else {
+                        const willOpen = !showReminderPicker;
+                        if (willOpen && !isSchedulableReminderTimestamp(parsedReminderAt)) {
+                          setReminderInput(formatDateTimeLocal(getDefaultReminderTimestamp()));
+                        }
+                        setShowReminderPicker(willOpen);
+                      }
+                    }}
+                    title={
+                      activeNote?.reminderAt
+                        ? t('editor.reminderSetFor', {
+                            date: new Date(activeNote.reminderAt).toLocaleString(),
+                          })
+                        : t('editor.reminderTooltip')
+                    }
+                  >
+                    {metaAction(
+                      metaIcon(activeNote?.reminderAt ? Check : AlarmClock),
+                      activeNote?.reminderAt
+                        ? t('editor.actionReminderSet')
+                        : t('editor.actionReminder')
+                    )}
+                  </button>
+                  {showReminderPicker && (
+                    <div className="sp-reminder-picker">
+                      <div className="sp-reminder-label">{t('editor.remindMeAt')}</div>
+                      <div className="sp-reminder-input-wrap">
+                        <input
+                          ref={reminderInputRef}
+                          type="datetime-local"
+                          className="sp-reminder-input"
+                          value={reminderInput}
+                          onChange={(e) => setReminderInput(e.target.value)}
+                          min={reminderMinValue}
+                        />
+                        <button
+                          type="button"
+                          className="sp-reminder-picker-trigger"
+                          title={t('editor.remindMeAt')}
+                          aria-label={t('editor.remindMeAt')}
+                          onClick={() => {
+                            const input = reminderInputRef.current;
+                            input?.focus();
+                            input?.showPicker?.();
+                          }}
+                        >
+                          <CalendarDays size={15} strokeWidth={2.35} />
+                        </button>
+                      </div>
+                      {showReminderValidation && (
+                        <div className="sp-reminder-validation">
+                          {t('editor.reminderInvalid')}
+                        </div>
+                      )}
+                      <button
+                        className="sp-reminder-set-btn"
+                        disabled={!canSetReminder}
+                        onClick={async () => {
+                          const ts = parseDateTimeLocalInput(reminderInput);
+                          if (!isSchedulableReminderTimestamp(ts)) {
+                            setReminderInput(formatDateTimeLocal(getDefaultReminderTimestamp()));
+                            return;
+                          }
+                          await onSetReminder(ts);
+                          setShowReminderPicker(false);
+                          setReminderInput('');
+                        }}
+                      >
+                        {t('editor.setReminder')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              {/* Clip feedback badge */}
+              {clipFeedback && (
+                <span className="sp-clip-badge">
+                  <AppIcon name="check" size={12} /> {t('editor.clippedFeedback')}
+                </span>
+              )}
+
+              {/* Checklist mode toggle */}
+                <button
+                  className={`sp-meta-toggle${checklistMode ? ' active' : ''}`}
+                  onClick={toggleChecklistMode}
+                  title={
+                    checklistMode ? t('editor.checklistExitTooltip') : t('editor.checklistTooltip')
+                  }
+                >
+                  {metaAction(
+                    metaIcon(checklistMode ? SquarePen : ListChecks),
+                    checklistMode ? t('editor.actionPlainText') : t('editor.actionChecklist')
+                  )}
+                </button>
+
+              {/* Markdown preview */}
+              {markdownEnabled && (
+                <button
+                  className={`sp-meta-toggle${preview ? ' active' : ''}`}
+                  onClick={() => setPreview(!preview)}
+                  title={t('editor.markdownTooltip')}
+                >
+                  {metaAction(
+                    metaIcon(preview ? SquarePen : Eye),
+                    preview ? t('editor.actionEdit') : t('editor.actionPreview')
+                  )}
+                </button>
+              )}
+              </div>
+            </div>
           </div>
         </>
       )}

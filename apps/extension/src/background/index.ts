@@ -1,4 +1,75 @@
 import { handleDriveAlarm, handleDriveMessage, scheduleDriveAutoSync } from './driveSync';
+import {
+  ACTIVE_REMINDER_ALERT_STORAGE_KEY,
+  ActiveReminderAlert,
+  DEFAULT_SNOOZE_MINUTES,
+  NOTE_REMINDER_ALARM_PREFIX,
+  OPEN_REMINDER_REQUEST_STORAGE_KEY,
+  PENDING_REMINDERS_STORAGE_KEY,
+  PendingNoteReminder,
+  REMINDER_ALERT_DURATION_MS,
+  REMINDER_BADGE_FLASH_MS,
+  createPendingReminderId,
+  createNoteReminderAlarmName,
+  createNoteReminderNotificationId,
+  isFutureReminderTimestamp,
+  isReminderTimestamp,
+  normalizePendingReminders,
+  parseNoteReminderAlarmName,
+  parseNoteReminderNotificationId,
+  removePendingReminder,
+  roundUpToMinute,
+  upsertPendingReminder,
+} from '../shared/reminders';
+
+type ReminderCollectionKey = 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global';
+
+interface ReminderNote {
+  title?: string;
+  content?: string;
+  reminderAt?: number;
+  scope?: string;
+  scopeKey?: string;
+  workspaceId?: string | null;
+}
+
+type ReminderStorageData = Partial<Record<ReminderCollectionKey, Record<string, ReminderNote>>>;
+
+const REMINDER_COLLECTION_KEYS: ReminderCollectionKey[] = [
+  'notes_url',
+  'notes_domain',
+  'notes_workspace',
+  'notes_global',
+];
+
+const OFFSCREEN_DOCUMENT_PATH = 'offscreen/index.html';
+
+interface RuntimeContext {
+  url?: string;
+}
+
+type RuntimeWithContexts = typeof chrome.runtime & {
+  getContexts?: (filter: {
+    contextTypes: string[];
+    documentUrls: string[];
+  }) => Promise<RuntimeContext[]>;
+};
+
+type ChromeWithOffscreen = typeof chrome & {
+  offscreen?: {
+    createDocument: (parameters: {
+      url: string;
+      reasons: string[];
+      justification: string;
+    }) => Promise<void>;
+    closeDocument: () => Promise<void>;
+  };
+};
+
+let creatingOffscreen: Promise<void> | null = null;
+let badgeFlashTimer: ReturnType<typeof setInterval> | null = null;
+let alertStopTimer: ReturnType<typeof setTimeout> | null = null;
+let badgeFlashOn = false;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -22,18 +93,240 @@ function normalizeUrl(url: string): string {
   } catch { return url; }
 }
 
+function clearAlarm(name: string): Promise<boolean> {
+  return new Promise((resolve) => chrome.alarms.clear(name, resolve));
+}
+
+function getAllAlarms(): Promise<chrome.alarms.Alarm[]> {
+  return new Promise((resolve) => chrome.alarms.getAll(resolve));
+}
+
+function getLocalStorage(keys: string | string[]): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+}
+
+function setLocalStorage(items: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve) => chrome.storage.local.set(items, () => resolve()));
+}
+
+function stripReminderText(value: string | undefined): string {
+  return (value ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>|<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getNotificationButtonTitle(key: string, fallback: string): string {
+  return chrome.i18n.getMessage(key) || fallback;
+}
+
+function getOffscreenApi() {
+  return (chrome as ChromeWithOffscreen).offscreen;
+}
+
+async function hasOffscreenDocument(): Promise<boolean> {
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH);
+  const runtimeWithContexts = chrome.runtime as RuntimeWithContexts;
+
+  if (runtimeWithContexts.getContexts) {
+    const contexts = await runtimeWithContexts.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [offscreenUrl],
+    });
+    return contexts.length > 0;
+  }
+
+  const clientsApi = (globalThis as unknown as {
+    clients?: { matchAll: () => Promise<Array<{ url: string }>> };
+  }).clients;
+  if (!clientsApi?.matchAll) return false;
+  const clients = await clientsApi.matchAll();
+  return clients.some((client) => client.url === offscreenUrl);
+}
+
+async function ensureOffscreenDocument(): Promise<void> {
+  const offscreen = getOffscreenApi();
+  if (!offscreen) return;
+  if (await hasOffscreenDocument()) return;
+
+  if (!creatingOffscreen) {
+    creatingOffscreen = offscreen
+      .createDocument({
+        url: OFFSCREEN_DOCUMENT_PATH,
+        reasons: ['AUDIO_PLAYBACK'],
+        justification: 'Play an audible TabNotes reminder alert until the user responds.',
+      })
+      .finally(() => {
+        creatingOffscreen = null;
+      });
+  }
+
+  await creatingOffscreen;
+}
+
+async function closeOffscreenDocument(): Promise<void> {
+  const offscreen = getOffscreenApi();
+  if (!offscreen || !(await hasOffscreenDocument())) return;
+  await offscreen.closeDocument().catch(() => undefined);
+}
+
+async function sendReminderAudioMessage(
+  message:
+    | { target: 'tabnotes-reminder-audio'; type: 'START_REMINDER_AUDIO'; durationMs: number }
+    | { target: 'tabnotes-reminder-audio'; type: 'STOP_REMINDER_AUDIO' }
+): Promise<void> {
+  await chrome.runtime.sendMessage(message).catch(() => undefined);
+}
+
+function getActiveReminderAlert(value: unknown): ActiveReminderAlert | null {
+  if (!value || typeof value !== 'object') return null;
+  const alert = value as Partial<ActiveReminderAlert>;
+  if (
+    typeof alert.noteId !== 'string' ||
+    !isReminderTimestamp(alert.startedAt) ||
+    !isReminderTimestamp(alert.expiresAt) ||
+    alert.expiresAt <= Date.now()
+  ) {
+    return null;
+  }
+  return alert as ActiveReminderAlert;
+}
+
+async function getPendingReminderCount(): Promise<number> {
+  const reminders = await getPendingReminders();
+  return reminders.length;
+}
+
+async function applyBadgeFrame(flashing: boolean): Promise<void> {
+  const pendingCount = await getPendingReminderCount();
+  if (pendingCount === 0) {
+    await updateBadgeForActiveTab();
+    return;
+  }
+
+  const text = flashing ? '!' : pendingCount > 99 ? '99+' : String(pendingCount);
+  const background = flashing ? '#ff3b30' : '#dcae19';
+  const textColor = flashing ? '#ffffff' : '#111318';
+  chrome.action.setBadgeText({ text });
+  chrome.action.setBadgeBackgroundColor({ color: background });
+  chrome.action.setBadgeTextColor({ color: textColor });
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) {
+    chrome.action.setBadgeText({ text, tabId: tab.id });
+    chrome.action.setBadgeBackgroundColor({ color: background, tabId: tab.id });
+    chrome.action.setBadgeTextColor({ color: textColor, tabId: tab.id });
+  }
+}
+
+function clearReminderAlertTimers(): void {
+  if (badgeFlashTimer) clearInterval(badgeFlashTimer);
+  if (alertStopTimer) clearTimeout(alertStopTimer);
+  badgeFlashTimer = null;
+  alertStopTimer = null;
+}
+
+function startBadgeFlashLoop(expiresAt: number): void {
+  clearReminderAlertTimers();
+  badgeFlashOn = false;
+
+  const tick = () => {
+    if (Date.now() >= expiresAt) {
+      void stopReminderAlert();
+      return;
+    }
+    badgeFlashOn = !badgeFlashOn;
+    void applyBadgeFrame(badgeFlashOn);
+  };
+
+  tick();
+  badgeFlashTimer = setInterval(tick, REMINDER_BADGE_FLASH_MS);
+  alertStopTimer = setTimeout(() => {
+    void stopReminderAlert();
+  }, Math.max(0, expiresAt - Date.now()));
+}
+
+async function startReminderAlert(noteId: string, durationMs = REMINDER_ALERT_DURATION_MS): Promise<void> {
+  const now = Date.now();
+  const expiresAt = now + durationMs;
+
+  await setLocalStorage({
+    [ACTIVE_REMINDER_ALERT_STORAGE_KEY]: {
+      noteId,
+      startedAt: now,
+      expiresAt,
+    } satisfies ActiveReminderAlert,
+  });
+
+  await ensureOffscreenDocument();
+  await sendReminderAudioMessage({
+    target: 'tabnotes-reminder-audio',
+    type: 'START_REMINDER_AUDIO',
+    durationMs,
+  });
+  startBadgeFlashLoop(expiresAt);
+}
+
+async function stopReminderAlert(): Promise<void> {
+  clearReminderAlertTimers();
+  await sendReminderAudioMessage({
+    target: 'tabnotes-reminder-audio',
+    type: 'STOP_REMINDER_AUDIO',
+  });
+  await chrome.storage.local.remove(ACTIVE_REMINDER_ALERT_STORAGE_KEY);
+  await closeOffscreenDocument();
+  await updateBadgeForActiveTab();
+}
+
+async function restoreReminderAlertIfNeeded(): Promise<void> {
+  const result = await getLocalStorage([
+    ACTIVE_REMINDER_ALERT_STORAGE_KEY,
+    PENDING_REMINDERS_STORAGE_KEY,
+  ]);
+  const alert = getActiveReminderAlert(result[ACTIVE_REMINDER_ALERT_STORAGE_KEY]);
+  const pendingCount = normalizePendingReminders(result[PENDING_REMINDERS_STORAGE_KEY]).length;
+
+  if (!alert || pendingCount === 0) {
+    await chrome.storage.local.remove(ACTIVE_REMINDER_ALERT_STORAGE_KEY);
+    return;
+  }
+
+  const remainingMs = alert.expiresAt - Date.now();
+  await ensureOffscreenDocument();
+  await sendReminderAudioMessage({
+    target: 'tabnotes-reminder-audio',
+    type: 'START_REMINDER_AUDIO',
+    durationMs: remainingMs,
+  });
+  startBadgeFlashLoop(alert.expiresAt);
+}
+
 
 // ── Badge updater ─────────────────────────────────────────────────────────────
 
 async function updateBadge(tabId: number, url: string): Promise<void> {
-  if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') ||
-      url.startsWith('about:') || url === 'chrome://newtab/') {
-    chrome.action.setBadgeText({ text: '', tabId });
-    return;
-  }
-
   try {
-    const result = await chrome.storage.local.get('tabnotes_data');
+    const result = await chrome.storage.local.get([
+      'tabnotes_data',
+      PENDING_REMINDERS_STORAGE_KEY,
+    ]);
+    const pendingCount = normalizePendingReminders(result[PENDING_REMINDERS_STORAGE_KEY]).length;
+
+    if (pendingCount > 0) {
+      chrome.action.setBadgeText({ text: pendingCount > 99 ? '99+' : String(pendingCount), tabId });
+      chrome.action.setBadgeBackgroundColor({ color: '#dcae19', tabId });
+      chrome.action.setBadgeTextColor({ color: '#111318', tabId });
+      return;
+    }
+
+    if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') ||
+        url.startsWith('about:') || url === 'chrome://newtab/') {
+      chrome.action.setBadgeText({ text: '', tabId });
+      return;
+    }
+
     const data = result['tabnotes_data'] as {
       notes_url?: Record<string, { scope: string; scopeKey: string; url?: string }>;
       notes_domain?: Record<string, { scope: string; scopeKey: string; url?: string }>;
@@ -172,6 +465,185 @@ async function checkBackupReminder(): Promise<void> {
   });
 }
 
+// ── Note reminders ───────────────────────────────────────────────────────────
+
+async function getPendingReminders(): Promise<PendingNoteReminder[]> {
+  const result = await getLocalStorage(PENDING_REMINDERS_STORAGE_KEY);
+  return normalizePendingReminders(result[PENDING_REMINDERS_STORAGE_KEY]);
+}
+
+async function setPendingReminders(reminders: PendingNoteReminder[]): Promise<void> {
+  await setLocalStorage({
+    [PENDING_REMINDERS_STORAGE_KEY]: normalizePendingReminders(reminders),
+  });
+  await updateBadgeForActiveTab();
+}
+
+async function scheduleNoteReminderAlarm(noteId: string, reminderAt: unknown): Promise<boolean> {
+  if (!noteId) return false;
+
+  const alarmName = createNoteReminderAlarmName(noteId);
+  await clearAlarm(alarmName);
+
+  if (!isFutureReminderTimestamp(reminderAt)) return false;
+
+  chrome.alarms.create(alarmName, { when: reminderAt });
+  return true;
+}
+
+async function dismissPendingReminder(noteId: string): Promise<void> {
+  const reminders = await getPendingReminders();
+  const remaining = removePendingReminder(reminders, noteId);
+  await setPendingReminders(remaining);
+  if (remaining.length === 0) {
+    await stopReminderAlert();
+  }
+}
+
+async function requestOpenReminder(noteId: string): Promise<void> {
+  await stopReminderAlert();
+  await setLocalStorage({
+    [OPEN_REMINDER_REQUEST_STORAGE_KEY]: {
+      noteId,
+      requestedAt: Date.now(),
+    },
+  });
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) await chrome.sidePanel.open({ tabId: tab.id });
+}
+
+function findReminderNote(
+  data: ReminderStorageData | undefined,
+  noteId: string
+): { foundScope: ReminderCollectionKey; note: ReminderNote } | null {
+  for (const colKey of REMINDER_COLLECTION_KEYS) {
+    const note = data?.[colKey]?.[noteId];
+    if (note) return { foundScope: colKey, note };
+  }
+  return null;
+}
+
+async function fireNoteReminder(noteId: string): Promise<void> {
+  const result = await getLocalStorage('tabnotes_data');
+  const data = result['tabnotes_data'] as ReminderStorageData | undefined;
+  const found = findReminderNote(data, noteId);
+
+  if (!found) return;
+
+  const firedAt = Date.now();
+  const preview = stripReminderText(found.note.content).slice(0, 120);
+  const title =
+    stripReminderText(found.note.title) ||
+    preview.slice(0, 60) ||
+    chrome.i18n.getMessage('noteReminderDefault');
+
+  const reminders = await getPendingReminders();
+  await setPendingReminders(
+    upsertPendingReminder(reminders, {
+      id: createPendingReminderId(noteId, firedAt),
+      noteId,
+      title,
+      preview,
+      firedAt,
+      reminderAt: found.note.reminderAt,
+      scope: found.note.scope,
+      scopeKey: found.note.scopeKey,
+      workspaceId: found.note.workspaceId ?? null,
+    })
+  );
+
+  chrome.notifications.create(createNoteReminderNotificationId(noteId), {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: chrome.i18n.getMessage('noteReminderTitle'),
+    message: title,
+    priority: 2,
+    buttons: [
+      { title: getNotificationButtonTitle('noteReminderOpenButton', 'Open note') },
+      { title: getNotificationButtonTitle('noteReminderSnoozeButton', 'Snooze 10 min') },
+    ],
+  });
+  await startReminderAlert(noteId);
+
+  const updatedCol = { ...(data?.[found.foundScope] ?? {}) };
+  if (updatedCol[noteId]) {
+    updatedCol[noteId] = { ...updatedCol[noteId], reminderAt: undefined };
+  }
+
+  await setLocalStorage({
+    tabnotes_data: {
+      ...(data ?? {}),
+      [found.foundScope]: updatedCol,
+    },
+  });
+}
+
+async function updateNoteReminderAt(noteId: string, reminderAt: number | undefined): Promise<void> {
+  const result = await getLocalStorage('tabnotes_data');
+  const data = result['tabnotes_data'] as ReminderStorageData | undefined;
+  const found = findReminderNote(data, noteId);
+
+  if (!found) return;
+
+  const updatedCol = { ...(data?.[found.foundScope] ?? {}) };
+  updatedCol[noteId] = {
+    ...updatedCol[noteId],
+    reminderAt,
+  };
+
+  await setLocalStorage({
+    tabnotes_data: {
+      ...(data ?? {}),
+      [found.foundScope]: updatedCol,
+    },
+  });
+}
+
+async function snoozeReminder(noteId: string, minutes = DEFAULT_SNOOZE_MINUTES): Promise<number | null> {
+  const boundedMinutes = Number.isFinite(minutes) ? Math.max(1, Math.min(24 * 60, minutes)) : DEFAULT_SNOOZE_MINUTES;
+  const reminderAt = roundUpToMinute(Date.now() + boundedMinutes * 60 * 1000);
+
+  await updateNoteReminderAt(noteId, reminderAt);
+  const scheduled = await scheduleNoteReminderAlarm(noteId, reminderAt);
+  if (!scheduled) return null;
+
+  await dismissPendingReminder(noteId);
+  return reminderAt;
+}
+
+async function restoreNoteReminderAlarms(): Promise<void> {
+  const existingAlarms = await getAllAlarms();
+  await Promise.all(
+    existingAlarms
+      .filter((alarm) => alarm.name.startsWith(NOTE_REMINDER_ALARM_PREFIX))
+      .map((alarm) => clearAlarm(alarm.name))
+  );
+
+  const result = await getLocalStorage('tabnotes_data');
+  const data = result['tabnotes_data'] as ReminderStorageData | undefined;
+  if (!data) return;
+
+  const now = Date.now();
+  const overdueNoteIds = new Set<string>();
+
+  for (const colKey of REMINDER_COLLECTION_KEYS) {
+    for (const [noteId, note] of Object.entries(data[colKey] ?? {})) {
+      if (!isReminderTimestamp(note.reminderAt)) continue;
+
+      if (note.reminderAt > now) {
+        chrome.alarms.create(createNoteReminderAlarmName(noteId), { when: note.reminderAt });
+      } else {
+        overdueNoteIds.add(noteId);
+      }
+    }
+  }
+
+  for (const noteId of overdueNoteIds) {
+    await fireNoteReminder(noteId);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -179,11 +651,15 @@ chrome.runtime.onInstalled.addListener(() => {
   updateBadgeForActiveTab();
   scheduleDigest();
   scheduleBackupCheck();
+  void restoreNoteReminderAlarms().catch(() => undefined);
+  void restoreReminderAlertIfNeeded().catch(() => undefined);
 });
 
 chrome.runtime.onStartup.addListener(() => {
   scheduleDigest();
   scheduleBackupCheck();
+  void restoreNoteReminderAlarms().catch(() => undefined);
+  void restoreReminderAlertIfNeeded().catch(() => undefined);
 });
 
 // ── Open side panel on icon click ─────────────────────────────────────────────
@@ -225,8 +701,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 // ── Badge: update when notes change in storage ────────────────────────────────
 
 chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area === 'local' && changes['tabnotes_data']) {
+  if (area !== 'local') return;
+
+  if (changes['tabnotes_data'] || changes[PENDING_REMINDERS_STORAGE_KEY]) {
     await updateBadgeForActiveTab();
+  }
+
+  if (
+    changes[PENDING_REMINDERS_STORAGE_KEY] &&
+    normalizePendingReminders(changes[PENDING_REMINDERS_STORAGE_KEY].newValue).length === 0
+  ) {
+    await stopReminderAlert();
+  }
+
+  if (changes['tabnotes_data']) {
     await scheduleDriveAutoSync();
   }
 });
@@ -271,15 +759,66 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   // SET_REMINDER: schedule a chrome.alarms reminder for a note
   if (msg.type === 'SET_REMINDER') {
-    const alarmName = 'tn_reminder_' + msg.noteId;
-    chrome.alarms.clear(alarmName);
-    if (msg.reminderAt && msg.reminderAt > Date.now()) {
-      chrome.alarms.create(alarmName, { when: msg.reminderAt });
-    }
+    (async () => {
+      const noteId = typeof msg.noteId === 'string' ? msg.noteId : '';
+      const ok = await scheduleNoteReminderAlarm(noteId, msg.reminderAt);
+      if (ok) await dismissPendingReminder(noteId);
+      sendResponse(ok ? { ok: true } : { ok: false, error: 'INVALID_REMINDER_TIME' });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
   }
   // CLEAR_REMINDER: cancel a scheduled alarm
   if (msg.type === 'CLEAR_REMINDER') {
-    chrome.alarms.clear('tn_reminder_' + msg.noteId);
+    (async () => {
+      if (typeof msg.noteId === 'string') {
+        await clearAlarm(createNoteReminderAlarmName(msg.noteId));
+        await dismissPendingReminder(msg.noteId);
+      }
+      sendResponse({ ok: true });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
+  }
+
+  if (msg.type === 'DISMISS_REMINDER') {
+    (async () => {
+      const noteId = typeof msg.noteId === 'string' ? msg.noteId : '';
+      if (noteId) await dismissPendingReminder(noteId);
+      sendResponse({ ok: true });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
+  }
+
+  if (msg.type === 'SNOOZE_REMINDER') {
+    (async () => {
+      const noteId = typeof msg.noteId === 'string' ? msg.noteId : '';
+      const minutes = typeof msg.minutes === 'number' ? msg.minutes : DEFAULT_SNOOZE_MINUTES;
+      const reminderAt = noteId ? await snoozeReminder(noteId, minutes) : null;
+      sendResponse(
+        reminderAt
+          ? { ok: true, reminderAt }
+          : { ok: false, error: 'UNABLE_TO_SNOOZE_REMINDER' }
+      );
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
+  }
+
+  if (msg.type === 'OPEN_REMINDER') {
+    (async () => {
+      const noteId = typeof msg.noteId === 'string' ? msg.noteId : '';
+      if (noteId) await requestOpenReminder(noteId);
+      sendResponse({ ok: Boolean(noteId) });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
   }
 });
 
@@ -300,53 +839,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     return;
   }
 
-  if (!alarm.name.startsWith('tn_reminder_')) return;
-  const noteId = alarm.name.replace('tn_reminder_', '');
+  const noteId = parseNoteReminderAlarmName(alarm.name);
+  if (!noteId) return;
 
   try {
-    const result = await chrome.storage.local.get('tabnotes_data');
-    const data = result['tabnotes_data'] as {
-      notes_url?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
-      notes_domain?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
-      notes_workspace?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
-      notes_global?: Record<string, { title?: string; content?: string; scope?: string; reminderAt?: number }>;
-    } | undefined;
-
-    let foundScope: 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global' | null = null;
-    let note: { title?: string; content?: string; reminderAt?: number } | null = null;
-    const collections = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const;
-
-    for (const colKey of collections) {
-      if (data?.[colKey]?.[noteId]) {
-        note = data[colKey][noteId];
-        foundScope = colKey;
-        break;
-      }
-    }
-
-    if (!note || !foundScope) return;
-
-    const title = note.title || (note.content?.trim().split('\n')[0].slice(0, 60)) || chrome.i18n.getMessage('noteReminderDefault');
-
-    chrome.notifications.create('tn_notif_' + noteId, {
-      type: 'basic',
-      iconUrl: 'icons/icon128.png',
-      title: chrome.i18n.getMessage('noteReminderTitle'),
-      message: title,
-      priority: 2,
-    });
-
-    const updatedCol = { ...(data?.[foundScope] ?? {}) };
-    if (updatedCol[noteId]) {
-      updatedCol[noteId] = { ...updatedCol[noteId], reminderAt: undefined };
-    }
-
-    await chrome.storage.local.set({
-      tabnotes_data: {
-        ...(data ?? {}),
-        [foundScope]: updatedCol,
-      },
-    });
+    await fireNoteReminder(noteId);
   } catch {
     // Notification cleanup is best-effort.
   }
@@ -355,13 +852,31 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ── Notification click → open sidepanel ───────────────────────────────────────
 
 chrome.notifications.onClicked.addListener(async (notifId) => {
-  if (!notifId.startsWith('tn_notif_') && !notifId.startsWith('tn_digest_') && !notifId.startsWith('tn_backup_remind_')) return;
+  const reminderNoteId = parseNoteReminderNotificationId(notifId);
+  if (reminderNoteId) {
+    await requestOpenReminder(reminderNoteId);
+    chrome.notifications.clear(notifId);
+    return;
+  }
+
+  if (!notifId.startsWith('tn_digest_') && !notifId.startsWith('tn_backup_remind_')) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.sidePanel.open({ tabId: tab.id });
   chrome.notifications.clear(notifId);
 });
 
-chrome.notifications.onButtonClicked.addListener(async (notifId) => {
+chrome.notifications.onButtonClicked.addListener(async (notifId, buttonIndex) => {
+  const reminderNoteId = parseNoteReminderNotificationId(notifId);
+  if (reminderNoteId) {
+    if (buttonIndex === 0) {
+      await requestOpenReminder(reminderNoteId);
+    } else {
+      await snoozeReminder(reminderNoteId, DEFAULT_SNOOZE_MINUTES);
+    }
+    chrome.notifications.clear(notifId);
+    return;
+  }
+
   if (!notifId.startsWith('tn_backup_remind_')) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.sidePanel.open({ tabId: tab.id });

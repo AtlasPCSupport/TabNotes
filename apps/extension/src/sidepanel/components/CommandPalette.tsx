@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { ICONS } from '../icons';
 import { useSidePanelStore } from '../store';
 import { stripFormatting, NoteScope, Note } from '@tabnotes/shared';
+import { AppIcon, type AppIconName } from './AppIcon';
 
 export interface CommandPaletteProps {
   // Local states/handlers in parent
@@ -25,7 +25,7 @@ export interface CommandPaletteProps {
 interface PaletteItem {
   label: string;
   sublabel?: string;
-  icon: string;
+  icon: AppIconName;
   shortcut?: string;
   run: () => void;
 }
@@ -53,6 +53,7 @@ export function CommandPalette({
   const workspaces = useSidePanelStore((s) => s.workspaces);
   const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
   const setView = useSidePanelStore((s) => s.setView);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
   const setMdState = useSidePanelStore((s) => s.setMdState);
   const setActiveWorkspaceId = useSidePanelStore((s) => s.setActiveWorkspaceId);
 
@@ -98,7 +99,7 @@ export function CommandPalette({
       items.push({
         label: stripFormatting(n.title || n.content.split('\n')[0]) || 'Untitled',
         sublabel: stripFormatting(n.content.replace(/\n+/g, ' ')).slice(0, 72).trim(),
-        icon: n.encrypted ? ICONS.lock : ICONS.doc,
+        icon: n.encrypted ? 'lock' : 'doc',
         run: () => {
           selectNote(n);
           setView('note');
@@ -110,41 +111,48 @@ export function CommandPalette({
     const actions: PaletteItem[] = [
       {
         label: 'New note',
-        icon: ICONS.note,
+        icon: 'note',
         run: () => {
           addNoteToContext();
           setView('note');
         },
       },
-      { label: 'All Notes', icon: ICONS.list, run: () => setView('all') },
-      { label: 'Note Graph', icon: ICONS.graph, run: () => setView('graph') },
-      { label: 'Settings', icon: ICONS.settings, run: () => setView('settings') },
-      { label: 'Toggle Markdown', icon: ICONS.markdown, run: () => setMdState((p) => !p) },
+      { label: 'All Notes', icon: 'list', run: () => setView('all') },
+      { label: 'Note Graph', icon: 'graph', run: () => setView('graph') },
+      {
+        label: 'Settings',
+        icon: 'settings',
+        run: () => {
+          setSettingsTarget(null);
+          setView('settings');
+        },
+      },
+      { label: 'Toggle Markdown', icon: 'markdown', run: () => setMdState((p) => !p) },
       {
         label: 'Toggle Focus mode',
-        icon: ICONS.focus,
+        icon: 'focus',
         shortcut: 'Ctrl+Shift+F',
         run: () => setFocusMode((p) => !p),
       },
       {
         label: 'Toggle Typewriter',
-        icon: ICONS.typewriter,
+        icon: 'typewriter',
         shortcut: 'Ctrl+Shift+T',
         run: () => setTypewriterMode((p) => !p),
       },
-      { label: 'Capture screenshot', icon: ICONS.camera, run: () => captureScreenshot() },
-      { label: 'Export to PDF', icon: ICONS.print, run: () => exportToPDF() },
-      { label: 'Scope: URL', icon: ICONS.url, run: () => handleScopeChange('url') },
-      { label: 'Scope: Domain', icon: ICONS.domain, run: () => handleScopeChange('domain') },
+      { label: 'Capture screenshot', icon: 'camera', run: () => captureScreenshot() },
+      { label: 'Export to PDF', icon: 'print', run: () => exportToPDF() },
+      { label: 'Scope: URL', icon: 'url', run: () => handleScopeChange('url') },
+      { label: 'Scope: Domain', icon: 'domain', run: () => handleScopeChange('domain') },
       {
         label: 'Scope: Projects',
-        icon: ICONS.workspace,
+        icon: 'workspace',
         run: () => handleScopeChange('workspace'),
       },
-      { label: 'Scope: Global', icon: ICONS.global, run: () => handleScopeChange('global') },
+      { label: 'Scope: Global', icon: 'global', run: () => handleScopeChange('global') },
       ...workspaces.map((ws) => ({
         label: `Switch to workspace: ${ws.name}`,
-        icon: ICONS.workspace,
+        icon: 'workspace' as const,
         run: async () => {
           setActiveWorkspaceId(ws.id);
           if (wsIdRef.current) {
@@ -171,7 +179,9 @@ export function CommandPalette({
     <div className="tn-palette-overlay" onMouseDown={() => setIsOpen(false)}>
       <div className="tn-palette-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="tn-palette-search-row">
-          <span className="tn-palette-icon-search">⌘</span>
+          <span className="tn-palette-icon-search">
+            <AppIcon name="command" size={15} />
+          </span>
           <input
             ref={cmdInputRef}
             className="tn-palette-input"
@@ -225,7 +235,9 @@ export function CommandPalette({
                 setIsOpen(false);
               }}
             >
-              <span className="tn-palette-item-icon">{item.icon}</span>
+              <span className="tn-palette-item-icon">
+                <AppIcon name={item.icon} size={15} />
+              </span>
               <span className="tn-palette-item-body">
                 <span className="tn-palette-item-label">{item.label}</span>
                 {item.sublabel && <span className="tn-palette-item-sub">{item.sublabel}</span>}

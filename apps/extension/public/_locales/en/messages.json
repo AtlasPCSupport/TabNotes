@@ -76,5 +76,11 @@
   },
   "noteReminderDefault": {
     "message": "TabNotes reminder"
+  },
+  "noteReminderOpenButton": {
+    "message": "Open note"
+  },
+  "noteReminderSnoozeButton": {
+    "message": "Snooze 10 min"
   }
 }

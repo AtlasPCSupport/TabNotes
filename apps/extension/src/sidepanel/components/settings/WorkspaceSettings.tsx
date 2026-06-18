@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSidePanelStore } from '../../store';
-import { ICONS } from '../../icons';
 import { useTranslation } from '@tabnotes/i18n';
+import { AppIcon } from '../AppIcon';
 
 export interface WorkspaceColor {
   value: string;
@@ -56,12 +56,18 @@ export function WorkspaceSettings({
           className={`sp-scope-row${activeWorkspaceId === null ? ' active' : ''}`}
           onClick={() => onSetActive(null)}
         >
-          <span className="sp-scope-row-icon">{ICONS.global}</span>
+          <span className="sp-scope-row-icon">
+            <AppIcon name="global" size={15} />
+          </span>
           <div className="sp-scope-row-info">
             <div className="sp-scope-row-name">{t('settingsSections.noWorkspace')}</div>
             <div className="sp-scope-row-desc">{t('settingsSections.globalNotes')}</div>
           </div>
-          {activeWorkspaceId === null && <span className="sp-scope-row-check">✓</span>}
+          {activeWorkspaceId === null && (
+            <span className="sp-scope-row-check">
+              <AppIcon name="check" size={13} />
+            </span>
+          )}
         </div>
         {workspaces.map((ws) => {
           const isActive = activeWorkspaceId === ws.id;
@@ -94,7 +100,11 @@ export function WorkspaceSettings({
                     {t('settingsSections.notesCount', { count: notesCount })}
                   </div>
                 </div>
-                {isActive && <span className="sp-scope-row-check">✓</span>}
+                {isActive && (
+                  <span className="sp-scope-row-check">
+                    <AppIcon name="check" size={13} />
+                  </span>
+                )}
               </div>
 
               {isActive && (

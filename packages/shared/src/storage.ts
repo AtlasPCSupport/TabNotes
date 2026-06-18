@@ -2,6 +2,7 @@ import type { Note, NoteVersion, Workspace, StorageData, ExportData, NoteScope }
 import { generateId, getScopeKey } from './utils';
 
 export const STORAGE_VERSION = 3;
+const NOTE_SCOPES = ['url', 'domain', 'workspace', 'global'] as const satisfies readonly NoteScope[];
 
 export const DEFAULT_STORAGE: StorageData = {
   notes_url: {},
@@ -36,6 +37,52 @@ export function getScopeCollectionKey(scope: NoteScope): 'notes_url' | 'notes_do
     case 'workspace': return 'notes_workspace';
     case 'global': return 'notes_global';
   }
+}
+
+type NoteCollectionKey = ReturnType<typeof getScopeCollectionKey>;
+
+export interface MoveNoteTarget {
+  scope?: NoteScope;
+  url?: string;
+  workspaceId?: string | null;
+  folder?: string | null;
+}
+
+function hasOwn<T extends object, K extends PropertyKey>(
+  value: T,
+  key: K,
+): value is T & Record<K, unknown> {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function normalizeFolder(folder: string | null | undefined): string | undefined {
+  const trimmed = folder?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+}
+
+function isAbsoluteUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return Boolean(parsed.protocol && parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function resolveMoveScopeInput(note: Note, scope: NoteScope, url?: string): string {
+  if (scope === 'workspace' || scope === 'global') return url ?? '';
+
+  const candidate = url ?? (note.scope === 'url' || note.scope === 'domain' ? note.scopeKey : '');
+  if (!candidate.trim()) {
+    throw new Error(`Cannot move note to ${scope} scope without a source URL.`);
+  }
+
+  if (scope === 'url' && !isAbsoluteUrl(candidate)) {
+    throw new Error('Cannot move note to URL scope without an absolute URL.');
+  }
+
+  return candidate;
 }
 
 function migrateNote(raw: Partial<Note>): Note {
@@ -279,7 +326,7 @@ export class NotesService {
     await this.adapter.update((data) => {
       let foundScope: NoteScope | null = null;
       let note: Note | null = null;
-      for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
+      for (const scope of NOTE_SCOPES) {
         const collKey = getScopeCollectionKey(scope);
         if (data[collKey]?.[id]) {
           foundScope = scope;
@@ -304,9 +351,73 @@ export class NotesService {
     return result;
   }
 
+  async moveNote(id: string, target: MoveNoteTarget): Promise<Note | null> {
+    let result: Note | null = null;
+
+    await this.adapter.update((data) => {
+      let note: Note | null = null;
+      for (const scope of NOTE_SCOPES) {
+        const collKey = getScopeCollectionKey(scope);
+        const candidate = data[collKey]?.[id];
+        if (candidate) {
+          note = candidate;
+          break;
+        }
+      }
+
+      if (!note) return {};
+
+      const targetScope = target.scope ?? note.scope;
+      const targetWorkspaceId = hasOwn(target, 'workspaceId')
+        ? target.workspaceId ?? null
+        : note.workspaceId ?? null;
+
+      if (targetWorkspaceId && !data.workspaces[targetWorkspaceId]) {
+        throw new Error('Cannot move note to a workspace that does not exist.');
+      }
+
+      const scopeInput = resolveMoveScopeInput(note, targetScope, target.url);
+      const targetCollectionKey = getScopeCollectionKey(targetScope);
+      const targetScopeKey = getScopeKey(targetScope, scopeInput, targetWorkspaceId);
+      const folder = hasOwn(target, 'folder') ? normalizeFolder(target.folder) : note.folder;
+      const moved: Note = {
+        ...note,
+        workspaceId: targetWorkspaceId,
+        scope: targetScope,
+        scopeKey: targetScopeKey,
+        folder,
+        updatedAt: Date.now(),
+      };
+
+      const patch: Partial<StorageData> = {};
+      const removedCollections = new Set<NoteCollectionKey>();
+
+      for (const scope of NOTE_SCOPES) {
+        const collKey = getScopeCollectionKey(scope);
+        if (data[collKey]?.[id]) {
+          const withoutMovedNote = { ...(data[collKey] ?? {}) };
+          delete withoutMovedNote[id];
+          patch[collKey] = withoutMovedNote;
+          removedCollections.add(collKey);
+        }
+      }
+
+      const targetCollection = removedCollections.has(targetCollectionKey)
+        ? { ...(patch[targetCollectionKey] ?? {}) }
+        : { ...(data[targetCollectionKey] ?? {}) };
+      targetCollection[id] = moved;
+      patch[targetCollectionKey] = targetCollection;
+
+      result = moved;
+      return patch;
+    });
+
+    return result;
+  }
+
   async deleteNote(id: string): Promise<void> {
     await this.adapter.update((data) => {
-      for (const scope of ['url', 'domain', 'workspace', 'global'] as NoteScope[]) {
+      for (const scope of NOTE_SCOPES) {
         const collKey = getScopeCollectionKey(scope);
         if (data[collKey]?.[id]) {
           const notes = { ...data[collKey] };
@@ -358,15 +469,27 @@ export class WorkspacesService {
       const workspaces = { ...data.workspaces };
       delete workspaces[id];
 
-      // Cascading delete notes belonging to this workspace
-      const notes_workspace = { ...data.notes_workspace };
-      for (const noteId of Object.keys(notes_workspace)) {
-        if (notes_workspace[noteId].workspaceId === id) {
-          delete notes_workspace[noteId];
+      // Cascading delete notes belonging to this workspace, regardless of scope.
+      const noteUpdates: Partial<Pick<
+        StorageData,
+        'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global'
+      >> = {};
+      for (const scope of NOTE_SCOPES) {
+        const collKey = getScopeCollectionKey(scope);
+        const collection = { ...(data[collKey] ?? {}) };
+        let changed = false;
+        for (const noteId of Object.keys(collection)) {
+          if (collection[noteId].workspaceId === id) {
+            delete collection[noteId];
+            changed = true;
+          }
+        }
+        if (changed) {
+          noteUpdates[collKey] = collection;
         }
       }
       const activeWorkspaceId = data.activeWorkspaceId === id ? null : data.activeWorkspaceId;
-      return { workspaces, activeWorkspaceId, notes_workspace };
+      return { workspaces, activeWorkspaceId, ...noteUpdates };
     });
   }
 

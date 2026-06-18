@@ -96,7 +96,7 @@ export function useNoteActions({
   h1{border-bottom:2px solid #e5e7eb;padding-bottom:8px}
   code{background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:.88em}
   blockquote{border-left:3px solid #9ca3af;padding-left:16px;color:#6b7280;margin:0 0 1em}
-  a{color:#2b5be8} ul{padding-left:20px} li{margin:3px 0}
+  a{color:#dcae19} ul{padding-left:20px} li{margin:3px 0}
   .meta{font-size:.8em;color:#9ca3af;padding-bottom:10px;margin-bottom:20px;border-bottom:1px solid #f0f0f0}
   @media print{body{margin:0}}
 </style></head><body>

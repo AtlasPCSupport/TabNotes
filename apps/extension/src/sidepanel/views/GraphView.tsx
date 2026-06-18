@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Note } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
 import { NoteGraph } from '../editor/NoteGraph';
+import { AppIcon } from '../components/AppIcon';
 
 /**
  * Note graph view. Reads notes + active note from the store; note selection is
@@ -17,14 +17,16 @@ export function GraphView({ onSelectNote }: { onSelectNote: (n: Note) => void })
   return (
     <div className="sp-graph-view">
       <div className="sp-graph-header">
-        <span className="sp-graph-title">{ICONS.graph} Note Graph</span>
+        <span className="sp-graph-title">
+          <AppIcon name="graph" size={15} /> Note Graph
+        </span>
         <button className="sp-icon-btn" style={{ fontSize: 11 }} onClick={() => setView('note')}>
-          ✕
+          <AppIcon name="close" size={13} />
         </button>
       </div>
       <div className="sp-graph-legend">
         <span className="sp-graph-legend-item">
-          <span style={{ color: '#2b5be8' }}>─</span> Wiki link
+          <span style={{ color: 'var(--accent)' }}>─</span> Wiki link
         </span>
         <span className="sp-graph-legend-item">
           <span style={{ color: '#c8d0e0' }}>╌</span> Shared tag

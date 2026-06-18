@@ -1,7 +1,7 @@
 import React from 'react';
 import type { PinHash } from '@tabnotes/shared';
-import { ICONS } from '../../icons';
 import { useTranslation } from '@tabnotes/i18n';
+import { AppIcon } from '../AppIcon';
 
 /**
  * Security / PIN-lock settings section. Self-contained: receives the PIN state
@@ -34,7 +34,7 @@ export function PinSettings({
   return (
     <div className="sp-settings-section">
       <div className="sp-settings-label">
-        {ICONS.lock} {t('settingsSections.securityPinLock')}
+        <AppIcon name="lock" size={14} /> {t('settingsSections.securityPinLock')}
       </div>
       <div className="sp-settings-row-info" style={{ marginBottom: 10 }}>
         {t('settingsSections.pinLockDesc')}
@@ -43,7 +43,7 @@ export function PinSettings({
         <>
           <div className="sp-settings-row">
             <span className="sp-pin-status">
-              {ICONS.check} {t('pin.enabled')}
+              <AppIcon name="check" size={13} /> {t('pin.enabled')}
             </span>
             <button className="sp-pin-action" onClick={lockNow}>
               {t('pin.lockNow')}

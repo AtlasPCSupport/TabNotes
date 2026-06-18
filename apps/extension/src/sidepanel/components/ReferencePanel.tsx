@@ -1,6 +1,7 @@
 import React from 'react';
 import { Note, stripFormatting, renderMarkdown } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
+import { AppIcon } from './AppIcon';
 
 export interface ReferencePanelProps {
   refNoteId: string | null;
@@ -39,7 +40,7 @@ export function ReferencePanel({
             setShowRefPanel(false);
           }}
         >
-          ✕
+          <AppIcon name="close" size={13} />
         </button>
       </div>
       {refNoteId === null ? (

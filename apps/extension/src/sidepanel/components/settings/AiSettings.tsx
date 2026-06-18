@@ -1,6 +1,6 @@
 import React from 'react';
-import { ICONS } from '../../icons';
 import { useTranslation } from '@tabnotes/i18n';
+import { AppIcon } from '../AppIcon';
 
 /**
  * AI Assistant (Groq API key) settings section. The actual persistence is done
@@ -62,7 +62,7 @@ export function AiSettings({
           onClick={() => setGroqKeyVisible((v) => !v)}
           title={groqKeyVisible ? t('settingsSections.hide') : t('settingsSections.show')}
         >
-          {groqKeyVisible ? ICONS.unlock : ICONS.lock}
+          <AppIcon name={groqKeyVisible ? 'unlock' : 'lock'} size={14} />
         </button>
         <button className="sp-groq-key-save" onClick={() => saveGroqKey(groqKeyInput.trim())}>
           {t('common.save')}
@@ -70,7 +70,7 @@ export function AiSettings({
       </div>
       {groqKey && (
         <div className="sp-groq-key-status">
-          ✓ {t('settingsSections.keySaved')} —{' '}
+          <AppIcon name="check" size={13} /> {t('settingsSections.keySaved')} —{' '}
           <button className="sp-groq-open-chat" onClick={onOpenChat}>
             {t('settingsSections.openChat')} →
           </button>

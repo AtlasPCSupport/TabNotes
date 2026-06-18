@@ -3,6 +3,19 @@ import type { Language } from '@tabnotes/i18n';
 
 /** The side panel's top-level views, mirrored from the existing `view` state. */
 export type View = 'note' | 'all' | 'settings' | 'graph' | 'chat' | 'about';
+export type SettingsTarget =
+  | 'features'
+  | 'ai'
+  | 'appearance'
+  | 'language'
+  | 'pin'
+  | 'editor'
+  | 'scope'
+  | 'digest'
+  | 'workspace'
+  | 'stats'
+  | 'data'
+  | 'support';
 
 export type Theme = 'light' | 'dark' | 'system';
 export type Align = 'left' | 'center' | 'right';
@@ -42,8 +55,11 @@ export interface ContextSlice {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   defaultScope: NoteScope;
+  settingsTarget: SettingsTarget | null;
+  settingsTargetVersion: number;
 
   setView: (view: View) => void;
+  setSettingsTarget: (target: SettingsTarget | null) => void;
   setScope: (scope: NoteScope) => void;
   setCurrentUrl: (url: string) => void;
   setCurrentDomain: (domain: string) => void;

@@ -15,8 +15,16 @@ export const createContextSlice: StateCreator<SidePanelState, [], [], ContextSli
   workspaces: [],
   activeWorkspaceId: null,
   defaultScope: 'domain',
+  settingsTarget: null,
+  settingsTargetVersion: 0,
 
   setView: (view) => set({ view }),
+  setSettingsTarget: (settingsTarget) =>
+    set((state) => ({
+      settingsTarget,
+      settingsTargetVersion:
+        settingsTarget === null ? state.settingsTargetVersion : state.settingsTargetVersion + 1,
+    })),
   setScope: (scope) => set({ scope }),
   setCurrentUrl: (currentUrl) => set({ currentUrl }),
   setCurrentDomain: (currentDomain) => set({ currentDomain }),

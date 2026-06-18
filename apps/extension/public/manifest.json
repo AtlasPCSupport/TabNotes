@@ -59,7 +59,8 @@
     "sidePanel",
     "alarms",
     "notifications",
-    "identity"
+    "identity",
+    "offscreen"
   ],
   "oauth2": {
     "client_id": "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",

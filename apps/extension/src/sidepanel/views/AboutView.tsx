@@ -1,16 +1,20 @@
 import React from 'react';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
+import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 /** Static About screen. Extracted verbatim (Task 5.2) — no behavior change. */
 export function AboutView() {
   const setView = useSidePanelStore((s) => s.setView);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
 
   return (
     <div className="sp-settings-view">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
         <button
-          onClick={() => setView('settings')}
+          onClick={() => {
+            setSettingsTarget(null);
+            setView('settings');
+          }}
           style={{
             padding: '4px 10px',
             borderRadius: 'var(--r-md)',
@@ -40,16 +44,16 @@ export function AboutView() {
           style={{
             width: 48,
             height: 48,
-            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+            background: 'linear-gradient(135deg, #f2c735, #dcae19)',
             borderRadius: 14,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#fff',
+            color: 'var(--accent-ink)',
             fontSize: 22,
             fontWeight: 800,
             margin: '0 auto 12px',
-            boxShadow: '0 4px 16px rgba(37,99,235,0.3)',
+            boxShadow: '0 4px 16px rgba(220,174,25,0.28)',
           }}
         >
           T
@@ -73,8 +77,8 @@ export function AboutView() {
       {[
         {
           title: 'Editor',
-          icon: ICONS.typewriter,
-          color: '#2b5be8',
+          icon: 'typewriter' as AppIconName,
+          color: 'var(--accent)',
           items: [
             'WYSIWYG rich text (B / I / U / S / Code / Highlight)',
             'Markdown preview (toggle ↓md)',
@@ -86,7 +90,7 @@ export function AboutView() {
         },
         {
           title: 'Organization',
-          icon: ICONS.folder,
+          icon: 'folder' as AppIconName,
           color: '#0ea5e9',
           items: [
             '4 scopes: URL · Domain · Projects · Global',
@@ -97,7 +101,7 @@ export function AboutView() {
         },
         {
           title: 'Productivity',
-          icon: ICONS.spark,
+          icon: 'spark' as AppIconName,
           color: '#f59e0b',
           items: [
             'Templates (Daily Log, Meeting, Todo, Standup)',
@@ -110,8 +114,8 @@ export function AboutView() {
         },
         {
           title: 'Intelligence',
-          icon: ICONS.graph,
-          color: '#8b5cf6',
+          icon: 'graph' as AppIconName,
+          color: 'var(--accent)',
           items: [
             'Smart suggestions while you write',
             'AI Chat powered by Groq',
@@ -120,7 +124,7 @@ export function AboutView() {
         },
         {
           title: 'Data & Privacy',
-          icon: ICONS.shield,
+          icon: 'shield' as AppIconName,
           color: '#22c55e',
           items: [
             'Auto note history & restore',
@@ -145,7 +149,7 @@ export function AboutView() {
                 justifyContent: 'center',
               }}
             >
-              {cat.icon}
+              <AppIcon name={cat.icon} size={14} />
             </div>
             <span
               style={{

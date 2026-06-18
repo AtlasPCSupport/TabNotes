@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Note, stripFormatting } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
+import { AppIcon } from '../components/AppIcon';
 
 export type ChatMsg = { role: 'user' | 'assistant'; content: string };
 
@@ -17,6 +17,7 @@ export function ChatView({
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const currentDomain = useSidePanelStore((s) => s.currentDomain);
   const setView = useSidePanelStore((s) => s.setView);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
   const view = useSidePanelStore((s) => s.view);
 
   // Local chat states
@@ -168,14 +169,14 @@ export function ChatView({
             onClick={() => setChatScope('domain')}
             title="Ask about notes from this domain"
           >
-            {ICONS.domain} {currentDomain || 'Domain'}
+            <AppIcon name="domain" size={13} /> {currentDomain || 'Domain'}
           </button>
           <button
             className={`sp-chat-scope-btn${chatScope === 'all' ? ' active' : ''}`}
             onClick={() => setChatScope('all')}
             title="Ask about all your notes"
           >
-            {ICONS.global} All notes
+            <AppIcon name="global" size={13} /> All notes
           </button>
         </div>
         <span className="sp-chat-ctx-count">
@@ -195,15 +196,25 @@ export function ChatView({
           <div className="sp-chat-empty">
             {!groqKey ? (
               <div className="sp-chat-no-key">
-                <span className="sp-chat-no-key-icon">{ICONS.key}</span>
+                <span className="sp-chat-no-key-icon">
+                  <AppIcon name="key" size={32} />
+                </span>
                 <p>Add your Groq API key in Settings to start chatting with your notes.</p>
-                <button className="sp-chat-goto-settings" onClick={() => setView('settings')}>
+                <button
+                  className="sp-chat-goto-settings"
+                  onClick={() => {
+                    setSettingsTarget('ai');
+                    setView('settings');
+                  }}
+                >
                   Open Settings →
                 </button>
               </div>
             ) : (
               <div className="sp-chat-hint">
-                <span className="sp-chat-hint-icon">{ICONS.chat}</span>
+                <span className="sp-chat-hint-icon">
+                  <AppIcon name="chat" size={30} />
+                </span>
                 <p>Ask anything about your notes.</p>
                 <div className="sp-chat-examples">
                   {[
@@ -267,7 +278,7 @@ export function ChatView({
           disabled={chatLoading || !chatInput.trim()}
           title="Send (Enter)"
         >
-          {chatLoading ? '…' : '↑'}
+          {chatLoading ? '…' : <AppIcon name="send" size={14} />}
         </button>
       </div>
 

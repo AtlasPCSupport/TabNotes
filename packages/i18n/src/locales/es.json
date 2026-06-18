@@ -19,6 +19,17 @@
     "ask": "Preguntar",
     "settings": "Ajustes"
   },
+  "reminders": {
+    "title": "Recordatorios pendientes",
+    "count_one": "{{count}} recordatorio vencido",
+    "count_other": "{{count}} recordatorios vencidos",
+    "due": "Venció {{time}}",
+    "open": "Abrir",
+    "snooze": "Posponer {{minutes}} min",
+    "snoozeShort": "10 min",
+    "dismiss": "Descartar",
+    "more": "+{{count}} más"
+  },
   "scope": {
     "url": "URL",
     "domain": "Dominio",
@@ -38,6 +49,30 @@
     "restrictedTitle": "No se puede acceder a esta página",
     "characters": "ch",
     "words": "p",
+    "moreOptions": "Más opciones",
+    "actionFolder": "Carpeta",
+    "actionDate": "Fecha",
+    "actionPin": "Fijar",
+    "actionPinned": "Fijada",
+    "actionColor": "Color",
+    "actionExportMd": "Exportar",
+    "actionPdf": "PDF",
+    "actionScreenshot": "Captura",
+    "actionTypewriter": "Máquina",
+    "actionEncrypt": "Encriptar",
+    "actionDecrypt": "Desencriptar",
+    "actionFocus": "Enfoque",
+    "actionReference": "Referencia",
+    "actionRefClose": "Cerrar ref",
+    "actionCopy": "Copiar",
+    "actionCopied": "Copiado",
+    "actionHistory": "Historial",
+    "actionReminder": "Recordar",
+    "actionReminderSet": "Recordando",
+    "actionChecklist": "Lista",
+    "actionPlainText": "Texto",
+    "actionPreview": "Vista MD",
+    "actionEdit": "Editar",
     "folderTooltip": "Mover a carpeta",
     "datetimeTooltip": "Insertar fecha/hora",
     "fontSizeMinus": "Texto más chico",
@@ -72,8 +107,19 @@
     "emptyVersion": "(vacío)",
     "reminderSetFor": "Recordatorio establecido para {{date}} — haz clic para borrar",
     "remindMeAt": "Recordarme a las",
+    "reminderInvalid": "Elige una hora al menos un minuto en el futuro.",
     "setReminder": "Establecer recordatorio",
-    "clippedFeedback": "¡Recortado!"
+    "clippedFeedback": "¡Recortado!",
+    "moveWorkspaceLabel": "Proyecto",
+    "moveScopeLabel": "Ámbito",
+    "moveFolderLabel": "Carpeta",
+    "moveNoFolder": "Sin carpeta (raíz)",
+    "moveApply": "Mover nota",
+    "moving": "Moviendo…",
+    "moveUsesCurrentUrl": "Usa la URL actual de la pestaña.",
+    "moveUsesCurrentDomain": "Usa el dominio actual de la pestaña ({{domain}}).",
+    "moveNeedsUrl": "Abre una página web normal para mover notas a URL o Dominio.",
+    "moveFailed": "No se pudo mover la nota. Inténtalo otra vez."
   },
   "noteList": {
     "searchPlaceholder": "Buscar notas, títulos, etiquetas…",
@@ -159,10 +205,26 @@
   },
   "templates": {
     "insert": "Insertar plantilla",
-    "meeting": "Reunión",
-    "todo": "Lista de tareas",
-    "research": "Investigación",
-    "dailylog": "Registro diario"
+    "meeting": {
+      "label": "Reunión",
+      "title": "Notas de reunión",
+      "content": "## Asistentes\n- \n\n## Agenda\n1. \n\n## Decisiones\n- \n\n## Acciones pendientes\n- [ ] "
+    },
+    "todo": {
+      "label": "Lista de tareas",
+      "title": "Lista de tareas",
+      "content": "## Hoy\n- [ ] \n- [ ] \n- [ ] \n\n## Esta semana\n- [ ] \n- [ ] "
+    },
+    "research": {
+      "label": "Investigación",
+      "title": "Investigación",
+      "content": "## Objetivo\n\n## Fuentes\n- \n\n## Hallazgos clave\n\n## Resumen\n"
+    },
+    "dailylog": {
+      "label": "Registro diario",
+      "title": "Registro diario",
+      "content": "# {{date}}\n\n## Hecho\n- \n\n## Notas\n\n## Mañana\n- "
+    }
   },
   "settingsSections": {
     "features": {

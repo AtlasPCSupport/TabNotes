@@ -19,6 +19,17 @@
     "ask": "Ask",
     "settings": "Settings"
   },
+  "reminders": {
+    "title": "Pending reminders",
+    "count_one": "{{count}} reminder is due",
+    "count_other": "{{count}} reminders are due",
+    "due": "Due {{time}}",
+    "open": "Open",
+    "snooze": "Snooze {{minutes}} min",
+    "snoozeShort": "10 min",
+    "dismiss": "Dismiss",
+    "more": "+{{count}} more"
+  },
   "scope": {
     "url": "URL",
     "domain": "Domain",
@@ -38,6 +49,30 @@
     "restrictedTitle": "Can't access this page",
     "characters": "ch",
     "words": "w",
+    "moreOptions": "More options",
+    "actionFolder": "Folder",
+    "actionDate": "Date",
+    "actionPin": "Pin",
+    "actionPinned": "Pinned",
+    "actionColor": "Color",
+    "actionExportMd": "Export",
+    "actionPdf": "PDF",
+    "actionScreenshot": "Capture",
+    "actionTypewriter": "Typewriter",
+    "actionEncrypt": "Encrypt",
+    "actionDecrypt": "Decrypt",
+    "actionFocus": "Focus",
+    "actionReference": "Reference",
+    "actionRefClose": "Close ref",
+    "actionCopy": "Copy",
+    "actionCopied": "Copied",
+    "actionHistory": "History",
+    "actionReminder": "Reminder",
+    "actionReminderSet": "Reminder set",
+    "actionChecklist": "Checklist",
+    "actionPlainText": "Text",
+    "actionPreview": "Preview",
+    "actionEdit": "Edit",
     "folderTooltip": "Move to folder",
     "datetimeTooltip": "Insert date/time",
     "fontSizeMinus": "Smaller text",
@@ -72,8 +107,19 @@
     "emptyVersion": "(empty)",
     "reminderSetFor": "Reminder set for {{date}} — click to clear",
     "remindMeAt": "Remind me at",
+    "reminderInvalid": "Choose a time at least one minute from now.",
     "setReminder": "Set reminder",
-    "clippedFeedback": "Clipped!"
+    "clippedFeedback": "Clipped!",
+    "moveWorkspaceLabel": "Project",
+    "moveScopeLabel": "Scope",
+    "moveFolderLabel": "Folder",
+    "moveNoFolder": "No folder (root)",
+    "moveApply": "Move note",
+    "moving": "Moving…",
+    "moveUsesCurrentUrl": "Uses the current tab URL.",
+    "moveUsesCurrentDomain": "Uses the current tab domain ({{domain}}).",
+    "moveNeedsUrl": "Open a normal web page to move notes to URL or Domain scope.",
+    "moveFailed": "Couldn't move the note. Try again."
   },
   "noteList": {
     "searchPlaceholder": "Search notes, titles, tags…",
@@ -159,10 +205,26 @@
   },
   "templates": {
     "insert": "Insert template",
-    "meeting": "Meeting",
-    "todo": "To-Do List",
-    "research": "Research",
-    "dailylog": "Daily Log"
+    "meeting": {
+      "label": "Meeting",
+      "title": "Meeting Notes",
+      "content": "## Attendees\n- \n\n## Agenda\n1. \n\n## Decisions\n- \n\n## Action Items\n- [ ] "
+    },
+    "todo": {
+      "label": "To-Do List",
+      "title": "To-Do List",
+      "content": "## Today\n- [ ] \n- [ ] \n- [ ] \n\n## This week\n- [ ] \n- [ ] "
+    },
+    "research": {
+      "label": "Research",
+      "title": "Research",
+      "content": "## Goal\n\n## Sources\n- \n\n## Key findings\n\n## Summary\n"
+    },
+    "dailylog": {
+      "label": "Daily Log",
+      "title": "Daily Log",
+      "content": "# {{date}}\n\n## Done\n- \n\n## Notes\n\n## Tomorrow\n- "
+    }
   },
   "settingsSections": {
     "features": {

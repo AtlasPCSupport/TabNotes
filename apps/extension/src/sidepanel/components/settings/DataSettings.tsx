@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from '@tabnotes/i18n';
 import { DriveSyncSettings } from './DriveSyncSettings';
+import { AppIcon } from '../AppIcon';
 
 /**
  * Data management settings: export/import backup + backup-reminder interval.
@@ -29,14 +30,18 @@ export function DataSettings({
       <div className="sp-settings-label">{t('settingsSections.data')}</div>
       <div className="sp-data-grid">
         <button className="sp-data-btn export" onClick={handleExport}>
-          <span className="sp-data-btn-icon">↓</span>
+          <span className="sp-data-btn-icon">
+            <AppIcon name="download" size={18} />
+          </span>
           <div className="sp-data-btn-info">
             <div className="sp-data-btn-title">{t('settingsSections.exportBackup')}</div>
             <div className="sp-data-btn-desc">{t('settingsSections.exportBackupDesc')}</div>
           </div>
         </button>
         <button className="sp-data-btn import" onClick={() => importInputRef.current?.click()}>
-          <span className="sp-data-btn-icon">↑</span>
+          <span className="sp-data-btn-icon">
+            <AppIcon name="upload" size={18} />
+          </span>
           <div className="sp-data-btn-info">
             <div className="sp-data-btn-title">{t('settingsSections.importBackup')}</div>
             <div className="sp-data-btn-desc">{t('settingsSections.importBackupDesc')}</div>
@@ -52,7 +57,8 @@ export function DataSettings({
       </div>
       {dataFeedback && (
         <div className={`sp-data-feedback ${dataFeedback.type}`}>
-          {dataFeedback.type === 'success' ? '✓' : '✕'} {dataFeedback.msg}
+          <AppIcon name={dataFeedback.type === 'success' ? 'check' : 'close'} size={13} />{' '}
+          {dataFeedback.msg}
         </div>
       )}
 

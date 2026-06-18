@@ -1,4 +1,5 @@
 import React, { useState, MutableRefObject } from 'react';
+import { AppIcon } from './AppIcon';
 
 export interface ChecklistItem {
   id: string;
@@ -118,7 +119,9 @@ export function ChecklistEditor({
             onDragOver={(e) => handleItemDragOver(e, absoluteIndex)}
             onDragEnd={handleItemDragEnd}
           >
-            <div className="sp-checklist-drag-handle">⠿</div>
+            <div className="sp-checklist-drag-handle">
+              <AppIcon name="grip" size={13} />
+            </div>
             <input
               type="checkbox"
               className="sp-checklist-checkbox"
@@ -137,14 +140,16 @@ export function ChecklistEditor({
               className="sp-checklist-delete"
               onClick={() => handleItemDelete(absoluteIndex)}
             >
-              ✕
+              <AppIcon name="close" size={12} />
             </button>
           </div>
         );
       })}
 
       <div className="sp-checklist-add-row">
-        <div className="sp-checklist-add-icon">+</div>
+        <div className="sp-checklist-add-icon">
+          <AppIcon name="plus" size={14} />
+        </div>
         <input
           type="text"
           className="sp-checklist-add-input"
@@ -185,12 +190,12 @@ export function ChecklistEditor({
           <button
             className="sp-checklist-completed-header"
             onClick={() => setShowCompletedList(!showCompletedList)}
-          >
-            <span
-              className={`sp-checklist-completed-arrow${showCompletedList ? ' open' : ''}`}
             >
-              ▶
-            </span>
+              <span
+                className={`sp-checklist-completed-arrow${showCompletedList ? ' open' : ''}`}
+              >
+                <AppIcon name="chevronRight" size={13} />
+              </span>
             <span>
               Elementos completados ({checklistItems.filter((it) => it.checked).length})
             </span>
@@ -209,7 +214,9 @@ export function ChecklistEditor({
                     onDragOver={(e) => handleItemDragOver(e, absoluteIndex)}
                     onDragEnd={handleItemDragEnd}
                   >
-                    <div className="sp-checklist-drag-handle">⠿</div>
+                    <div className="sp-checklist-drag-handle">
+                      <AppIcon name="grip" size={13} />
+                    </div>
                     <input
                       type="checkbox"
                       className="sp-checklist-checkbox"
@@ -228,7 +235,7 @@ export function ChecklistEditor({
                       className="sp-checklist-delete"
                       onClick={() => handleItemDelete(absoluteIndex)}
                     >
-                      ✕
+                      <AppIcon name="close" size={12} />
                     </button>
                   </div>
                 );

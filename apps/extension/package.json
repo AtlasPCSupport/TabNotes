@@ -9,9 +9,10 @@
     "e2e": "pnpm build && playwright test"
   },
   "dependencies": {
+    "@tabnotes/i18n": "workspace:*",
     "@tabnotes/shared": "workspace:*",
     "@tabnotes/ui": "workspace:*",
-    "@tabnotes/i18n": "workspace:*",
+    "lucide-react": "^1.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.14"

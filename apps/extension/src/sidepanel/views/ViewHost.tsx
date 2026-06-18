@@ -1,9 +1,8 @@
 import React from 'react';
 import { ErrorBoundary } from '@tabnotes/ui';
 import { useSidePanelStore } from '../store';
-import { Note, NoteScope, PinHash, searchNotes } from '@tabnotes/shared';
+import { Note, NoteScope, PinHash, searchNotes, type MoveNoteTarget } from '@tabnotes/shared';
 import type { Features, Theme, Align } from '../store/types';
-import { ICONS } from '../icons';
 import { ScopeOption } from './AllNotesView';
 
 import EditorView from './EditorView';
@@ -15,10 +14,10 @@ import AboutView from './AboutView';
 import ReferencePanel from '../components/ReferencePanel';
 
 const SCOPE_OPTIONS: ScopeOption[] = [
-  { value: 'url', label: 'URL', icon: ICONS.url, desc: 'Exact page URL' },
-  { value: 'domain', label: 'Domain', icon: ICONS.domain, desc: 'Entire site' },
-  { value: 'workspace', label: 'Projects', icon: ICONS.workspace, desc: 'Your project' },
-  { value: 'global', label: 'Global', icon: ICONS.global, desc: 'Everywhere' },
+  { value: 'url', label: 'URL', icon: 'url', desc: 'Exact page URL' },
+  { value: 'domain', label: 'Domain', icon: 'domain', desc: 'Entire site' },
+  { value: 'workspace', label: 'Projects', icon: 'workspace', desc: 'Your project' },
+  { value: 'global', label: 'Global', icon: 'global', desc: 'Everywhere' },
 ];
 
 export interface ViewHostProps {
@@ -83,8 +82,7 @@ export interface ViewHostProps {
   schedule: (c: string, t: string, tg: string) => void;
   showMovePicker: boolean;
   setShowMovePicker: (v: boolean) => void;
-  setShowNewFolder: (v: boolean) => void;
-  moveNoteToFolder: (noteId: string, folder: string | undefined) => void;
+  moveNote: (noteId: string, target: MoveNoteTarget) => Promise<void>;
   copied: boolean;
   showHistory: boolean;
   historyRef: React.RefObject<HTMLDivElement>;
@@ -200,8 +198,7 @@ export function ViewHost({
   schedule,
   showMovePicker,
   setShowMovePicker,
-  setShowNewFolder,
-  moveNoteToFolder,
+  moveNote,
   copied,
   showHistory,
   historyRef,
@@ -309,8 +306,7 @@ export function ViewHost({
             setNoteColor={onSetNoteColor}
             showMovePicker={showMovePicker}
             setShowMovePicker={setShowMovePicker}
-            setShowNewFolder={setShowNewFolder}
-            moveNoteToFolder={moveNoteToFolder}
+            moveNote={moveNote}
             insertDatetime={insertDatetime}
             changeFontSize={changeFontSize}
             exportCurrentNote={exportCurrentNote}

@@ -1,52 +1,22 @@
 import React from 'react';
 import type { Note } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
+import { AppIcon } from './AppIcon';
+
+export type TemplateId = 'meeting' | 'todo' | 'research' | 'dailylog';
 
 export interface Template {
-  label: string;
-  title: string;
-  content: string;
+  id: TemplateId;
   dynamic?: boolean;
 }
 
 export const TEMPLATES: Template[] = [
-  {
-    label: 'Meeting',
-    title: 'Meeting Notes',
-    content: '## Attendees\n- \n\n## Agenda\n1. \n\n## Decisions\n- \n\n## Action Items\n- [ ] ',
-  },
-  {
-    label: 'To-Do',
-    title: 'To-Do List',
-    content: '## Today\n- [ ] \n- [ ] \n- [ ] \n\n## This week\n- [ ] \n- [ ] ',
-  },
-  {
-    label: 'Research',
-    title: 'Research',
-    content: '## Goal\n\n## Sources\n- \n\n## Key findings\n\n## Summary\n',
-  },
-  {
-    label: 'Daily Log',
-    title: '',
-    content: '',
-    dynamic: true,
-  },
+  { id: 'meeting' },
+  { id: 'todo' },
+  { id: 'research' },
+  { id: 'dailylog', dynamic: true },
 ];
-
-const FolderIcon = ({ color }: { color?: string }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color || 'currentColor'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sp-folder-svg" style={{ flexShrink: 0 }}>
-    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="sp-folder-svg" style={{ flexShrink: 0 }}>
-    <line x1="12" y1="5" x2="12" y2="19"></line>
-    <line x1="5" y1="12" x2="19" y2="12"></line>
-  </svg>
-);
 
 const WORKSPACE_COLORS = [
   { value: '#2f6dff', label: 'Blue' },
@@ -74,20 +44,20 @@ export interface NoteTreeProps {
   folderMenuRef: React.RefObject<HTMLDivElement>;
   renameFolder: (oldPath: string, newName: string, newColor?: string) => Promise<void>;
   deleteFolder: (path: string) => Promise<void>;
-  
+
   createFolder: () => Promise<void>;
   applyTemplate: (tpl: Template) => void;
-  
+
   addNoteToContext: (folder?: string) => Promise<void>;
   selectNote: (n: Note) => void;
   deletePillNote: (id: string) => Promise<void>;
-  
+
   handleDragStart: (e: React.DragEvent, noteId: string) => void;
   handleDragEnd: () => void;
   handleDragOver: (e: React.DragEvent, folder: string | null) => void;
   handleDragLeave: () => void;
   handleDrop: (e: React.DragEvent, folder: string | null) => void;
-  
+
   deletePillConfirmId: string | null;
   setDeletePillConfirmId: (v: string | null) => void;
 }
@@ -139,9 +109,7 @@ export function NoteTree({
 
   // Derive folder list strictly from contextNotes (current tab scope notes)
   const scopeFolders = React.useMemo(() => {
-    return [
-      ...new Set(contextNotes.map((n) => n.folder).filter(Boolean) as string[]),
-    ].sort();
+    return [...new Set(contextNotes.map((n) => n.folder).filter(Boolean) as string[])].sort();
   }, [contextNotes]);
 
   // Loose notes (not in any folder), sorted with pinned first
@@ -167,7 +135,7 @@ export function NoteTree({
             title={t('folders.addFolder')}
             disabled={tabLoading}
           >
-            ＋
+            <AppIcon name="folderPlus" size={15} />
           </button>
           <div style={{ position: 'relative' }} ref={templatesRef}>
             <button
@@ -176,25 +144,22 @@ export function NoteTree({
               title={t('templates.insert')}
               disabled={tabLoading}
             >
-              ≡
+              <AppIcon name="template" size={15} />
             </button>
             {showTemplates && (
-              <div className="sp-templates-dropdown" style={{ top: 'calc(100% + 4px)', right: 0 }}>
-                {TEMPLATES.map((tpl) => {
-                  const tplKey = tpl.label.toLowerCase().replace(/\s+/g, '').replace('-', '');
-                  return (
-                    <button
-                      key={tpl.label}
-                      className="sp-template-item"
-                      onClick={() => {
-                        applyTemplate(tpl);
-                        setShowTemplates(false);
-                      }}
-                    >
-                      {t(`templates.${tplKey}` as TranslationKey, tpl.label)}
-                    </button>
-                  );
-                })}
+              <div className="sp-templates-dropdown">
+                {TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    className="sp-template-item"
+                    onClick={() => {
+                      applyTemplate(tpl);
+                      setShowTemplates(false);
+                    }}
+                  >
+                    {t(`templates.${tpl.id}.label` as TranslationKey)}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -225,7 +190,7 @@ export function NoteTree({
             }}
           />
           <button type="submit" className="sp-tree-confirm-btn">
-            ✓
+            <AppIcon name="check" size={14} />
           </button>
         </form>
       )}
@@ -263,17 +228,18 @@ export function NoteTree({
                   style={{ backgroundColor: color || 'transparent' }}
                 />
                 <span className="sp-tree-folder-chevron">
-                  {isExpanded ? '▾' : '▸'}
+                  <AppIcon name={isExpanded ? 'chevronDown' : 'chevronRight'} size={13} />
                 </span>
                 <span className="sp-tree-folder-icon">
-                  <FolderIcon color={color} />
+                  <AppIcon
+                    name="folder"
+                    size={18}
+                    strokeWidth={2.2}
+                    style={{ color: color || 'currentColor' }}
+                  />
                 </span>
-                <span className="sp-tree-folder-name">
-                  {folder.replace(/^\//, '')}
-                </span>
-                <span className="sp-tree-folder-count">
-                  ({folderNotes.length})
-                </span>
+                <span className="sp-tree-folder-name">{folder.replace(/^\//, '')}</span>
+                <span className="sp-tree-folder-count">({folderNotes.length})</span>
 
                 {/* Add note inside folder shortcut */}
                 <button
@@ -285,10 +251,10 @@ export function NoteTree({
                   }}
                   title={t('folders.addNoteInFolder')}
                 >
-                  ＋
+                  <AppIcon name="plus" size={13} />
                 </button>
 
-                {/* Folder menu ⋯ */}
+                {/* Folder menu */}
                 <button
                   className="sp-tree-folder-menu"
                   onClick={(e) => {
@@ -299,7 +265,7 @@ export function NoteTree({
                   }}
                   title={t('folders.folderOptions')}
                 >
-                  ⋯
+                  <AppIcon name="more" size={14} />
                 </button>
               </div>
 
@@ -327,7 +293,11 @@ export function NoteTree({
                               selectNote(n);
                             }
                           }}
-                          title={isConfirm ? t('folders.clickToConfirmDelete') : n.title || t('folders.untitledNote')}
+                          title={
+                            isConfirm
+                              ? t('folders.clickToConfirmDelete')
+                              : n.title || t('folders.untitledNote')
+                          }
                           draggable={true}
                           onDragStart={(e) => handleDragStart(e, n.id)}
                           onDragEnd={handleDragEnd}
@@ -337,10 +307,12 @@ export function NoteTree({
                             style={{ backgroundColor: noteColor || 'transparent' }}
                           />
                           <span className="sp-tree-note-icon">
-                            {isPinned ? ICONS.pin : '📝'}
+                            <AppIcon name={isPinned ? 'pin' : 'note'} size={13} />
                           </span>
                           <span className="sp-tree-note-title">
-                            {isConfirm ? t('common.confirmDelete') : n.title || t('folders.untitledNote')}
+                            {isConfirm
+                              ? t('common.confirmDelete')
+                              : n.title || t('folders.untitledNote')}
                           </span>
                           {isActive && (
                             <button
@@ -351,7 +323,7 @@ export function NoteTree({
                               }}
                               title={t('folders.deleteNote')}
                             >
-                              ✕
+                              <AppIcon name="close" size={12} />
                             </button>
                           )}
                         </div>
@@ -383,7 +355,9 @@ export function NoteTree({
                   selectNote(n);
                 }
               }}
-              title={isConfirm ? t('folders.clickToConfirmDelete') : n.title || t('folders.untitledNote')}
+              title={
+                isConfirm ? t('folders.clickToConfirmDelete') : n.title || t('folders.untitledNote')
+              }
               draggable={true}
               onDragStart={(e) => handleDragStart(e, n.id)}
               onDragEnd={handleDragEnd}
@@ -393,7 +367,7 @@ export function NoteTree({
                 style={{ backgroundColor: noteColor || 'transparent' }}
               />
               <span className="sp-tree-note-icon">
-                {isPinned ? ICONS.pin : '📝'}
+                <AppIcon name={isPinned ? 'pin' : 'note'} size={13} />
               </span>
               <span className="sp-tree-note-title">
                 {isConfirm ? t('common.confirmDelete') : n.title || t('folders.untitledNote')}
@@ -407,7 +381,7 @@ export function NoteTree({
                   }}
                   title={t('folders.deleteNote')}
                 >
-                  ✕
+                  <AppIcon name="close" size={12} />
                 </button>
               )}
             </div>
@@ -425,7 +399,7 @@ export function NoteTree({
           title={t('folders.addNote')}
         >
           <span className="sp-tree-folder-icon">
-            <PlusIcon />
+            <AppIcon name="plus" size={18} strokeWidth={2.5} />
           </span>
           <span className="sp-tree-folder-name">{t('folders.addNote')}</span>
         </div>
@@ -437,7 +411,9 @@ export function NoteTree({
           <div className="sp-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="sp-modal-header">
               <h3>{t('folders.folderSettings')}</h3>
-              <button className="sp-modal-close" onClick={() => setSettingsFolder(null)}>✕</button>
+              <button className="sp-modal-close" onClick={() => setSettingsFolder(null)}>
+                <AppIcon name="close" size={14} />
+              </button>
             </div>
             <div className="sp-modal-body">
               <div className="sp-field-group">
@@ -462,7 +438,9 @@ export function NoteTree({
                       height: 18,
                       borderRadius: '50%',
                       background: 'transparent',
-                      border: !folderColorVal ? '2px solid var(--accent)' : '1px solid var(--border)',
+                      border: !folderColorVal
+                        ? '2px solid var(--accent)'
+                        : '1px solid var(--border)',
                       cursor: 'pointer',
                       fontSize: 10,
                       display: 'flex',
@@ -473,7 +451,7 @@ export function NoteTree({
                     }}
                     title={t('folders.noFolder')}
                   >
-                    ✕
+                    <AppIcon name="close" size={10} />
                   </button>
                   {WORKSPACE_COLORS.map((c) => (
                     <button
@@ -485,7 +463,10 @@ export function NoteTree({
                         height: 18,
                         borderRadius: '50%',
                         background: c.value,
-                        border: folderColorVal === c.value ? '2.5px solid var(--text)' : '1px solid var(--border)',
+                        border:
+                          folderColorVal === c.value
+                            ? '2.5px solid var(--text)'
+                            : '1px solid var(--border)',
                         cursor: 'pointer',
                         padding: 0,
                       }}
@@ -499,7 +480,9 @@ export function NoteTree({
               <button
                 className="btn-danger"
                 onClick={async () => {
-                  if (confirm(t('folders.confirmDelete', { name: settingsFolder.replace(/^\//, '') }))) {
+                  if (
+                    confirm(t('folders.confirmDelete', { name: settingsFolder.replace(/^\//, '') }))
+                  ) {
                     await deleteFolder(settingsFolder);
                     setSettingsFolder(null);
                   }
@@ -508,10 +491,7 @@ export function NoteTree({
                 {t('common.delete')}
               </button>
               <div style={{ flex: 1 }} />
-              <button
-                className="btn-secondary"
-                onClick={() => setSettingsFolder(null)}
-              >
+              <button className="btn-secondary" onClick={() => setSettingsFolder(null)}>
                 {t('common.cancel')}
               </button>
               <button

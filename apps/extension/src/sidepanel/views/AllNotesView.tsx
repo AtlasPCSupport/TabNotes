@@ -1,12 +1,12 @@
 import React from 'react';
 import { Note, formatRelativeTime } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
+import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 export interface ScopeOption {
   value: Note['scope'];
   label: string;
-  icon: string;
+  icon: AppIconName;
   desc: string;
 }
 
@@ -78,7 +78,9 @@ export function AllNotesView(props: {
     <div className="sp-all-view">
       <div className="sp-search-wrap">
         <div className="sp-search-inner">
-          <span className="sp-search-icon">⌕</span>
+          <span className="sp-search-icon">
+            <AppIcon name="search" size={14} />
+          </span>
           <input
             className="sp-search-input"
             value={searchQ}
@@ -99,7 +101,7 @@ export function AllNotesView(props: {
                 fontFamily: 'var(--font)',
               }}
             >
-              ✕
+              <AppIcon name="close" size={13} />
             </button>
           )}
         </div>
@@ -113,7 +115,7 @@ export function AllNotesView(props: {
             setDeleteCardConfirmId(null);
           }}
         >
-          {selectMode ? 'Cancel' : '☑'}
+          {selectMode ? 'Cancel' : <AppIcon name="checklist" size={15} />}
         </button>
       </div>
 
@@ -122,7 +124,7 @@ export function AllNotesView(props: {
         <div className="sp-tag-chips">
           {tagFilter && (
             <button className="sp-tag-chip clear" onClick={() => setTagFilter(null)}>
-              ✕ Clear
+              <AppIcon name="close" size={11} /> Clear
             </button>
           )}
           {allTags.map((t) => (
@@ -140,7 +142,9 @@ export function AllNotesView(props: {
       <div className="sp-notes-list">
         {filteredNotes.length === 0 ? (
           <div className="sp-empty-state">
-            <div className="sp-empty-icon">{ICONS.note}</div>
+            <div className="sp-empty-icon">
+              <AppIcon name="note" size={30} />
+            </div>
             <div className="sp-empty-title">
               {searchQ || tagFilter ? 'No results' : 'No notes yet'}
             </div>
@@ -163,8 +167,12 @@ export function AllNotesView(props: {
               return (
                 <div key={scopeOpt.value} className="sp-scope-group">
                   <button className="sp-group-header" onClick={() => toggleScope(scopeOpt.value)}>
-                    <span className="sp-group-chevron">{isCollapsed ? '▸' : '▾'}</span>
-                    <span className="sp-group-icon">{scopeOpt.icon}</span>
+                    <span className="sp-group-chevron">
+                      <AppIcon name={isCollapsed ? 'chevronRight' : 'chevronDown'} size={13} />
+                    </span>
+                    <span className="sp-group-icon">
+                      <AppIcon name={scopeOpt.icon} size={14} />
+                    </span>
                     <span className="sp-group-label">{scopeOpt.label}</span>
                     <span className={`sp-group-count${notes.length === 0 ? ' empty' : ''}`}>
                       {notes.length}
@@ -210,13 +218,13 @@ export function AllNotesView(props: {
                             <span
                               className={`sp-card-checkbox${isBulkSelected ? ' checked' : ''}`}
                             >
-                              {isBulkSelected ? '✓' : ''}
+                              {isBulkSelected ? <AppIcon name="check" size={12} /> : ''}
                             </span>
                           )}
                           <div className="sp-card-top">
                             {pinnedNotes.has(n.id) && (
                               <span className="sp-card-pin" title="Pinned">
-                                {ICONS.pin}
+                                <AppIcon name="pin" size={12} />
                               </span>
                             )}
                             <span className="sp-card-time">{formatRelativeTime(n.updatedAt)}</span>
@@ -237,7 +245,11 @@ export function AllNotesView(props: {
                                   }
                                 }}
                               >
-                                {deleteCardConfirmId === n.id ? 'Delete?' : ICONS.trash}
+                                {deleteCardConfirmId === n.id ? (
+                                  'Delete?'
+                                ) : (
+                                  <AppIcon name="trash" size={13} />
+                                )}
                               </button>
                             )}
                           </div>
@@ -254,7 +266,12 @@ export function AllNotesView(props: {
                           )}
                           <div className="sp-card-scope-ctx">
                             <span className="sp-card-scope-icon">
-                              {scopeOptions.find((s) => s.value === n.scope)?.icon}
+                              <AppIcon
+                                name={
+                                  scopeOptions.find((s) => s.value === n.scope)?.icon ?? 'note'
+                                }
+                                size={11}
+                              />
                             </span>
                             <span className="sp-card-scope-key">{n.scopeKey || n.scope}</span>
                             {n.scope === 'url' && n.scopeKey && (
@@ -266,7 +283,7 @@ export function AllNotesView(props: {
                                 onClick={(e) => e.stopPropagation()}
                                 title="Open this URL"
                               >
-                                ↗
+                                <AppIcon name="arrowUpRight" size={11} />
                               </a>
                             )}
                           </div>
@@ -312,7 +329,7 @@ export function AllNotesView(props: {
       )}
 
       <button className="sp-fab" title="New note" onClick={onCreateNote}>
-        +
+        <AppIcon name="plus" size={20} strokeWidth={2.6} />
       </button>
     </div>
   );

@@ -74,6 +74,114 @@ describe('NotesService', () => {
     await svc.deleteNote(note.id);
     expect(await svc.getAllNotes()).toHaveLength(0);
   });
+
+  it('moves a note across scope collections without losing note data', async () => {
+    const note = await svc.createNote({
+      scope: 'domain',
+      url: 'https://example.com/path',
+      content: 'payload',
+      title: 'Source title',
+      tags: ['alpha'],
+      folder: '/Research',
+    });
+    await svc.updateNote(note.id, {
+      content: 'payload v2',
+      reminderAt: Date.now() + 60_000,
+      encrypted: true,
+      encryptedData: 'ciphertext',
+    });
+
+    const moved = await svc.moveNote(note.id, {
+      scope: 'global',
+      workspaceId: null,
+      folder: null,
+    });
+    const data = await adapter.get();
+
+    expect(data.notes_domain[note.id]).toBeUndefined();
+    expect(data.notes_global[note.id]).toEqual(moved);
+    expect(moved).toMatchObject({
+      id: note.id,
+      scope: 'global',
+      scopeKey: '',
+      workspaceId: null,
+      content: 'payload v2',
+      title: 'Source title',
+      tags: ['alpha'],
+      folder: undefined,
+      encrypted: true,
+      encryptedData: 'ciphertext',
+    });
+    expect(moved?.createdAt).toBe(note.createdAt);
+    expect(moved?.versions?.[0].content).toBe('payload');
+  });
+
+  it('moves a workspace note between projects and recomputes the scope key', async () => {
+    const wsSvc = new WorkspacesService(adapter);
+    const source = await wsSvc.create('Source');
+    const target = await wsSvc.create('Target');
+    const note = await svc.createNote({
+      scope: 'workspace',
+      url: '',
+      workspaceId: source.id,
+      content: 'project note',
+    });
+
+    const moved = await svc.moveNote(note.id, { workspaceId: target.id });
+
+    expect(moved?.scope).toBe('workspace');
+    expect(moved?.workspaceId).toBe(target.id);
+    expect(moved?.scopeKey).toBe(target.id);
+    expect(await svc.getNotesByScope('workspace', '', source.id)).toHaveLength(0);
+    expect(await svc.getNotesByScope('workspace', '', target.id)).toHaveLength(1);
+  });
+
+  it('moves only the folder while keeping the note in the same collection', async () => {
+    const note = await svc.createNote({
+      scope: 'url',
+      url: 'https://example.com/article?utm_source=news#section',
+      content: 'url note',
+    });
+
+    const moved = await svc.moveNote(note.id, { folder: 'Inbox' });
+    const data = await adapter.get();
+
+    expect(moved?.scope).toBe('url');
+    expect(moved?.scopeKey).toBe('https://example.com/article');
+    expect(moved?.folder).toBe('/Inbox');
+    expect(data.notes_url[note.id]).toEqual(moved);
+    expect(data.notes_domain[note.id]).toBeUndefined();
+    expect(data.notes_workspace[note.id]).toBeUndefined();
+    expect(data.notes_global[note.id]).toBeUndefined();
+  });
+
+  it('recomputes domain and URL keys when changing note categories', async () => {
+    const note = await svc.createNote({ scope: 'global', url: '', content: 'portable' });
+
+    const domainNote = await svc.moveNote(note.id, {
+      scope: 'domain',
+      url: 'https://www.example.com/path?utm_source=ad',
+    });
+    expect(domainNote?.scopeKey).toBe('example.com');
+
+    const urlNote = await svc.moveNote(note.id, {
+      scope: 'url',
+      url: 'https://www.example.com/path?utm_source=ad#anchor',
+    });
+    expect(urlNote?.scopeKey).toBe('https://www.example.com/path');
+  });
+
+  it('rejects invalid URL-scope moves without mutating storage', async () => {
+    const note = await svc.createNote({ scope: 'global', url: '', content: 'safe' });
+
+    await expect(svc.moveNote(note.id, { scope: 'url' })).rejects.toThrow(
+      /without a source URL/i,
+    );
+
+    const data = await adapter.get();
+    expect(data.notes_global[note.id]).toMatchObject({ scope: 'global', content: 'safe' });
+    expect(data.notes_url[note.id]).toBeUndefined();
+  });
 });
 
 describe('WorkspacesService', () => {
@@ -90,6 +198,27 @@ describe('WorkspacesService', () => {
     expect(await wsSvc.getActive()).toBeNull();
     const remaining = (await notesSvc.getAllNotes()).filter((n) => n.workspaceId === ws.id);
     expect(remaining).toHaveLength(0);
+  });
+
+  it('cascades workspace deletion across every note scope', async () => {
+    const adapter = new MemoryAdapter();
+    const wsSvc = new WorkspacesService(adapter);
+    const notesSvc = new NotesService(adapter);
+    const ws = await wsSvc.create('Project X', '#fff');
+
+    await Promise.all([
+      notesSvc.createNote({ scope: 'url', url: 'https://example.com/a', workspaceId: ws.id }),
+      notesSvc.createNote({ scope: 'domain', url: 'https://example.com/a', workspaceId: ws.id }),
+      notesSvc.createNote({ scope: 'workspace', url: '', workspaceId: ws.id }),
+      notesSvc.createNote({ scope: 'global', url: '', workspaceId: ws.id }),
+      notesSvc.createNote({ scope: 'global', url: '', workspaceId: null, content: 'keep' }),
+    ]);
+
+    await wsSvc.delete(ws.id);
+
+    const remaining = await notesSvc.getAllNotes();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]).toMatchObject({ content: 'keep', workspaceId: null });
   });
 });
 

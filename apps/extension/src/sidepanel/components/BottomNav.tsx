@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
 import { useTranslation } from '@tabnotes/i18n';
+import { AppIcon } from './AppIcon';
 
 /**
  * Persistent bottom navigation. Reads view + chat feature flag from the store;
@@ -18,6 +18,7 @@ export function BottomNav({
   const { t } = useTranslation();
   const view = useSidePanelStore((s) => s.view);
   const setView = useSidePanelStore((s) => s.setView);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
   const chatEnabled = useSidePanelStore((s) => s.features.chatView);
 
   return (
@@ -26,14 +27,14 @@ export function BottomNav({
         className={`sp-nav-btn${view === 'note' ? ' active' : ''}`}
         onClick={() => setView('note')}
       >
-        <span className="sp-nav-icon">{ICONS.note}</span>
+        <span className="sp-nav-icon"><AppIcon name="note" size={18} /></span>
         <span className="sp-nav-label">{t('nav.note')}</span>
       </button>
       <button
         className={`sp-nav-btn${view === 'all' ? ' active' : ''}`}
         onClick={() => setView('all')}
       >
-        <span className="sp-nav-icon">{ICONS.list}</span>
+        <span className="sp-nav-icon"><AppIcon name="list" size={18} /></span>
         <span className="sp-nav-label">{t('nav.allNotes')}</span>
         {allNotesCount > 0 && (
           <span
@@ -42,7 +43,7 @@ export function BottomNav({
               top: 7,
               right: 'calc(50% - 18px)',
               background: 'var(--accent)',
-              color: '#fff',
+              color: 'var(--accent-ink)',
               fontSize: 8,
               fontWeight: 700,
               padding: '1px 4px',
@@ -61,16 +62,19 @@ export function BottomNav({
           className={`sp-nav-btn${view === 'chat' ? ' active' : ''}`}
           onClick={() => setView('chat')}
         >
-          <span className="sp-nav-icon">{ICONS.chat}</span>
+          <span className="sp-nav-icon"><AppIcon name="chat" size={18} /></span>
           <span className="sp-nav-label">{t('nav.ask')}</span>
           {groqKey && <span className="sp-nav-ai-dot" />}
         </button>
       )}
       <button
         className={`sp-nav-btn${view === 'settings' ? ' active' : ''}`}
-        onClick={() => setView('settings')}
+        onClick={() => {
+          setSettingsTarget(null);
+          setView('settings');
+        }}
       >
-        <span className="sp-nav-icon">{ICONS.settings}</span>
+        <span className="sp-nav-icon"><AppIcon name="settings" size={18} /></span>
         <span className="sp-nav-label">{t('nav.settings')}</span>
       </button>
     </div>

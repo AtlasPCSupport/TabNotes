@@ -2,7 +2,7 @@ import React from 'react';
 import type { Workspace } from '@tabnotes/shared';
 import type { Language } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
-import { ICONS } from '../icons';
+import { AppIcon } from './AppIcon';
 
 const USFlag = () => (
   <svg viewBox="0 0 19 13" width="16" height="11" style={{ borderRadius: '1.5px', display: 'block' }}>
@@ -72,6 +72,7 @@ export function HeaderBar({
 }) {
   const view = useSidePanelStore((s) => s.view);
   const setView = useSidePanelStore((s) => s.setView);
+  const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
   const theme = useSidePanelStore((s) => s.theme);
   const workspaces = useSidePanelStore((s) => s.workspaces);
   const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
@@ -97,7 +98,9 @@ export function HeaderBar({
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 80 }}>
             {activeWs ? activeWs.name : 'No Workspace'}
           </span>
-          <span className="sp-ws-chevron">{wsDropdown ? '▴' : '▾'}</span>
+          <span className="sp-ws-chevron">
+            <AppIcon name={wsDropdown ? 'chevronUp' : 'chevronDown'} size={12} />
+          </span>
         </div>
         {wsDropdown && (
           <div className="sp-ws-dropdown">
@@ -105,8 +108,12 @@ export function HeaderBar({
               className={`sp-ws-option${activeWorkspaceId === null ? ' active' : ''}`}
               onClick={() => onSwitchWorkspace(null)}
             >
-              <span>{ICONS.global}</span> No Workspace
-              {activeWorkspaceId === null && <span className="sp-ws-check">✓</span>}
+              <AppIcon name="global" size={14} /> No Workspace
+              {activeWorkspaceId === null && (
+                <span className="sp-ws-check">
+                  <AppIcon name="check" size={13} />
+                </span>
+              )}
             </div>
             {workspaces.map((ws) => (
               <div
@@ -127,7 +134,11 @@ export function HeaderBar({
                   }}
                 />
                 {ws.name}
-                {activeWorkspaceId === ws.id && <span className="sp-ws-check">✓</span>}
+                {activeWorkspaceId === ws.id && (
+                  <span className="sp-ws-check">
+                    <AppIcon name="check" size={13} />
+                  </span>
+                )}
               </div>
             ))}
             <div className="sp-ws-divider" />
@@ -135,10 +146,11 @@ export function HeaderBar({
               className="sp-ws-option manage"
               onClick={() => {
                 setWsDropdown(false);
+                setSettingsTarget('workspace');
                 setView('settings');
               }}
             >
-              {ICONS.settings} Manage workspaces
+              <AppIcon name="settings" size={14} /> Manage workspaces
             </div>
           </div>
         )}
@@ -169,7 +181,7 @@ export function HeaderBar({
         {/* Writing streak */}
         {features.writingStreak && streak >= 2 && (
           <div className="tn-streak-badge" title={`${streak}-day writing streak! Keep it up.`}>
-            {ICONS.flame} {streak}
+            <AppIcon name="flame" size={13} /> {streak}
           </div>
         )}
 
@@ -183,7 +195,11 @@ export function HeaderBar({
             {pendingSyncCount > 0 && <span className="tn-offline-count">{pendingSyncCount}</span>}
           </div>
         )}
-        {syncedToast && <div className="tn-synced-toast">✓ All synced</div>}
+        {syncedToast && (
+          <div className="tn-synced-toast">
+            <AppIcon name="check" size={12} /> All synced
+          </div>
+        )}
 
         {features.noteGraph && (
           <button
@@ -191,7 +207,7 @@ export function HeaderBar({
             onClick={() => setView(view === 'graph' ? 'note' : 'graph')}
             title="Note graph view"
           >
-            {ICONS.graph}
+            <AppIcon name="graph" size={15} />
           </button>
         )}
         <button
@@ -199,10 +215,17 @@ export function HeaderBar({
           onClick={onToggleTheme}
           title="Toggle theme"
         >
-          {theme === 'dark' ? ICONS.light : ICONS.dark}
+          <AppIcon name={theme === 'dark' ? 'light' : 'dark'} size={15} />
         </button>
-        <button className="sp-icon-btn" onClick={() => setView('settings')} title="Settings">
-          {ICONS.settings}
+        <button
+          className="sp-icon-btn"
+          onClick={() => {
+            setSettingsTarget(null);
+            setView('settings');
+          }}
+          title="Settings"
+        >
+          <AppIcon name="settings" size={15} />
         </button>
       </div>
     </div>

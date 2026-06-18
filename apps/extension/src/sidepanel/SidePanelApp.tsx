@@ -2,14 +2,15 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Note,
   NoteScope,
+  type MoveNoteTarget,
   ChromeStorageAdapter,
   NotesService,
   WorkspacesService,
+  normalizeDomain,
   stripFormatting,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from './store';
 import { ViewHost } from './views/ViewHost';
-import { ICONS } from './icons';
 import { usePinLock } from './hooks/usePinLock';
 import { useFolderManager } from './hooks/useFolderManager';
 import { useChromeStorageAndTabs } from './hooks/useChromeStorageAndTabs';
@@ -21,9 +22,20 @@ import { BottomNav } from './components/BottomNav';
 import { ScopeBar } from './components/ScopeBar';
 import { HeaderBar } from './components/HeaderBar';
 import { ContextStrip } from './components/ContextStrip';
-import { NoteTree } from './components/NoteTree';
+import { NoteTree, type Template } from './components/NoteTree';
 import { CommandPalette } from './components/CommandPalette';
 import { EncryptionPrompt } from './components/EncryptionPrompt';
+import { PendingReminders } from './components/PendingReminders';
+import { AppIcon, type AppIconName } from './components/AppIcon';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
+import {
+  DEFAULT_SNOOZE_MINUTES,
+  OPEN_REMINDER_REQUEST_STORAGE_KEY,
+  PENDING_REMINDERS_STORAGE_KEY,
+  PendingNoteReminder,
+  normalizePendingReminders,
+  removePendingReminder,
+} from '../shared/reminders';
 import './sidepanel.css';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,14 +44,44 @@ const cr: any =
     ? (globalThis as Record<string, unknown>).chrome
     : null;
 
+interface RuntimeResponse {
+  ok?: boolean;
+  error?: string;
+  reminderAt?: number;
+}
+
+function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeResponse | null> {
+  return new Promise((resolve, reject) => {
+    if (!cr?.runtime?.sendMessage) {
+      resolve(null);
+      return;
+    }
+
+    cr.runtime.sendMessage(message, (response: RuntimeResponse | undefined) => {
+      const lastError = cr.runtime.lastError;
+      if (lastError) {
+        reject(new Error(lastError.message));
+        return;
+      }
+      resolve(response ?? null);
+    });
+  });
+}
 
 
-const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: string }[] = [
-  { value: 'url', label: 'URL', icon: ICONS.url, desc: 'Exact page URL' },
-  { value: 'domain', label: 'Domain', icon: ICONS.domain, desc: 'Entire site' },
-  { value: 'workspace', label: 'Projects', icon: ICONS.workspace, desc: 'Your project' },
-  { value: 'global', label: 'Global', icon: ICONS.global, desc: 'Everywhere' },
+
+const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: AppIconName; desc: string }[] = [
+  { value: 'url', label: 'URL', icon: 'url', desc: 'Exact page URL' },
+  { value: 'domain', label: 'Domain', icon: 'domain', desc: 'Entire site' },
+  { value: 'workspace', label: 'Projects', icon: 'workspace', desc: 'Your project' },
+  { value: 'global', label: 'Global', icon: 'global', desc: 'Everywhere' },
 ];
+
+const templateFieldKey = (id: Template['id'], field: 'title' | 'content'): TranslationKey =>
+  `templates.${id}.${field}` as TranslationKey;
+
+const templateDateLocale = (language?: string) =>
+  language?.toLowerCase().startsWith('es') ? 'es-ES' : 'en-US';
 
 // ── Crypto utilities ──────────────────────────────────────────
 // AES-256-GCM encryption now lives in @tabnotes/shared (crypto.ts), where it
@@ -54,6 +96,8 @@ const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: string; desc: stri
 
 
 export default function SidePanelApp() {
+  const { t, i18n } = useTranslation();
+
   // Services
   const adapter = useRef(new ChromeStorageAdapter());
   const noteSvc = useRef(new NotesService(adapter.current));
@@ -70,10 +114,13 @@ export default function SidePanelApp() {
 
   // Zustand Store Hooks / Selectors
   const view = useSidePanelStore((s) => s.view);
+  const setView = useSidePanelStore((s) => s.setView);
   const theme = useSidePanelStore((s) => s.theme);
   const setPreview = useSidePanelStore((s) => s.setPreview);
 
   const currentUrl = useSidePanelStore((s) => s.currentUrl);
+  const setCurrentUrl = useSidePanelStore((s) => s.setCurrentUrl);
+  const setCurrentDomain = useSidePanelStore((s) => s.setCurrentDomain);
 
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const setContextNotes = useSidePanelStore((s) => s.setContextNotes);
@@ -214,6 +261,7 @@ export default function SidePanelApp() {
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const reminderRef = useRef<HTMLDivElement>(null);
   const [reminderInput, setReminderInput] = useState('');
+  const [pendingReminders, setPendingReminders] = useState<PendingNoteReminder[]>([]);
   const [refNoteId, setRefNoteId] = useState<string | null>(null);
   const [showRefPanel, setShowRefPanel] = useState(false);
 
@@ -243,7 +291,7 @@ export default function SidePanelApp() {
   } = usePinLock();
 
   // ── Note Selection Callback ──
-  const selectNote = (n: Note) => {
+  const selectNote = useCallback((n: Note) => {
     clearTimeout(saveTimer.current);
     setActiveNoteId(n.id);
     activeNoteIdRef.current = n.id;
@@ -252,7 +300,7 @@ export default function SidePanelApp() {
     setTags(n.tags.join(', '));
     setSaved(false);
     setPreview(false);
-  };
+  }, [setActiveNoteId, setContent, setTitle, setTags, setSaved, setPreview]);
 
   // Invoke Folder Manager hook
   const {
@@ -269,7 +317,6 @@ export default function SidePanelApp() {
     createFolder,
     renameFolder,
     deleteFolder,
-    moveNoteToFolder,
     handleDragStart,
     handleDragEnd,
     handleDragOver,
@@ -348,6 +395,138 @@ export default function SidePanelApp() {
     title,
     content,
   });
+
+  const openPendingReminder = useCallback(
+    async (noteId: string, dismiss = true) => {
+      clearTimeout(saveTimer.current);
+
+      const notes = await refreshAllNotes();
+      const note = notes.find((candidate) => candidate.id === noteId);
+      if (!note) {
+        if (dismiss) {
+          setPendingReminders((prev) => removePendingReminder(prev, noteId));
+          await sendRuntimeMessage({ type: 'DISMISS_REMINDER', noteId }).catch(() => null);
+        }
+        return;
+      }
+
+      if (note.workspaceId !== wsIdRef.current) {
+        await onSetActiveWorkspace(note.workspaceId ?? null);
+      }
+
+      setScope(note.scope);
+      scopeRef.current = note.scope;
+
+      const contextForNote = notes
+        .filter(
+          (candidate) =>
+            candidate.scope === note.scope &&
+            candidate.scopeKey === note.scopeKey &&
+            candidate.workspaceId === (note.workspaceId ?? null)
+        )
+        .sort((a, b) => a.createdAt - b.createdAt);
+      setContextNotes(contextForNote);
+
+      if (note.scope === 'url') {
+        setCurrentUrl(note.scopeKey);
+        currentUrlRef.current = note.scopeKey;
+        setCurrentDomain(normalizeDomain(note.scopeKey));
+      } else if (note.scope === 'domain') {
+        const contextUrl = `https://${note.scopeKey}/`;
+        setCurrentUrl(contextUrl);
+        currentUrlRef.current = contextUrl;
+        setCurrentDomain(note.scopeKey);
+      }
+
+      selectNote(note);
+      setView('note');
+      setShowRefPanel(false);
+
+      if (dismiss) {
+        setPendingReminders((prev) => removePendingReminder(prev, noteId));
+        await sendRuntimeMessage({ type: 'DISMISS_REMINDER', noteId }).catch(() => null);
+      }
+
+      setTimeout(() => editorRef.current?.focus(), 120);
+    },
+    [
+      refreshAllNotes,
+      onSetActiveWorkspace,
+      setScope,
+      setContextNotes,
+      setCurrentUrl,
+      setCurrentDomain,
+      selectNote,
+      setView,
+      setShowRefPanel,
+    ]
+  );
+
+  const dismissPendingReminder = useCallback(async (noteId: string) => {
+    setPendingReminders((prev) => removePendingReminder(prev, noteId));
+    await sendRuntimeMessage({ type: 'DISMISS_REMINDER', noteId }).catch(() => null);
+  }, []);
+
+  const snoozePendingReminder = useCallback(
+    async (noteId: string) => {
+      setPendingReminders((prev) => removePendingReminder(prev, noteId));
+      const response = await sendRuntimeMessage({
+        type: 'SNOOZE_REMINDER',
+        noteId,
+        minutes: DEFAULT_SNOOZE_MINUTES,
+      }).catch(() => null);
+
+      if (response?.ok === false) {
+        await dismissPendingReminder(noteId);
+        return;
+      }
+
+      await refreshAllNotes();
+    },
+    [dismissPendingReminder, refreshAllNotes]
+  );
+
+  useEffect(() => {
+    if (!cr?.storage?.local) return;
+
+    cr.storage.local.get(
+      [PENDING_REMINDERS_STORAGE_KEY, OPEN_REMINDER_REQUEST_STORAGE_KEY],
+      (result: Record<string, unknown>) => {
+        setPendingReminders(normalizePendingReminders(result[PENDING_REMINDERS_STORAGE_KEY]));
+        const request = result[OPEN_REMINDER_REQUEST_STORAGE_KEY] as
+          | { noteId?: unknown }
+          | undefined;
+        if (typeof request?.noteId === 'string') {
+          openPendingReminder(request.noteId);
+          cr.storage.local.remove(OPEN_REMINDER_REQUEST_STORAGE_KEY);
+        }
+      }
+    );
+
+    const handler = (
+      changes: Record<string, { oldValue?: unknown; newValue?: unknown }>,
+      area: string
+    ) => {
+      if (area !== 'local') return;
+
+      if (changes[PENDING_REMINDERS_STORAGE_KEY]) {
+        setPendingReminders(
+          normalizePendingReminders(changes[PENDING_REMINDERS_STORAGE_KEY].newValue)
+        );
+      }
+
+      const request = changes[OPEN_REMINDER_REQUEST_STORAGE_KEY]?.newValue as
+        | { noteId?: unknown }
+        | undefined;
+      if (typeof request?.noteId === 'string') {
+        openPendingReminder(request.noteId);
+        cr.storage.local.remove(OPEN_REMINDER_REQUEST_STORAGE_KEY);
+      }
+    };
+
+    cr.storage.onChanged.addListener(handler);
+    return () => cr.storage.onChanged.removeListener(handler);
+  }, [openPendingReminder]);
 
 
   // ── Load extra prefs from localStorage ───────────────────────
@@ -497,6 +676,65 @@ export default function SidePanelApp() {
       setTimeout(() => setSaved(false), 2000);
     },
     [refreshAllNotes, updateStreak, setContextNotes, setActiveNoteId, setSaved, setPendingSyncIds]
+  );
+
+  const moveNote = useCallback(
+    async (noteId: string, target: MoveNoteTarget) => {
+      clearTimeout(saveTimer.current);
+
+      // Flush pending editor changes before relocating a currently open note.
+      if (activeNoteIdRef.current === noteId) {
+        await saveNote(content, title, tags);
+      }
+
+      const moved = await noteSvc.current.moveNote(noteId, target);
+      if (!moved) return;
+
+      const destinationWorkspaceId = moved.workspaceId ?? null;
+      if (destinationWorkspaceId !== wsIdRef.current) {
+        await onSetActiveWorkspace(destinationWorkspaceId);
+      } else {
+        wsIdRef.current = destinationWorkspaceId;
+      }
+
+      setScope(moved.scope);
+      scopeRef.current = moved.scope;
+
+      let contextUrl = currentUrlRef.current;
+      if (moved.scope === 'url') {
+        contextUrl = moved.scopeKey;
+        setCurrentDomain(normalizeDomain(contextUrl));
+      } else if (moved.scope === 'domain') {
+        contextUrl = `https://${moved.scopeKey}/`;
+        setCurrentDomain(moved.scopeKey);
+      } else if (!contextUrl) {
+        contextUrl = 'https://tabnotes.local/';
+      }
+
+      setCurrentUrl(contextUrl);
+      currentUrlRef.current = contextUrl;
+
+      await loadContextNotes(contextUrl, moved.scope, destinationWorkspaceId, moved.id);
+      const movedInContext = useSidePanelStore
+        .getState()
+        .contextNotes.find((note) => note.id === moved.id);
+      selectNote(movedInContext ?? moved);
+
+      await refreshAllNotes();
+    },
+    [
+      content,
+      title,
+      tags,
+      saveNote,
+      onSetActiveWorkspace,
+      setScope,
+      setCurrentDomain,
+      setCurrentUrl,
+      loadContextNotes,
+      selectNote,
+      refreshAllNotes,
+    ]
   );
 
   const schedule = useCallback(
@@ -702,19 +940,22 @@ export default function SidePanelApp() {
   // Folder operations are handled by useFolderManager hook
 
   // ── Apply template ────────────────────────────────────────────
-  const applyTemplate = (tpl: { title: string; content: string; dynamic?: boolean }) => {
-    let newTitle = tpl.title;
-    let newContent = tpl.content;
+  const applyTemplate = (tpl: Template) => {
+    let newTitle = t(templateFieldKey(tpl.id, 'title'));
+    let newContent = t(templateFieldKey(tpl.id, 'content'));
+
     if (tpl.dynamic) {
       const d = new Date();
-      newTitle = d.toLocaleDateString('en-US', {
+      const activeLanguage = i18n.resolvedLanguage || i18n.language || language;
+      newTitle = d.toLocaleDateString(templateDateLocale(activeLanguage), {
         weekday: 'long',
         month: 'long',
         day: 'numeric',
         year: 'numeric',
       });
-      newContent = `# ${newTitle}\n\n## Done\n- \n\n## Notes\n\n## Tomorrow\n- `;
+      newContent = t(templateFieldKey(tpl.id, 'content'), { date: newTitle });
     }
+
     setTitle(newTitle);
     setContent(newContent);
     schedule(newContent, newTitle, tags);
@@ -748,7 +989,9 @@ export default function SidePanelApp() {
     return (
       <div className="sp-root">
         <div className="sp-pin-lock">
-          <div className="sp-pin-lock-icon">{ICONS.lock}</div>
+          <div className="sp-pin-lock-icon">
+            <AppIcon name="lock" size={30} />
+          </div>
           <div className="sp-pin-lock-title">TabNotes is locked</div>
           <div className="sp-pin-lock-desc">Enter your PIN to open the side panel.</div>
           <form
@@ -811,6 +1054,13 @@ export default function SidePanelApp() {
 
       {/* ── Context strip ── */}
       {view === 'note' && <ContextStrip tabLoading={tabLoading} />}
+
+      <PendingReminders
+        reminders={pendingReminders}
+        onOpen={openPendingReminder}
+        onSnooze={snoozePendingReminder}
+        onDismiss={dismissPendingReminder}
+      />
 
       {/* ── Main Layout (Sidebar Tree + Content) ── */}
       <div className="sp-main-layout">
@@ -876,8 +1126,7 @@ export default function SidePanelApp() {
         schedule={schedule}
         showMovePicker={showMovePicker}
         setShowMovePicker={setShowMovePicker}
-        setShowNewFolder={setShowNewFolder}
-        moveNoteToFolder={moveNoteToFolder}
+        moveNote={moveNote}
         copied={copied}
         showHistory={showHistory}
         historyRef={historyRef}

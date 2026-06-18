@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
+import { AppIcon, type AppIconName } from '../AppIcon';
 
 /**
  * Editor settings section: markdown preview toggle, font size, text alignment.
@@ -80,7 +81,7 @@ export function EditorSettings({
               onClick={() => setDefaultAlign(a)}
               title={t(`settingsSections.align${a}` as TranslationKey)}
             >
-              {a === 'left' ? '⬤◯◯' : a === 'center' ? '◯⬤◯' : '◯◯⬤'}
+              <AppIcon name={`align${a[0].toUpperCase()}${a.slice(1)}` as AppIconName} size={14} />
             </button>
           ))}
         </div>

@@ -1,12 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WorkspacesService, NotesService, NoteScope, Note } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
+import { isSchedulableReminderTimestamp } from '../../shared/reminders';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cr: any =
   typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).chrome
     ? (globalThis as Record<string, unknown>).chrome
     : null;
+
+interface RuntimeResponse {
+  ok?: boolean;
+  error?: string;
+}
+
+function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeResponse | null> {
+  return new Promise((resolve, reject) => {
+    if (!cr?.runtime?.sendMessage) {
+      resolve(null);
+      return;
+    }
+
+    cr.runtime.sendMessage(message, (response: RuntimeResponse | undefined) => {
+      const lastError = cr.runtime.lastError;
+      if (lastError) {
+        reject(new Error(lastError.message));
+        return;
+      }
+      resolve(response ?? null);
+    });
+  });
+}
 
 interface UseWorkspaceManagerProps {
   wsSvc: React.MutableRefObject<WorkspacesService>;
@@ -38,7 +62,7 @@ export function useWorkspaceManager({
   const [editWsName, setEditWsName] = useState('');
   const [editWsColor, setEditWsColor] = useState('');
   const [newWsNameInput, setNewWsNameInput] = useState('');
-  const [newWsColorInput, setNewWsColorInput] = useState('#2b5be8');
+  const [newWsColorInput, setNewWsColorInput] = useState('#dcae19');
 
   // Workspace quick-switcher dropdown
   const [wsDropdown, setWsDropdown] = useState(false);
@@ -107,13 +131,10 @@ export function useWorkspaceManager({
     const list = await wsSvc.current.getAll();
     setWorkspaces(list);
     setNewWsNameInput('');
-    setNewWsColorInput('#2b5be8');
+    setNewWsColorInput('#dcae19');
   };
 
-  const onSetReminder = async (ts: number) => {
-    if (!activeNoteId) return;
-    await noteSvc.current.updateNote(activeNoteId, { reminderAt: ts });
-    cr?.runtime?.sendMessage({ type: 'SET_REMINDER', noteId: activeNoteId, reminderAt: ts });
+  const refreshVisibleNotes = async () => {
     const notes = await noteSvc.current.getNotesByScope(
       scopeRef.current,
       currentUrlRef.current,
@@ -121,19 +142,39 @@ export function useWorkspaceManager({
     );
     setContextNotes(notes);
     await refreshAllNotes();
+  };
+
+  const onSetReminder = async (ts: number) => {
+    if (!activeNoteId) return;
+    if (!isSchedulableReminderTimestamp(ts)) {
+      throw new Error('Reminder must be at least one minute in the future.');
+    }
+
+    await noteSvc.current.updateNote(activeNoteId, { reminderAt: ts });
+
+    try {
+      const response = await sendRuntimeMessage({
+        type: 'SET_REMINDER',
+        noteId: activeNoteId,
+        reminderAt: ts,
+      });
+      if (response?.ok === false) {
+        throw new Error(response.error ?? 'Unable to schedule reminder.');
+      }
+    } catch (error) {
+      await noteSvc.current.updateNote(activeNoteId, { reminderAt: undefined });
+      await refreshVisibleNotes();
+      throw error;
+    }
+
+    await refreshVisibleNotes();
   };
 
   const onClearReminder = async () => {
     if (!activeNoteId) return;
     await noteSvc.current.updateNote(activeNoteId, { reminderAt: undefined });
-    cr?.runtime?.sendMessage({ type: 'CLEAR_REMINDER', noteId: activeNoteId });
-    const notes = await noteSvc.current.getNotesByScope(
-      scopeRef.current,
-      currentUrlRef.current,
-      wsIdRef.current
-    );
-    setContextNotes(notes);
-    await refreshAllNotes();
+    await sendRuntimeMessage({ type: 'CLEAR_REMINDER', noteId: activeNoteId }).catch(() => null);
+    await refreshVisibleNotes();
   };
 
   return {

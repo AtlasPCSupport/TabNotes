@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-  <rect width="16" height="16" rx="3" fill="#2b5be8"/>
-  <text x="8" y="12" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">T</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0c22e"/>
+      <stop offset="100%" stop-color="#dcae19"/>
+    </linearGradient>
+  </defs>
+  <rect width="16" height="16" rx="3" fill="url(#g)"/>
+  <text x="8" y="11" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="800" fill="#15130a" text-anchor="middle">T</text>
 </svg>

@@ -54,7 +54,7 @@ export function NoteGraph({
             y1={cy}
             x2={n.x}
             y2={n.y}
-            stroke={n.linked ? '#2b5be8' : '#c8d0e0'}
+            stroke={n.linked ? 'var(--accent)' : 'var(--border-strong)'}
             strokeWidth={n.linked ? 1.8 : 1}
             strokeDasharray={n.linked ? 'none' : '5 3'}
             opacity={0.65}
@@ -66,8 +66,8 @@ export function NoteGraph({
             cx={n.x}
             cy={n.y}
             r={20}
-            fill={n.linked ? '#edf1ff' : 'var(--bg-card, #fff)'}
-            stroke={n.linked ? '#2b5be8' : n.shared > 0 ? '#5c83f5' : '#c8d0e0'}
+            fill={n.linked ? 'var(--accent-soft)' : 'var(--bg-card)'}
+            stroke={n.linked ? 'var(--accent)' : n.shared > 0 ? 'var(--accent-muted)' : 'var(--border-strong)'}
             strokeWidth={n.linked || n.shared > 0 ? 2 : 1}
           />
           <text
@@ -84,13 +84,13 @@ export function NoteGraph({
       ))}
       {active && (
         <g>
-          <circle cx={cx} cy={cy} r={26} fill="#2b5be8" />
+          <circle cx={cx} cy={cy} r={26} fill="var(--accent)" />
           <text
             x={cx}
             y={cy + 4}
             textAnchor="middle"
             fontSize={9}
-            fill="#fff"
+            fill="var(--accent-ink)"
             fontFamily="system-ui,sans-serif"
             fontWeight="600"
           >

@@ -2,11 +2,12 @@ import React from 'react';
 import type { NoteScope } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
+import { AppIcon, type AppIconName } from './AppIcon';
 
 export interface ScopeOption {
   value: NoteScope;
   label: string;
-  icon: string;
+  icon: AppIconName;
   desc: string;
 }
 
@@ -37,7 +38,9 @@ export function ScopeBar({
           onClick={() => onScopeChange(opt.value)}
           disabled={tabLoading}
         >
-          <span className="sp-scope-icon">{opt.icon}</span>
+          <span className="sp-scope-icon">
+            <AppIcon name={opt.icon} size={14} />
+          </span>
           <span>{t(`scope.${opt.value}` as TranslationKey)}</span>
         </button>
       ))}

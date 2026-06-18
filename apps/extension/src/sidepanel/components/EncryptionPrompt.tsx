@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ICONS } from '../icons';
+import { AppIcon } from './AppIcon';
 
 export interface EncryptionPromptProps {
   showEncPrompt: 'lock' | 'unlock' | null;
@@ -48,9 +48,8 @@ export function EncryptionPrompt({
     <div className="tn-enc-overlay">
       <div className="tn-enc-dialog">
         <div className="tn-enc-title">
-          {showEncPrompt === 'lock'
-            ? `${ICONS.lock} Encrypt note`
-            : `${ICONS.key} Decrypt note`}
+          <AppIcon name={showEncPrompt === 'lock' ? 'lock' : 'key'} size={16} />
+          <span>{showEncPrompt === 'lock' ? 'Encrypt note' : 'Decrypt note'}</span>
         </div>
         <p className="tn-enc-desc">
           {showEncPrompt === 'lock'

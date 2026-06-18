@@ -1,12 +1,12 @@
 import React from 'react';
 import type { NoteScope } from '@tabnotes/shared';
-import { ICONS } from '../../icons';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
+import { AppIcon, type AppIconName } from '../AppIcon';
 
 export interface ScopeOption {
   value: NoteScope;
   label: string;
-  icon: string;
+  icon: AppIconName;
   desc: string;
 }
 
@@ -46,12 +46,18 @@ export function ScopeDigestSettings({
               className={`sp-scope-row${defaultScope === s.value ? ' active' : ''}`}
               onClick={() => setDefaultScope(s.value)}
             >
-              <span className="sp-scope-row-icon">{s.icon}</span>
+              <span className="sp-scope-row-icon">
+                <AppIcon name={s.icon} size={15} />
+              </span>
               <div className="sp-scope-row-info">
                 <div className="sp-scope-row-name">{t(`scope.${s.value}` as TranslationKey, s.label)}</div>
                 <div className="sp-scope-row-desc">{t(`scope.${s.value}Desc` as TranslationKey, s.desc)}</div>
               </div>
-              {defaultScope === s.value && <span className="sp-scope-row-check">✓</span>}
+              {defaultScope === s.value && (
+                <span className="sp-scope-row-check">
+                  <AppIcon name="check" size={13} />
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -91,7 +97,9 @@ export function ScopeDigestSettings({
         )}
         {digestEnabled && (
           <div className="sp-digest-preview">
-            <span className="sp-digest-preview-icon">{ICONS.doc}</span>
+            <span className="sp-digest-preview-icon">
+              <AppIcon name="doc" size={15} />
+            </span>
             <span>
               {t('settingsSections.digestPreviewText', { time: digestTime })}
               <br />
