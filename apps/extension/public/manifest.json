@@ -63,7 +63,7 @@
     "offscreen"
   ],
   "oauth2": {
-    "client_id": "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "client_id": "770771238390-p2lkbe0j4vk2ihco2s50dhd9dq956en0.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/drive.appdata"
     ]
