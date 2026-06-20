@@ -5,13 +5,15 @@ import {
   ChromeStorageAdapter,
   NotesService,
   WorkspacesService,
-  exportData,
-  importData,
+  applyBackupImport,
+  createManualBackupEnvelope,
   encryptText,
   decryptText,
+  parseBackupImport,
   renderMarkdown,
 } from '@tabnotes/shared';
-import type { ExportData, ExportPrefs } from '@tabnotes/shared';
+import type { ExportPrefs } from '@tabnotes/shared';
+import i18n, { resolveLanguage, useTranslation } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,6 +21,48 @@ const cr: any =
   typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).chrome
     ? (globalThis as Record<string, unknown>).chrome
     : null;
+
+interface ReminderAlarmRestoreResult {
+  cleared: number;
+  scheduled: number;
+  fired: number;
+}
+
+function restoreReminderAlarms(): Promise<ReminderAlarmRestoreResult | null> {
+  return new Promise((resolve) => {
+    if (!cr?.runtime?.sendMessage) {
+      resolve(null);
+      return;
+    }
+
+    cr.runtime.sendMessage({ type: 'RESTORE_REMINDER_ALARMS' }, (response?: {
+      ok?: boolean;
+      result?: ReminderAlarmRestoreResult;
+    }) => {
+      if (cr.runtime.lastError || !response?.ok) {
+        resolve(null);
+        return;
+      }
+      resolve(response.result ?? null);
+    });
+  });
+}
+
+function countPrefs(prefs: ExportPrefs | undefined): number {
+  if (!prefs) return 0;
+  return [
+    prefs.colors,
+    prefs.folderColors,
+    prefs.pins,
+    prefs.fontsize,
+    prefs.align,
+    prefs.features,
+    prefs.digest,
+    prefs.streak,
+    prefs.backupRemindDays,
+    prefs.language,
+  ].filter((value) => value !== undefined && value !== null).length;
+}
 
 interface UseNoteActionsProps {
   adapter: React.MutableRefObject<ChromeStorageAdapter>;
@@ -47,6 +91,7 @@ export function useNoteActions({
   importInputRef,
   setBackupRemindDays,
 }: UseNoteActionsProps) {
+  const { t } = useTranslation();
   const [dataFeedback, setDataFeedback] = useState<{
     type: 'success' | 'error';
     msg: string;
@@ -61,15 +106,29 @@ export function useNoteActions({
   const setWorkspaces = useSidePanelStore((s) => s.setWorkspaces);
   const setNoteColors = useSidePanelStore((s) => s.setNoteColors);
   const setPinnedNotes = useSidePanelStore((s) => s.setPinnedNotes);
+  const setFolderColors = useSidePanelStore((s) => s.setFolderColors);
   const setFontSizeState = useSidePanelStore((s) => s.setFontSizeState);
   const setDefaultAlignState = useSidePanelStore((s) => s.setDefaultAlignState);
   const setFeatures = useSidePanelStore((s) => s.setFeatures);
+  const setActiveWorkspaceId = useSidePanelStore((s) => s.setActiveWorkspaceId);
+  const setDefaultScopeState = useSidePanelStore((s) => s.setDefaultScope);
+  const setScope = useSidePanelStore((s) => s.setScope);
+  const setThemeState = useSidePanelStore((s) => s.setThemeState);
+  const setMdState = useSidePanelStore((s) => s.setMdState);
+  const setLanguageState = useSidePanelStore((s) => s.setLanguageState);
+  const setActiveNoteId = useSidePanelStore((s) => s.setActiveNoteId);
+  const setTitle = useSidePanelStore((s) => s.setTitle);
+  const setTags = useSidePanelStore((s) => s.setTags);
+  const setSaved = useSidePanelStore((s) => s.setSaved);
   const currentDomain = useSidePanelStore((s) => s.currentDomain);
 
   const showFeedback = (type: 'success' | 'error', msg: string) => {
     setDataFeedback({ type, msg });
     setTimeout(() => setDataFeedback(null), 3500);
   };
+
+  const countLabel = (count: number, key: string) =>
+    t('backup.count', { count, label: t(`backup.${key}`, { count }) });
 
   const exportCurrentNote = () => {
     if (!content && !title) return;
@@ -121,11 +180,11 @@ ${renderMarkdown(content)}
     try {
       const encrypted = await encryptText(content, password);
       await noteSvc.current.updateNote(id, {
-        content: 'This note is encrypted.',
+        content: t('encryption.encryptedPlaceholder'),
         encrypted: true,
         encryptedData: encrypted,
       });
-      setContent('This note is encrypted.');
+      setContent(t('encryption.encryptedPlaceholder'));
       const notes = await noteSvc.current.getNotesByScope(
         scopeRef.current,
         currentUrlRef.current,
@@ -167,8 +226,6 @@ ${renderMarkdown(content)}
   const handleExport = async () => {
     try {
       const data = await adapter.current.get();
-      const payload = exportData(data);
-
       const prefs: ExportPrefs = {};
       const colors = localStorage.getItem('tn_colors');
       const pins = localStorage.getItem('tn_pins');
@@ -196,7 +253,7 @@ ${renderMarkdown(content)}
         );
       });
 
-      payload.prefs = prefs;
+      const payload = createManualBackupEnvelope(data, prefs);
       cr?.storage?.local?.set({ tn_last_export: Date.now() });
 
       const json = JSON.stringify(payload, null, 2);
@@ -208,9 +265,9 @@ ${renderMarkdown(content)}
       a.download = `tabnotes-backup-${date}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showFeedback('success', `Exported ${payload.notes.length} notes`);
+      showFeedback('success', t('backup.exported', { count: payload.data.notes.length }));
     } catch {
-      showFeedback('error', 'Export failed');
+      showFeedback('error', t('backup.exportFailed'));
     }
   };
 
@@ -219,21 +276,23 @@ ${renderMarkdown(content)}
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as ExportData;
-      if (!Array.isArray(parsed.notes)) throw new Error('Invalid format');
+      const parsed = parseBackupImport(JSON.parse(text));
+      if (!parsed) throw new Error(t('backup.invalidFormat'));
 
       const current = await adapter.current.get();
-      const merged = importData(parsed, current);
-      await adapter.current.set(merged);
+      const restored = applyBackupImport(parsed, current);
+      await adapter.current.set(restored.data);
+      const reminderAlarms = await restoreReminderAlarms();
 
-      if (parsed.prefs) {
-        const p = parsed.prefs;
+      if (parsed.data.prefs) {
+        const p = parsed.data.prefs;
         if (p.colors != null) {
           localStorage.setItem('tn_colors', JSON.stringify(p.colors));
           setNoteColors(p.colors);
         }
         if (p.folderColors != null) {
           localStorage.setItem('tn_folder_colors', JSON.stringify(p.folderColors));
+          setFolderColors(p.folderColors);
         }
         if (p.pins != null) {
           localStorage.setItem('tn_pins', JSON.stringify(p.pins));
@@ -266,10 +325,67 @@ ${renderMarkdown(content)}
       ]);
       setAllNotes(notes);
       setWorkspaces(wsList);
-      const added = parsed.notes.length;
-      showFeedback('success', `Imported ${added} note${added !== 1 ? 's' : ''}`);
+
+      const nextScope = restored.data.defaultScope;
+      const nextWorkspaceId = restored.data.activeWorkspaceId;
+      scopeRef.current = nextScope;
+      wsIdRef.current = nextWorkspaceId;
+      setDefaultScopeState(nextScope);
+      setScope(nextScope);
+      setActiveWorkspaceId(nextWorkspaceId);
+      setThemeState(restored.data.theme);
+      setMdState(restored.data.markdownEnabled);
+      const nextLanguage = resolveLanguage(
+        restored.data.language ??
+          parsed.data.prefs?.language ??
+          i18n.resolvedLanguage ??
+          i18n.language
+      );
+      setLanguageState(nextLanguage);
+      await i18n.changeLanguage(nextLanguage);
+
+      const contextNotes = await noteSvc.current.getNotesByScope(
+        nextScope,
+        currentUrlRef.current,
+        nextWorkspaceId
+      );
+      setContextNotes(contextNotes);
+      const active =
+        contextNotes.find((note) => note.id === activeNoteIdRef.current) ??
+        contextNotes[0] ??
+        null;
+      activeNoteIdRef.current = active?.id ?? null;
+      setActiveNoteId(active?.id ?? null);
+      setContent(active?.content ?? '');
+      setTitle(active?.title ?? '');
+      setTags(active?.tags.join(', ') ?? '');
+      setSaved(false);
+
+      const notesTouched = restored.summary.notesAdded + restored.summary.notesUpdated;
+      const workspacesTouched =
+        restored.summary.workspacesAdded + restored.summary.workspacesUpdated;
+      const preferenceCount =
+        restored.summary.storageSettingsRestored + countPrefs(parsed.data.prefs);
+      const scheduledCount = reminderAlarms?.scheduled ?? 0;
+      const firedCount = reminderAlarms?.fired ?? 0;
+      const reminderText =
+        firedCount > 0
+          ? `${t('backup.remindersScheduledCount', {
+              count: scheduledCount,
+            })}, ${t('backup.dueRemindersFiredCount', { count: firedCount })}`
+          : t('backup.remindersScheduledCount', { count: scheduledCount });
+
+      showFeedback(
+        'success',
+        t('backup.restoreSummary', {
+          notes: countLabel(notesTouched, 'note'),
+          workspaces: countLabel(workspacesTouched, 'workspace'),
+          preferences: countLabel(preferenceCount, 'preference'),
+          reminders: reminderText,
+        })
+      );
     } catch {
-      showFeedback('error', 'Invalid backup file');
+      showFeedback('error', t('backup.invalidFile'));
     } finally {
       if (importInputRef.current) importInputRef.current.value = '';
     }

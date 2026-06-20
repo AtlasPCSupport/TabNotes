@@ -3,6 +3,7 @@ import type { Note } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { NoteGraph } from '../editor/NoteGraph';
 import { AppIcon } from '../components/AppIcon';
+import { useTranslation } from '@tabnotes/i18n';
 
 /**
  * Note graph view. Reads notes + active note from the store; note selection is
@@ -10,6 +11,7 @@ import { AppIcon } from '../components/AppIcon';
  * verbatim (Task 3.1/3.4) — no behavior change.
  */
 export function GraphView({ onSelectNote }: { onSelectNote: (n: Note) => void }) {
+  const { t } = useTranslation();
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const activeNoteId = useSidePanelStore((s) => s.activeNoteId);
   const setView = useSidePanelStore((s) => s.setView);
@@ -18,7 +20,7 @@ export function GraphView({ onSelectNote }: { onSelectNote: (n: Note) => void })
     <div className="sp-graph-view">
       <div className="sp-graph-header">
         <span className="sp-graph-title">
-          <AppIcon name="graph" size={15} /> Note Graph
+          <AppIcon name="graph" size={15} /> {t('graph.title')}
         </span>
         <button className="sp-icon-btn" style={{ fontSize: 11 }} onClick={() => setView('note')}>
           <AppIcon name="close" size={13} />
@@ -26,17 +28,17 @@ export function GraphView({ onSelectNote }: { onSelectNote: (n: Note) => void })
       </div>
       <div className="sp-graph-legend">
         <span className="sp-graph-legend-item">
-          <span style={{ color: 'var(--accent)' }}>─</span> Wiki link
+          <span style={{ color: 'var(--accent)' }}>─</span> {t('graph.wikiLink')}
         </span>
         <span className="sp-graph-legend-item">
-          <span style={{ color: '#c8d0e0' }}>╌</span> Shared tag
+          <span style={{ color: '#c8d0e0' }}>╌</span> {t('graph.sharedTag')}
         </span>
         <span className="sp-graph-legend-sep" />
         <span
           className="sp-graph-legend-item"
           style={{ color: 'var(--text-subtle)', fontSize: 10 }}
         >
-          Click a node to open note
+          {t('graph.openNodeHint')}
         </span>
       </div>
       <NoteGraph
@@ -56,15 +58,17 @@ export function GraphView({ onSelectNote }: { onSelectNote: (n: Note) => void })
             marginTop: 24,
           }}
         >
-          No notes yet. Create some notes to see the graph.
+          {t('graph.empty')}
         </p>
       )}
       <div className="sp-graph-stats">
-        <span>
-          {allNotes.length} note{allNotes.length !== 1 ? 's' : ''}
-        </span>
+        <span>{t('noteList.noteCount', { count: allNotes.length })}</span>
         <span>·</span>
-        <span>{allNotes.filter((n) => /\[\[/.test(n.content)).length} with wiki links</span>
+        <span>
+          {t('graph.withWikiLinks', {
+            count: allNotes.filter((n) => /\[\[/.test(n.content)).length,
+          })}
+        </span>
       </div>
     </div>
   );

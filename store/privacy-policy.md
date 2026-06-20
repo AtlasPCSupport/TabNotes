@@ -1,6 +1,6 @@
 # TabNotes Privacy Policy
 
-**Effective date:** June 2026
+**Effective date:** June 20, 2026
 
 ## The one-line version
 TabNotes collects zero data. Your notes stay local unless you explicitly enable optional Google
@@ -22,10 +22,13 @@ from the extension to Google Drive. The TabNotes developer cannot access it.
 | Permission | Why |
 |---|---|
 | `storage` | Save notes locally on your device |
+| `unlimitedStorage` | Support local-first note collections that may grow over time |
 | `tabs` | Read current tab URL to link notes contextually |
 | `activeTab` | Access current tab URL when the panel is open |
 | `sidePanel` | Display the notes panel alongside browser content |
+| `contextMenus` | Let users clip selected text into TabNotes from the browser context menu |
 | `identity` | Optional Google sign-in for Drive backup |
+| `offscreen` | Play local reminder audio when a reminder fires |
 | `alarms` | Backup debounce, reminders, and scheduled notifications |
 | `notifications` | User reminders and daily digest |
 | `https://www.googleapis.com/*` | Optional Google Drive backup API calls |

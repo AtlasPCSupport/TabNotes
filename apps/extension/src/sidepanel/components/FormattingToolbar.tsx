@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 
 export interface FormattingToolbarProps {
   fmtRef: React.RefObject<HTMLDivElement>;
@@ -23,23 +24,23 @@ export interface FormattingToolbarProps {
 }
 
 const TEXT_COLORS = [
-  { name: 'Red', value: '#ef4444' },
-  { name: 'Orange', value: '#f97316' },
-  { name: 'Yellow', value: '#ca8a04' },
-  { name: 'Green', value: '#16a34a' },
-  { name: 'Blue', value: '#2b5be8' },
-  { name: 'Purple', value: '#9333ea' },
-  { name: 'Pink', value: '#db2777' },
-  { name: 'Gray', value: '#6b7280' },
+  { key: 'red', value: '#ef4444' },
+  { key: 'orange', value: '#f97316' },
+  { key: 'yellow', value: '#ca8a04' },
+  { key: 'green', value: '#16a34a' },
+  { key: 'blue', value: '#2b5be8' },
+  { key: 'purple', value: '#9333ea' },
+  { key: 'pink', value: '#db2777' },
+  { key: 'gray', value: '#6b7280' },
 ];
 
 const HIGHLIGHT_COLORS = [
-  { name: 'Yellow', value: '#fef08a' },
-  { name: 'Green', value: '#bbf7d0' },
-  { name: 'Blue', value: '#bfdbfe' },
-  { name: 'Pink', value: '#fbcfe8' },
-  { name: 'Orange', value: '#fed7aa' },
-  { name: 'Purple', value: '#e9d5ff' },
+  { key: 'yellow', value: '#fef08a' },
+  { key: 'green', value: '#bbf7d0' },
+  { key: 'blue', value: '#bfdbfe' },
+  { key: 'pink', value: '#fbcfe8' },
+  { key: 'orange', value: '#fed7aa' },
+  { key: 'purple', value: '#e9d5ff' },
 ];
 
 interface FormatButtonProps {
@@ -80,9 +81,17 @@ function FormatButton({
   );
 }
 
-function ToolbarGroup({ label, children }: { label: string; children: React.ReactNode }) {
+function ToolbarGroup({
+  label,
+  ariaLabel,
+  children,
+}: {
+  label: string;
+  ariaLabel: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="sp-fmt-group" aria-label={`${label} formatting controls`}>
+    <div className="sp-fmt-group" aria-label={ariaLabel}>
       <span className="sp-fmt-group-label">{label}</span>
       {children}
     </div>
@@ -103,15 +112,20 @@ export function FormattingToolbar({
   colorMode,
   setColorMode,
 }: FormattingToolbarProps) {
+  const { t } = useTranslation();
+
   return (
-    <div className="sp-fmt-toolbar" ref={fmtRef} aria-label="Formatting toolbar">
-      <ToolbarGroup label="Text">
+    <div className="sp-fmt-toolbar" ref={fmtRef} aria-label={t('formatting.toolbar')}>
+      <ToolbarGroup
+        label={t('formatting.text')}
+        ariaLabel={t('formatting.groupControls', { label: t('formatting.text') })}
+      >
         <FormatButton
           className="sp-fmt-bold"
           active={fmtActive.bold}
           onPress={() => wrapSel('**', '**')}
-          title="Bold (Ctrl+B)"
-          ariaLabel="Bold"
+          title={t('formatting.boldTitle')}
+          ariaLabel={t('formatting.bold')}
         >
           <b>B</b>
         </FormatButton>
@@ -119,8 +133,8 @@ export function FormattingToolbar({
           className="sp-fmt-italic"
           active={fmtActive.italic}
           onPress={() => wrapSel('*', '*')}
-          title="Italic (Ctrl+I)"
-          ariaLabel="Italic"
+          title={t('formatting.italicTitle')}
+          ariaLabel={t('formatting.italic')}
         >
           <em>I</em>
         </FormatButton>
@@ -128,8 +142,8 @@ export function FormattingToolbar({
           className="sp-fmt-underline"
           active={fmtActive.underline}
           onPress={() => wrapSel('__', '__')}
-          title="Underline (Ctrl+U)"
-          ariaLabel="Underline"
+          title={t('formatting.underlineTitle')}
+          ariaLabel={t('formatting.underline')}
         >
           <u>U</u>
         </FormatButton>
@@ -137,8 +151,8 @@ export function FormattingToolbar({
           className="sp-fmt-strike"
           active={fmtActive.strike}
           onPress={() => wrapSel('~~', '~~')}
-          title="Strikethrough"
-          ariaLabel="Strikethrough"
+          title={t('formatting.strikethrough')}
+          ariaLabel={t('formatting.strikethrough')}
         >
           <s>S</s>
         </FormatButton>
@@ -162,13 +176,16 @@ export function FormattingToolbar({
         </FormatButton>
       </ToolbarGroup>
 
-      <ToolbarGroup label="Mark">
+      <ToolbarGroup
+        label={t('formatting.mark')}
+        ariaLabel={t('formatting.groupControls', { label: t('formatting.mark') })}
+      >
         <FormatButton
           className="sp-fmt-code"
           active={fmtActive.code}
           onPress={() => wrapSel('`', '`')}
-          title="Inline code"
-          ariaLabel="Inline code"
+          title={t('formatting.inlineCode')}
+          ariaLabel={t('formatting.inlineCode')}
         >
           {'</>'}
         </FormatButton>
@@ -176,14 +193,17 @@ export function FormattingToolbar({
           className="sp-fmt-highlight-btn"
           active={fmtActive.highlight}
           onPress={() => wrapSel('==', '==')}
-          title="Highlight selected text"
-          ariaLabel="Highlight selected text"
+          title={t('formatting.highlight')}
+          ariaLabel={t('formatting.highlight')}
         >
           <span className="sp-fmt-highlight-glyph">H</span>
         </FormatButton>
       </ToolbarGroup>
 
-      <ToolbarGroup label="Color">
+      <ToolbarGroup
+        label={t('formatting.color')}
+        ariaLabel={t('formatting.groupControls', { label: t('formatting.color') })}
+      >
         <div className="sp-fmt-color-wrap">
           <button
             type="button"
@@ -193,8 +213,8 @@ export function FormattingToolbar({
               setShowColorPicker(!showColorPicker);
               setColorMode('text');
             }}
-            title="Text / highlight color"
-            aria-label="Text and highlight color"
+            title={t('formatting.textHighlightColor')}
+            aria-label={t('formatting.textAndHighlightColor')}
             aria-haspopup="dialog"
             aria-expanded={showColorPicker}
           >
@@ -204,7 +224,7 @@ export function FormattingToolbar({
             <div
               className="sp-fmt-color-popup"
               role="dialog"
-              aria-label="Choose text or highlight color"
+              aria-label={t('formatting.chooseColor')}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <div className="sp-fmt-color-tabs">
@@ -217,7 +237,7 @@ export function FormattingToolbar({
                   }}
                   aria-pressed={colorMode === 'text'}
                 >
-                  Text
+                  {t('formatting.text')}
                 </button>
                 <button
                   type="button"
@@ -228,24 +248,32 @@ export function FormattingToolbar({
                   }}
                   aria-pressed={colorMode === 'highlight'}
                 >
-                  Mark
+                  {t('formatting.mark')}
                 </button>
               </div>
               <div className="sp-fmt-swatch-grid">
-                {(colorMode === 'text' ? TEXT_COLORS : HIGHLIGHT_COLORS).map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    className="sp-fmt-swatch"
-                    style={{ backgroundColor: c.value }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      applyColor(c.value, colorMode);
-                    }}
-                    title={c.name}
-                    aria-label={`${c.name} ${colorMode} color`}
-                  />
-                ))}
+                {(colorMode === 'text' ? TEXT_COLORS : HIGHLIGHT_COLORS).map((c) => {
+                  const name = t(`formatting.colors.${c.key}` as TranslationKey);
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className="sp-fmt-swatch"
+                      style={{ backgroundColor: c.value }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        applyColor(c.value, colorMode);
+                      }}
+                      title={name}
+                      aria-label={t(
+                        colorMode === 'text'
+                          ? 'formatting.textColor'
+                          : 'formatting.highlightColor',
+                        { name }
+                      )}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}

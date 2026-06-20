@@ -1,11 +1,78 @@
 import React from 'react';
 import { useSidePanelStore } from '../store';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 
 /** Static About screen. Extracted verbatim (Task 5.2) — no behavior change. */
 export function AboutView() {
+  const { t } = useTranslation();
   const setView = useSidePanelStore((s) => s.setView);
   const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
+  const categories: {
+    titleKey: TranslationKey;
+    icon: AppIconName;
+    color: string;
+    itemKeys: TranslationKey[];
+  }[] = [
+    {
+      titleKey: 'about.categories.editor.title',
+      icon: 'note',
+      color: 'var(--accent)',
+      itemKeys: [
+        'about.categories.editor.richText',
+        'about.categories.editor.markdown',
+        'about.categories.editor.alignment',
+        'about.categories.editor.dateTime',
+        'about.categories.editor.shortcuts',
+      ],
+    },
+    {
+      titleKey: 'about.categories.organization.title',
+      icon: 'folder',
+      color: '#0ea5e9',
+      itemKeys: [
+        'about.categories.organization.scopes',
+        'about.categories.organization.multipleNotes',
+        'about.categories.organization.workspaces',
+        'about.categories.organization.tags',
+      ],
+    },
+    {
+      titleKey: 'about.categories.productivity.title',
+      icon: 'spark',
+      color: '#f59e0b',
+      itemKeys: [
+        'about.categories.productivity.templates',
+        'about.categories.productivity.wiki',
+        'about.categories.productivity.commands',
+        'about.categories.productivity.clipper',
+        'about.categories.productivity.streak',
+        'about.categories.productivity.reminders',
+      ],
+    },
+    {
+      titleKey: 'about.categories.intelligence.title',
+      icon: 'graph',
+      color: 'var(--accent)',
+      itemKeys: [
+        'about.categories.intelligence.suggestions',
+        'about.categories.intelligence.chat',
+        'about.categories.intelligence.graph',
+      ],
+    },
+    {
+      titleKey: 'about.categories.privacy.title',
+      icon: 'shield',
+      color: '#22c55e',
+      itemKeys: [
+        'about.categories.privacy.history',
+        'about.categories.privacy.export',
+        'about.categories.privacy.encryption',
+        'about.categories.privacy.localFirst',
+        'about.categories.privacy.openSource',
+      ],
+    },
+  ];
 
   return (
     <div className="sp-settings-view">
@@ -25,7 +92,7 @@ export function AboutView() {
             cursor: 'pointer',
           }}
         >
-          ← Back
+          ← {t('common.back')}
         </button>
         <span
           style={{
@@ -35,7 +102,7 @@ export function AboutView() {
             letterSpacing: '-0.3px',
           }}
         >
-          About TabNotes
+          {t('about.title')}
         </span>
       </div>
 
@@ -70,72 +137,12 @@ export function AboutView() {
             margin: '0 auto',
           }}
         >
-          Premium local-first notes for every tab, URL, domain, and workspace.
+          {t('about.tagline')}
         </div>
       </div>
 
-      {[
-        {
-          title: 'Editor',
-          icon: 'typewriter' as AppIconName,
-          color: 'var(--accent)',
-          items: [
-            'WYSIWYG rich text (B / I / U / S / Code / Highlight)',
-            'Markdown preview (toggle ↓md)',
-            'Typewriter mode',
-            'Text alignment & font size',
-            'Date/time stamp (Ctrl+D)',
-            'Keyboard shortcuts',
-          ],
-        },
-        {
-          title: 'Organization',
-          icon: 'folder' as AppIconName,
-          color: '#0ea5e9',
-          items: [
-            '4 scopes: URL · Domain · Projects · Global',
-            'Multiple notes per scope (pills)',
-            'Workspaces & folders',
-            'Tags, pin notes & note colors',
-          ],
-        },
-        {
-          title: 'Productivity',
-          icon: 'spark' as AppIconName,
-          color: '#f59e0b',
-          items: [
-            'Templates (Daily Log, Meeting, Todo, Standup)',
-            'Wiki links [[note]] with autocomplete',
-            'Command palette Ctrl+K',
-            'Web clipper',
-            'Writing streak tracker',
-            'Reminders & Daily digest',
-          ],
-        },
-        {
-          title: 'Intelligence',
-          icon: 'graph' as AppIconName,
-          color: 'var(--accent)',
-          items: [
-            'Smart suggestions while you write',
-            'AI Chat powered by Groq',
-            'Note graph visualization',
-          ],
-        },
-        {
-          title: 'Data & Privacy',
-          icon: 'shield' as AppIconName,
-          color: '#22c55e',
-          items: [
-            'Auto note history & restore',
-            'Export .md · Import/export JSON',
-            'AES-256 note encryption',
-            'Local-first — no server, no account',
-            'Open source (MIT)',
-          ],
-        },
-      ].map((cat) => (
-        <div key={cat.title} className="sp-settings-section">
+      {categories.map((cat) => (
+        <div key={cat.titleKey} className="sp-settings-section">
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
             <div
               style={{
@@ -159,13 +166,13 @@ export function AboutView() {
                 letterSpacing: '-0.2px',
               }}
             >
-              {cat.title}
+              {t(cat.titleKey)}
             </span>
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-            {cat.items.map((item) => (
+            {cat.itemKeys.map((itemKey) => (
               <li
-                key={item}
+                key={itemKey}
                 style={{
                   fontSize: 11.5,
                   color: 'var(--text-muted)',
@@ -176,7 +183,7 @@ export function AboutView() {
                 }}
               >
                 <span style={{ color: cat.color, marginTop: 1, flexShrink: 0 }}>•</span>
-                {item}
+                {t(itemKey)}
               </li>
             ))}
           </ul>
@@ -212,7 +219,7 @@ export function AboutView() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
           </svg>
-          View on GitHub
+          {t('about.viewGithub')}
         </a>
         <div
           style={{
@@ -222,7 +229,7 @@ export function AboutView() {
             paddingBottom: 4,
           }}
         >
-          MIT license · No account · No tracking
+          {t('about.license')}
         </div>
       </div>
     </div>

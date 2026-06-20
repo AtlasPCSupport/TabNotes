@@ -61,6 +61,19 @@ function sendDriveMessage(type: string): Promise<DriveSyncState> {
   });
 }
 
+function restoreReminderAlarms(): Promise<void> {
+  return new Promise((resolve) => {
+    if (!cr?.runtime?.sendMessage) {
+      resolve();
+      return;
+    }
+
+    cr.runtime.sendMessage({ type: 'RESTORE_REMINDER_ALARMS' }, () => {
+      resolve();
+    });
+  });
+}
+
 function formatTimestamp(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
   try {
@@ -128,7 +141,8 @@ export function DriveSyncSettings() {
     if (next?.hasBackup) {
       const shouldRestore = window.confirm(t('settingsSections.driveRestoreConfirm'));
       if (shouldRestore) {
-        await runAction('DRIVE_RESTORE', t('settingsSections.driveRestoreSuccess'));
+        const restored = await runAction('DRIVE_RESTORE', t('settingsSections.driveRestoreSuccess'));
+        if (restored) await restoreReminderAlarms();
       }
     }
   };
@@ -136,7 +150,8 @@ export function DriveSyncSettings() {
   const handleRestore = async () => {
     const shouldRestore = window.confirm(t('settingsSections.driveRestoreConfirm'));
     if (shouldRestore) {
-      await runAction('DRIVE_RESTORE', t('settingsSections.driveRestoreSuccess'));
+      const restored = await runAction('DRIVE_RESTORE', t('settingsSections.driveRestoreSuccess'));
+      if (restored) await restoreReminderAlarms();
     }
   };
 

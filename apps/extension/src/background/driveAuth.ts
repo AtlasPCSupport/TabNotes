@@ -1,4 +1,4 @@
-const GOOGLE_OAUTH_PLACEHOLDER = 'REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_OAUTH_CLIENT_ID_PATTERN = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
 
 function runtimeErrorMessage(): string | null {
   return chrome.runtime.lastError?.message ?? null;
@@ -20,7 +20,7 @@ export function getOAuthSetupStatus(): { configured: boolean; clientId?: string;
   const clientId = manifest.oauth2?.client_id;
   const scopes = manifest.oauth2?.scopes ?? [];
 
-  if (!clientId || clientId === GOOGLE_OAUTH_PLACEHOLDER || clientId.includes('REPLACE_WITH')) {
+  if (!clientId || !GOOGLE_OAUTH_CLIENT_ID_PATTERN.test(clientId)) {
     return {
       configured: false,
       clientId,

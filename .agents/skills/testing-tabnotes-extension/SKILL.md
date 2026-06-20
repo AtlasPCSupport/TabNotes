@@ -5,7 +5,7 @@ description: Test TabNotes Chrome extension side panel changes end-to-end. Use w
 
 # TabNotes Extension Testing
 
-## Devin Secrets Needed
+## Secrets needed
 
 - None for local extension UI testing. TabNotes is local-first and can be tested with Chrome extension storage.
 - If testing AI chat features, a Groq API key may be needed in the app settings, but standard side panel/editor tests do not require it.

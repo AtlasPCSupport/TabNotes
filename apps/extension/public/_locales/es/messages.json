@@ -14,6 +14,9 @@
   "cmdQuickCapture": {
     "message": "Captura rápida: abre TabNotes y crea una nota al instante"
   },
+  "contextMenuClipSelection": {
+    "message": "Guardar selección en TabNotes"
+  },
   "digestTitle": {
     "message": "📓 Resumen Diario de TabNotes"
   },

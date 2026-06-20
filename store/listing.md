@@ -1,112 +1,93 @@
 # TabNotes — Chrome Web Store Listing
 
+## Current public package
+
+- Version: `2.10.2`
+- Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
+- Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
+- Website: `https://tabnotes.atlaspcsupport.com/`
+- Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
+- Terms: `https://tabnotes.atlaspcsupport.com/terms/`
+- ZIP: `tabnotes-extension.zip`
+
 ## Name
+
 TabNotes
 
-## Short description (≤132 chars)
-Contextual notes per tab, domain, or workspace. Local-first, no account needed. Notes that know where you are.
+## Short description
+
+Contextual notes per page, domain, workspace, or browser context. Local-first, private, and backup-ready.
 
 ## Detailed description
 
-**TabNotes — Notes that know where you are.**
+TabNotes is a contextual note-taking extension for Chrome.
 
-Stop losing research, half-written ideas, and page-specific reminders. TabNotes automatically links your notes to the page you're on — no copy-pasting URLs, no manual filing, no switching apps.
+It helps you capture notes connected to the page, domain, workspace, or browser context you are working in, so your research, ideas, reminders, and project notes stay organized where they belong.
 
-Open the side panel and your notes for that exact URL, domain, or project are already there.
+Key features:
 
----
+- URL notes: create notes linked to a specific page.
+- Domain notes: keep shared notes for an entire website or web app.
+- Workspace notes: organize notes by project, client, task, or workflow.
+- Global notes: use a general scratchpad that is available everywhere.
+- Multiple notes per context: create more than one note for the same page, domain, or workspace.
+- Search and tags: find notes across titles, content, tags, and scopes.
+- Templates: insert common note structures quickly.
+- Reminders: create note reminders and receive browser notifications.
+- Export and restore: back up notes manually with JSON export and restore.
+- Optional Google Drive backup: if enabled, TabNotes stores a backup in your private Google Drive app data folder using the limited drive.appdata scope.
+- Themes and language support: light mode, dark mode, and multilingual interface support.
 
-**Four note scopes, one click away:**
+Privacy:
 
-🔗 **URL notes** — Pin a note to a specific page. Perfect for research, code review, reading articles, or filling out forms.
+TabNotes does not collect, sell, track, or analyze your personal data. Notes are stored locally by default. Google Drive backup is optional and only runs when you choose to enable it.
 
-🌐 **Domain notes** — One shared note for an entire site. Ideal for documentation, wikis, tools you use every day.
-
-⊞ **Workspace notes** — Group notes by project. Switch contexts instantly without losing your place.
-
-🌍 **Global notes** — A scratchpad always available everywhere, regardless of what tab you're on.
-
----
-
-**Multiple notes per context:**
-
-Create as many notes as you need for the same URL, domain, or workspace. Switch between them with the pill selector — each saved and accessible independently.
-
----
-
-**Built for focus, not friction:**
-
-✎ **Side panel** — Notes open beside your content, never replacing it. Keep reading while you write.
-
-⚡ **Autosave** — Every keystroke saved instantly. No Ctrl+S, no lost notes.
-
-🔄 **Auto tab sync** — Switch tabs and the panel instantly shows notes for your new context.
-
-🏷 **Tags & search** — Tag any note, filter by tags, or full-text search across everything in real time.
-
-◈ **Markdown** — Write in Markdown with a live rendered preview toggle.
-
-☽ **Dark mode** — Follows your system preference automatically, or set it manually.
-
-⏱ **Reading time** — See estimated reading time for every note at a glance.
-
-📋 **Copy to clipboard** — Copy any note's content with one click.
-
----
-
-**100% private by design:**
-
-TabNotes stores everything locally on your device using chrome.storage.local. Zero servers. Zero account. Zero cloud. Your notes never leave your browser.
-
-**Export / import** your notes as JSON anytime. Full backup and restore in one click — notes are merged, nothing is overwritten.
-
-**Optional Google Drive backup** can save an automatic backup to your private Google Drive app data folder. This is opt-in, uses Google's limited `drive.appdata` scope, and never touches a TabNotes server.
-
----
-
-**Free forever. Open source.**
-
-github.com/mikepchelper-spec/TabNotes
-
-❤️ If TabNotes saves you time: paypal.me/atlaspcsupport
-
----
+TabNotes is designed for researchers, students, developers, support technicians, writers, and anyone who needs notes that stay connected to their browsing context.
 
 ## Category
-Productivity
 
-## Language
-English
+Work and planning / Productivity
 
-## Permissions justification (for Store review form)
-- **storage** — Saves all notes locally on your device (chrome.storage.local).
-- **tabs** — Reads the current tab's URL to automatically link notes to the right context, and detects tab switches to update the panel instantly.
-- **activeTab** — Accesses the current tab's URL when the side panel is open.
-- **sidePanel** — Displays the notes panel alongside the page content without replacing it.
-- **identity** — Lets the user optionally connect a Google account for Google Drive backup.
-- **alarms** — Schedules reminders, daily digest, and delayed Drive backup sync.
-- **notifications** — Shows backup reminders, daily digest, and note reminders.
-- **https://www.googleapis.com/** — Sends optional backup data directly to Google Drive when the user enables Drive backup.
+## Permissions justification
 
----
+- `storage`: stores notes, workspaces, reminders, preferences, backup settings, and app state locally in the browser.
+- `unlimitedStorage`: supports local-first note collections that may include many or long notes.
+- `tabs`: reads the active tab URL, title, and domain so notes can be associated with the correct page or domain.
+- `activeTab`: accesses the current tab only when the user invokes TabNotes.
+- `sidePanel`: provides the main TabNotes interface inside Chrome's side panel.
+- `alarms`: schedules user-created reminders and background backup checks.
+- `notifications`: shows browser notifications when reminders or backup reminders are due.
+- `identity`: enables optional Google OAuth authentication for Google Drive backup and restore.
+- `offscreen`: plays local reminder audio when a reminder fires.
+- `contextMenus`: adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
+- `https://www.googleapis.com/*`: used only for optional Google Drive appData backup and restore after the user enables Drive sync.
 
-## Screenshots checklist (1280×800 required)
+## Data usage disclosure
 
-1. **Hero** — Side panel open on a real webpage (e.g. a news article), writing a URL note. Autosave badge visible.
-2. **Multiple notes** — Several note pills for the same domain (Note 1, 2, 3 + add button).
-3. **All Notes view** — Search bar active with results, tag chips visible, scope icons on cards.
-4. **Dark mode** — Side panel in dark theme on a dark-background website.
-5. **Settings** — Settings view showing theme switcher + Support (Buy me a coffee) section visible.
+TabNotes may process:
 
-Tips for screenshots:
-- Use Chrome at 100% zoom
-- Make the side panel visible alongside real web content (not a blank tab)
-- 1280×800 exactly (you can use the Chrome DevTools device toolbar to set this)
+- Web history: current URL, title, and domain used to attach notes to browser context.
+- Website content: user-selected text clipped into notes by explicit user action.
 
----
+TabNotes does not sell user data, does not use data for advertising, and does not transfer data for purposes unrelated to the single purpose of the extension.
 
-## Promotional tile (440×280)
-Tagline: "Notes that know where you are"
-Background: solid #2b5be8 or gradient (#2b5be8 → #1a3fc0)
-Logo: white T mark + "TabNotes" in white
-Sub: "URL · Domain · Workspace · Global"
+## Screenshot assets
+
+Use the final screenshots in:
+
+```text
+store/assets-final-20260619/
+```
+
+Recommended upload order:
+
+1. `01-editor-url-note-1280x800.png`
+2. `02-search-and-all-notes-1280x800.png`
+3. `03-drive-backup-settings-1280x800.png`
+4. `04-reminders-1280x800.png`
+5. `05-workspaces-light-mode-1280x800.png`
+
+Promo images:
+
+- `promo-small-440x280.png`
+- `promo-marquee-1400x560.png`

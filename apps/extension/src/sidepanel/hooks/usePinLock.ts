@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { hashPin, verifyPin } from '@tabnotes/shared';
+import { useTranslation } from '@tabnotes/i18n';
 import type { PinHash } from '@tabnotes/shared';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,6 +10,7 @@ const cr: any =
     : null;
 
 export function usePinLock() {
+  const { t } = useTranslation();
   const [pinHash, setPinHash] = useState<PinHash | null>(null);
   const [pinLocked, setPinLocked] = useState(false);
   const [pinEntry, setPinEntry] = useState('');
@@ -31,11 +33,11 @@ export function usePinLock() {
 
   const savePin = async () => {
     if (pinSetInput.length < 4) {
-      setPinSetFeedback('PIN must be at least 4 characters');
+      setPinSetFeedback(t('pin.minLength'));
       return;
     }
     if (pinSetInput !== pinSetConfirm) {
-      setPinSetFeedback('PINs do not match');
+      setPinSetFeedback(t('pin.mismatch'));
       return;
     }
     const hashed = await hashPin(pinSetInput);
@@ -43,7 +45,7 @@ export function usePinLock() {
     cr?.storage?.local?.set({ tn_pin: hashed });
     setPinSetInput('');
     setPinSetConfirm('');
-    setPinSetFeedback('PIN saved');
+    setPinSetFeedback(t('pin.saved'));
     setTimeout(() => setPinSetFeedback(''), 2500);
   };
 
@@ -53,7 +55,7 @@ export function usePinLock() {
     cr?.storage?.local?.remove('tn_pin');
     setPinSetInput('');
     setPinSetConfirm('');
-    setPinSetFeedback('PIN removed');
+    setPinSetFeedback(t('pin.removed'));
     setTimeout(() => setPinSetFeedback(''), 2500);
   };
 
@@ -76,7 +78,7 @@ export function usePinLock() {
       setPinEntry('');
       setPinError('');
     } else {
-      setPinError('Incorrect PIN');
+      setPinError(t('pin.incorrect'));
       setPinEntry('');
     }
   };

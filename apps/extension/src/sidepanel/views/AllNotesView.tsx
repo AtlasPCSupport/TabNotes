@@ -1,6 +1,7 @@
 import React from 'react';
 import { Note, formatRelativeTime } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 export interface ScopeOption {
@@ -44,6 +45,7 @@ export function AllNotesView(props: {
   onCreateNote: () => void;
   selectAllInView: () => void;
 }) {
+  const { t } = useTranslation();
   const {
     scopeOptions,
     filteredNotes,
@@ -85,7 +87,7 @@ export function AllNotesView(props: {
             className="sp-search-input"
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
-            placeholder="Search notes, titles, tags…"
+            placeholder={t('noteList.searchPlaceholder')}
             autoFocus
           />
           {searchQ && (
@@ -107,7 +109,7 @@ export function AllNotesView(props: {
         </div>
         <button
           className={`sp-select-toggle${selectMode ? ' active' : ''}`}
-          title={selectMode ? 'Cancel selection' : 'Select multiple notes'}
+          title={selectMode ? t('noteList.cancelSelection') : t('noteList.selectMultiple')}
           onClick={() => {
             setSelectMode(!selectMode);
             clearBulkSelection();
@@ -115,7 +117,7 @@ export function AllNotesView(props: {
             setDeleteCardConfirmId(null);
           }}
         >
-          {selectMode ? 'Cancel' : <AppIcon name="checklist" size={15} />}
+          {selectMode ? t('common.cancel') : <AppIcon name="checklist" size={15} />}
         </button>
       </div>
 
@@ -124,7 +126,7 @@ export function AllNotesView(props: {
         <div className="sp-tag-chips">
           {tagFilter && (
             <button className="sp-tag-chip clear" onClick={() => setTagFilter(null)}>
-              <AppIcon name="close" size={11} /> Clear
+              <AppIcon name="close" size={11} /> {t('noteList.clear')}
             </button>
           )}
           {allTags.map((t) => (
@@ -146,14 +148,14 @@ export function AllNotesView(props: {
               <AppIcon name="note" size={30} />
             </div>
             <div className="sp-empty-title">
-              {searchQ || tagFilter ? 'No results' : 'No notes yet'}
+              {searchQ || tagFilter ? t('noteList.noResultsTitle') : t('noteList.noNotesTitle')}
             </div>
             <div className="sp-empty-desc">
               {searchQ
-                ? `Nothing matched "${searchQ}"`
+                ? t('noteList.nothingMatched', { query: searchQ })
                 : tagFilter
-                  ? `No notes tagged #${tagFilter}`
-                  : 'Switch to Note tab and start writing.'}
+                  ? t('noteList.noTagged', { tag: tagFilter })
+                  : t('noteList.startWriting')}
             </div>
           </div>
         ) : (
@@ -173,7 +175,9 @@ export function AllNotesView(props: {
                     <span className="sp-group-icon">
                       <AppIcon name={scopeOpt.icon} size={14} />
                     </span>
-                    <span className="sp-group-label">{scopeOpt.label}</span>
+                    <span className="sp-group-label">
+                      {t(`scope.${scopeOpt.value}` as TranslationKey)}
+                    </span>
                     <span className={`sp-group-count${notes.length === 0 ? ' empty' : ''}`}>
                       {notes.length}
                     </span>
@@ -181,7 +185,9 @@ export function AllNotesView(props: {
 
                   {!isCollapsed && notes.length === 0 && (
                     <div className="sp-group-empty">
-                      No {scopeOpt.label.toLowerCase()} notes yet
+                      {t('noteList.noScopeNotes', {
+                        scope: t(`scope.${scopeOpt.value}` as TranslationKey).toLowerCase(),
+                      })}
                     </div>
                   )}
 
@@ -223,7 +229,7 @@ export function AllNotesView(props: {
                           )}
                           <div className="sp-card-top">
                             {pinnedNotes.has(n.id) && (
-                              <span className="sp-card-pin" title="Pinned">
+                              <span className="sp-card-pin" title={t('noteList.pinned')}>
                                 <AppIcon name="pin" size={12} />
                               </span>
                             )}
@@ -233,8 +239,8 @@ export function AllNotesView(props: {
                                 className={`sp-card-delete${deleteCardConfirmId === n.id ? ' confirming' : ''}`}
                                 title={
                                   deleteCardConfirmId === n.id
-                                    ? 'Click to confirm delete'
-                                    : 'Delete note'
+                                    ? t('noteList.clickToConfirmDelete')
+                                    : t('noteList.deleteNote')
                                 }
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -246,7 +252,7 @@ export function AllNotesView(props: {
                                 }}
                               >
                                 {deleteCardConfirmId === n.id ? (
-                                  'Delete?'
+                                  t('common.confirmDelete')
                                 ) : (
                                   <AppIcon name="trash" size={13} />
                                 )}
@@ -281,7 +287,7 @@ export function AllNotesView(props: {
                                 rel="noopener"
                                 className="sp-card-open-url"
                                 onClick={(e) => e.stopPropagation()}
-                                title="Open this URL"
+                                title={t('noteList.openUrl')}
                               >
                                 <AppIcon name="arrowUpRight" size={11} />
                               </a>
@@ -301,13 +307,15 @@ export function AllNotesView(props: {
         <div className="sp-bulk-bar">
           <span className="sp-bulk-count">
             {bulkSelectedIds.size === 0
-              ? 'Tap notes to select'
-              : `${bulkSelectedIds.size} selected`}
+              ? t('noteList.tapToSelect')
+              : t('noteList.selected', { count: bulkSelectedIds.size })}
           </span>
           {bulkSelectedIds.size > 0 && (
             <>
               <button className="sp-bulk-select-all" onClick={selectAllInView}>
-                {bulkSelectedIds.size === filteredNotes.length ? 'Deselect all' : 'Select all'}
+                {bulkSelectedIds.size === filteredNotes.length
+                  ? t('noteList.deselectAll')
+                  : t('noteList.selectAll')}
               </button>
               <button
                 className={`sp-bulk-delete${bulkDeleteConfirm ? ' confirming' : ''}`}
@@ -320,15 +328,15 @@ export function AllNotesView(props: {
                 }}
               >
                 {bulkDeleteConfirm
-                  ? `Confirm delete ${bulkSelectedIds.size}`
-                  : `Delete ${bulkSelectedIds.size}`}
+                  ? t('noteList.confirmDeleteSelected', { count: bulkSelectedIds.size })
+                  : t('noteList.deleteCount', { count: bulkSelectedIds.size })}
               </button>
             </>
           )}
         </div>
       )}
 
-      <button className="sp-fab" title="New note" onClick={onCreateNote}>
+      <button className="sp-fab" title={t('noteList.newNote')} onClick={onCreateNote}>
         <AppIcon name="plus" size={20} strokeWidth={2.6} />
       </button>
     </div>

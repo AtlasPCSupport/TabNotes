@@ -502,7 +502,7 @@ export class WorkspacesService {
   }
 }
 
-export function exportData(data: StorageData): ExportData {
+export function exportData(data: StorageData, exportedAt = Date.now()): ExportData {
   const allNotes = [
     ...Object.values(data.notes_url ?? {}),
     ...Object.values(data.notes_domain ?? {}),
@@ -511,7 +511,7 @@ export function exportData(data: StorageData): ExportData {
   ];
   return {
     version: STORAGE_VERSION,
-    exportedAt: Date.now(),
+    exportedAt,
     notes: allNotes,
     workspaces: Object.values(data.workspaces),
   };

@@ -43,6 +43,8 @@ const REMINDER_COLLECTION_KEYS: ReminderCollectionKey[] = [
 ];
 
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen/index.html';
+const CLIP_SELECTION_CONTEXT_MENU_ID = 'tabnotes_clip_selection';
+const PENDING_CLIP_STORAGE_KEY = 'tn_pending_clip';
 
 interface RuntimeContext {
   url?: string;
@@ -301,6 +303,23 @@ async function restoreReminderAlertIfNeeded(): Promise<void> {
     durationMs: remainingMs,
   });
   startBadgeFlashLoop(alert.expiresAt);
+}
+
+function createClipContextMenu(): void {
+  chrome.contextMenus.removeAll(() => {
+    // Ignore benign errors from menu cleanup during extension reloads.
+    void chrome.runtime.lastError;
+    chrome.contextMenus.create(
+      {
+        id: CLIP_SELECTION_CONTEXT_MENU_ID,
+        title: chrome.i18n.getMessage('contextMenuClipSelection') || 'Clip selection to TabNotes',
+        contexts: ['selection'],
+      },
+      () => {
+        void chrome.runtime.lastError;
+      }
+    );
+  });
 }
 
 
@@ -612,20 +631,24 @@ async function snoozeReminder(noteId: string, minutes = DEFAULT_SNOOZE_MINUTES):
   return reminderAt;
 }
 
-async function restoreNoteReminderAlarms(): Promise<void> {
+async function restoreNoteReminderAlarms(): Promise<{
+  cleared: number;
+  scheduled: number;
+  fired: number;
+}> {
   const existingAlarms = await getAllAlarms();
-  await Promise.all(
-    existingAlarms
-      .filter((alarm) => alarm.name.startsWith(NOTE_REMINDER_ALARM_PREFIX))
-      .map((alarm) => clearAlarm(alarm.name))
+  const noteAlarms = existingAlarms.filter((alarm) =>
+    alarm.name.startsWith(NOTE_REMINDER_ALARM_PREFIX)
   );
+  await Promise.all(noteAlarms.map((alarm) => clearAlarm(alarm.name)));
 
   const result = await getLocalStorage('tabnotes_data');
   const data = result['tabnotes_data'] as ReminderStorageData | undefined;
-  if (!data) return;
+  if (!data) return { cleared: noteAlarms.length, scheduled: 0, fired: 0 };
 
   const now = Date.now();
   const overdueNoteIds = new Set<string>();
+  let scheduled = 0;
 
   for (const colKey of REMINDER_COLLECTION_KEYS) {
     for (const [noteId, note] of Object.entries(data[colKey] ?? {})) {
@@ -633,6 +656,7 @@ async function restoreNoteReminderAlarms(): Promise<void> {
 
       if (note.reminderAt > now) {
         chrome.alarms.create(createNoteReminderAlarmName(noteId), { when: note.reminderAt });
+        scheduled += 1;
       } else {
         overdueNoteIds.add(noteId);
       }
@@ -642,12 +666,19 @@ async function restoreNoteReminderAlarms(): Promise<void> {
   for (const noteId of overdueNoteIds) {
     await fireNoteReminder(noteId);
   }
+
+  return {
+    cleared: noteAlarms.length,
+    scheduled,
+    fired: overdueNoteIds.size,
+  };
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setOptions({ enabled: true });
+  createClipContextMenu();
   updateBadgeForActiveTab();
   scheduleDigest();
   scheduleBackupCheck();
@@ -656,6 +687,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  createClipContextMenu();
   scheduleDigest();
   scheduleBackupCheck();
   void restoreNoteReminderAlarms().catch(() => undefined);
@@ -666,6 +698,27 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.action.onClicked.addListener((tab) => {
   if (tab.id) chrome.sidePanel.open({ tabId: tab.id });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== CLIP_SELECTION_CONTEXT_MENU_ID) return;
+  const text = info.selectionText?.trim();
+  if (!text) return;
+
+  void (async () => {
+    const sourceUrl = info.pageUrl || tab?.url || '';
+    await chrome.storage.local.set({
+      [PENDING_CLIP_STORAGE_KEY]: {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text,
+        sourceUrl,
+        sourceTitle: tab?.title || sourceUrl,
+        createdAt: Date.now(),
+      },
+    });
+
+    if (tab?.id) await chrome.sidePanel.open({ tabId: tab.id });
+  })().catch(() => undefined);
 });
 
 // ── Keyboard shortcut ─────────────────────────────────────────────────────────
@@ -815,6 +868,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const noteId = typeof msg.noteId === 'string' ? msg.noteId : '';
       if (noteId) await requestOpenReminder(noteId);
       sendResponse({ ok: Boolean(noteId) });
+    })().catch((error) => {
+      sendResponse({ ok: false, error: String(error) });
+    });
+    return true;
+  }
+
+  if (msg.type === 'RESTORE_REMINDER_ALARMS') {
+    (async () => {
+      const result = await restoreNoteReminderAlarms();
+      sendResponse({ ok: true, result });
     })().catch((error) => {
       sendResponse({ ok: false, error: String(error) });
     });

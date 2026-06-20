@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Note,
   NoteScope,
   ChromeStorageAdapter,
   NotesService,
@@ -17,6 +16,39 @@ const cr: any =
   typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).chrome
     ? (globalThis as Record<string, unknown>).chrome
     : null;
+
+const PENDING_CLIP_STORAGE_KEY = 'tn_pending_clip';
+
+interface PendingClip {
+  text: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+}
+
+function normalizePendingClip(value: unknown): PendingClip | null {
+  if (!value || typeof value !== 'object') return null;
+  const clip = value as Partial<PendingClip>;
+  const text = typeof clip.text === 'string' ? clip.text.trim() : '';
+  if (!text) return null;
+  return {
+    text,
+    sourceUrl: typeof clip.sourceUrl === 'string' ? clip.sourceUrl : undefined,
+    sourceTitle: typeof clip.sourceTitle === 'string' ? clip.sourceTitle : undefined,
+  };
+}
+
+function formatClipMarkdown(clip: PendingClip, fallbackUrl: string): string {
+  const sourceUrl = clip.sourceUrl || fallbackUrl;
+  const sourceTitle = clip.sourceTitle || sourceUrl || 'Source';
+  const quotedText = clip.text
+    .split(/\r?\n/)
+    .map((line) => `> ${line}`)
+    .join('\n');
+
+  return sourceUrl
+    ? `\n\n${quotedText}\n\n- [${sourceTitle}](${sourceUrl})`
+    : `\n\n${quotedText}`;
+}
 
 interface UseChromeStorageAndTabsProps {
   adapter: React.MutableRefObject<ChromeStorageAdapter>;
@@ -95,6 +127,85 @@ export function useChromeStorageAndTabs({
     return notes;
   }, [noteSvc, setAllNotes]);
 
+  const appendClipToCurrentNote = useCallback(
+    async (rawClip: unknown): Promise<boolean> => {
+      const clip = normalizePendingClip(rawClip);
+      if (!clip) return false;
+
+      const state = useSidePanelStore.getState();
+      const sourceUrl = clip.sourceUrl || currentUrlRef.current;
+      const nextContent = state.content.trim()
+        ? `${state.content}${formatClipMarkdown(clip, currentUrlRef.current)}`
+        : formatClipMarkdown(clip, currentUrlRef.current).trimStart();
+      const parsedTags = state.tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const title = stripFormatting(state.title || clip.sourceTitle || sourceUrl || '');
+
+      setSaved(false);
+      clearTimeout(saveTimer.current);
+
+      const savedNote = activeNoteIdRef.current
+        ? await noteSvc.current.updateNote(activeNoteIdRef.current, {
+            content: nextContent,
+            title: title || undefined,
+            tags: parsedTags,
+          })
+        : await noteSvc.current.createNote({
+            scope: scopeRef.current,
+            url: currentUrlRef.current || sourceUrl,
+            workspaceId: wsIdRef.current,
+            content: nextContent,
+            title: title || undefined,
+            tags: parsedTags,
+          });
+
+      if (!savedNote) return false;
+
+      activeNoteIdRef.current = savedNote.id;
+      setContent(savedNote.content);
+      setTitle(stripFormatting(savedNote.title ?? ''));
+      setTags(savedNote.tags.join(', '));
+      setContextNotes(
+        await noteSvc.current.getNotesByScope(
+          scopeRef.current,
+          currentUrlRef.current || sourceUrl,
+          wsIdRef.current
+        )
+      );
+      contentSavedRef.current = savedNote.content;
+      lastSaveTs.current = Date.now();
+      setView('note');
+      setSaved(true);
+      setClipFeedback(true);
+      await refreshAllNotes();
+
+      setTimeout(() => editorRef.current?.focus(), 120);
+      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setClipFeedback(false), 2000);
+      return true;
+    },
+    [
+      activeNoteIdRef,
+      contentSavedRef,
+      currentUrlRef,
+      editorRef,
+      lastSaveTs,
+      noteSvc,
+      refreshAllNotes,
+      saveTimer,
+      scopeRef,
+      setContent,
+      setContextNotes,
+      setSaved,
+      setTags,
+      setTitle,
+      setView,
+      wsIdRef,
+    ]
+  );
+
   const loadContextNotes = useCallback(
     async (url: string, sc: NoteScope, wsId: string | null, preferNoteId?: string | null) => {
       if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
@@ -161,7 +272,7 @@ export function useChromeStorageAndTabs({
     };
   }, []);
 
-  // CLIP_TEXT listener (Web Clipper)
+  // CLIP_TEXT listener (legacy Web Clipper bridge)
   useEffect(() => {
     if (!cr?.runtime?.onMessage) return;
     const handler = (msg: {
@@ -171,45 +282,11 @@ export function useChromeStorageAndTabs({
       sourceTitle: string;
     }) => {
       if (msg.type !== 'CLIP_TEXT') return;
-      const clip = `\n\n> ${msg.text}\n\n— [${msg.sourceTitle || msg.sourceUrl}](${msg.sourceUrl})`;
-      setContent((prev) => {
-        const next = prev + clip;
-        // Trigger autosave
-        setSaved(false);
-        clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(async () => {
-          const id = activeNoteIdRef.current;
-          const parsedTags = useSidePanelStore.getState().tags
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
-          let savedNote: Note | null = null;
-          if (id) {
-            savedNote = await noteSvc.current.updateNote(id, {
-              content: next,
-              title: useSidePanelStore.getState().title || undefined,
-              tags: parsedTags,
-            });
-          }
-          if (savedNote) {
-            activeNoteIdRef.current = savedNote.id;
-            const notes = await noteSvc.current.getNotesByScope(scopeRef.current, currentUrlRef.current, wsIdRef.current);
-            setContextNotes(notes);
-          }
-          contentSavedRef.current = next;
-          lastSaveTs.current = Date.now();
-          setSaved(true);
-          await refreshAllNotes();
-          setTimeout(() => setSaved(false), 2000);
-        }, 600);
-        return next;
-      });
-      setClipFeedback(true);
-      setTimeout(() => setClipFeedback(false), 2000);
+      void appendClipToCurrentNote(msg);
     };
     cr.runtime.onMessage.addListener(handler);
     return () => cr.runtime.onMessage.removeListener(handler);
-  }, [setContent, saveTimer, activeNoteIdRef, noteSvc, setContextNotes, scopeRef, currentUrlRef, wsIdRef, contentSavedRef, lastSaveTs, setSaved, refreshAllNotes]);
+  }, [appendClipToCurrentNote]);
 
   // Cross-tab real-time sync
   useEffect(() => {
@@ -220,6 +297,12 @@ export function useChromeStorageAndTabs({
       changes: Record<string, { oldValue?: unknown; newValue?: unknown }>,
       area: string
     ) => {
+      if (area === 'local' && changes[PENDING_CLIP_STORAGE_KEY]?.newValue) {
+        void appendClipToCurrentNote(changes[PENDING_CLIP_STORAGE_KEY].newValue).then((consumed) => {
+          if (consumed) cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
+        });
+        return;
+      }
       if (area === 'local' && changes['tn_quick_capture']?.newValue) {
         cr.storage.local.remove('tn_quick_capture');
         addNoteToContextRef.current().then(() => {
@@ -282,7 +365,7 @@ export function useChromeStorageAndTabs({
       cr.storage.onChanged.removeListener(handler);
       clearTimeout(t);
     };
-  }, [addNoteToContextRef, setView, editorRef, lastSaveTs, noteSvc, setAllNotes, scopeRef, currentUrlRef, wsIdRef, setContextNotes, wsSvc, setWorkspaces, setActiveWorkspaceId, activeNoteIdRef, contentSavedRef, setContent, setTitle, setTags, adapter, setLanguageState, setThemeState]);
+  }, [addNoteToContextRef, appendClipToCurrentNote, setView, editorRef, lastSaveTs, noteSvc, setAllNotes, scopeRef, currentUrlRef, wsIdRef, setContextNotes, wsSvc, setWorkspaces, setActiveWorkspaceId, activeNoteIdRef, contentSavedRef, setContent, setTitle, setTags, adapter, setLanguageState, setThemeState]);
 
   // Initial load
   useEffect(() => {
@@ -366,6 +449,13 @@ export function useChromeStorageAndTabs({
         currentUrlRef.current = url;
         await loadContextNotes(url, sc, wsId);
 
+        const pendingClipData = await new Promise<Record<string, unknown>>((res) =>
+          cr.storage.local.get(PENDING_CLIP_STORAGE_KEY, res)
+        );
+        if (await appendClipToCurrentNote(pendingClipData[PENDING_CLIP_STORAGE_KEY])) {
+          cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
+        }
+
         const qcData = await new Promise<Record<string, unknown>>((res) =>
           cr.storage.local.get('tn_quick_capture', res)
         );
@@ -381,7 +471,7 @@ export function useChromeStorageAndTabs({
     };
 
     init();
-  }, [adapter, wsSvc, setDefaultScopeState, setScope, scopeRef, setActiveWorkspaceId, wsIdRef, setWorkspaces, setMdState, setThemeState, setLanguageState, refreshAllNotes, setCurrentUrl, setCurrentDomain, currentUrlRef, loadContextNotes, addNoteToContextRef, setView, editorRef]);
+  }, [adapter, wsSvc, setDefaultScopeState, setScope, scopeRef, setActiveWorkspaceId, wsIdRef, setWorkspaces, setMdState, setThemeState, setLanguageState, refreshAllNotes, setCurrentUrl, setCurrentDomain, currentUrlRef, loadContextNotes, appendClipToCurrentNote, addNoteToContextRef, setView, editorRef]);
 
   // Tab event listeners
   useEffect(() => {

@@ -45,8 +45,6 @@ export interface ViewHostProps {
   clipFeedback: boolean;
   focusMode: boolean;
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
-  typewriterMode: boolean;
-  setTypewriterMode: React.Dispatch<React.SetStateAction<boolean>>;
   colorPickerNoteId: string | null;
   setColorPickerNoteId: React.Dispatch<React.SetStateAction<string | null>>;
   onSetNoteColor: (id: string, color: string) => void;
@@ -167,8 +165,6 @@ export function ViewHost({
   clipFeedback,
   focusMode,
   setFocusMode,
-  typewriterMode,
-  setTypewriterMode,
   colorPickerNoteId,
   setColorPickerNoteId,
   onSetNoteColor,
@@ -317,8 +313,6 @@ export function ViewHost({
             setFocusMode={setFocusMode}
             showRefPanel={showRefPanel}
             setShowRefPanel={setShowRefPanel}
-            typewriterMode={typewriterMode}
-            setTypewriterMode={setTypewriterMode}
             copied={copied}
             copyNote={copyNote}
             showHistory={showHistory}

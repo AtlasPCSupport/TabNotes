@@ -1,5 +1,6 @@
 import React from 'react';
 import { Note, stripFormatting } from '@tabnotes/shared';
+import { useTranslation } from '@tabnotes/i18n';
 
 /**
  * Visual graph of notes connected by wiki links and shared tags.
@@ -14,6 +15,7 @@ export function NoteGraph({
   activeId: string | null;
   onSelect: (n: Note) => void;
 }) {
+  const { t } = useTranslation();
   const W = 310,
     H = 280,
     cx = W / 2,
@@ -107,7 +109,7 @@ export function NoteGraph({
           fill="#aaa"
           fontFamily="system-ui"
         >
-          No note selected
+          {t('graph.noNoteSelected')}
         </text>
       )}
     </svg>

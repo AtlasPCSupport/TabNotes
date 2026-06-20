@@ -29,7 +29,6 @@ import {
   History,
   Info,
   KeyRound,
-  Keyboard,
   LayoutTemplate,
   Link2,
   List,
@@ -101,7 +100,6 @@ export type AppIconName =
   | 'spark'
   | 'template'
   | 'trash'
-  | 'typewriter'
   | 'unlock'
   | 'upload'
   | 'url'
@@ -158,7 +156,6 @@ const ICON_MAP: Record<AppIconName, LucideIcon> = {
   spark: Sparkles,
   template: LayoutTemplate,
   trash: Trash2,
-  typewriter: Keyboard,
   unlock: LockOpen,
   upload: Upload,
   url: Link2,

@@ -96,10 +96,10 @@ export function DataSettings({
             cursor: 'pointer',
           }}
         >
-          <option value={0}>{t('settingsSections.off')}</option>
-          <option value={7}>{t('settingsSections.daysCount', { count: 7 })}</option>
-          <option value={14}>{t('settingsSections.daysCount', { count: 14 })}</option>
-          <option value={30}>{t('settingsSections.daysCount', { count: 30 })}</option>
+          <option value={0}>{t('settings.backupRemindOff')}</option>
+          <option value={7}>{t('settings.backupRemindDays', { days: 7 })}</option>
+          <option value={14}>{t('settings.backupRemindDays', { days: 14 })}</option>
+          <option value={30}>{t('settings.backupRemindDays', { days: 30 })}</option>
         </select>
       </div>
     </div>

@@ -1,11 +1,11 @@
 import React from 'react';
 import { useSidePanelStore } from '../../store';
-import { useTranslation } from '@tabnotes/i18n';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon } from '../AppIcon';
 
 export interface WorkspaceColor {
   value: string;
-  label: string;
+  labelKey: TranslationKey;
 }
 
 /**
@@ -169,6 +169,7 @@ export function WorkspaceSettings({
                           cursor: 'pointer',
                           padding: 0,
                         }}
+                        title={t(c.labelKey)}
                       />
                     ))}
                   </div>
@@ -243,7 +244,7 @@ export function WorkspaceSettings({
                 cursor: 'pointer',
                 padding: 0,
               }}
-              title={c.label}
+              title={t(c.labelKey)}
             />
           ))}
         </div>

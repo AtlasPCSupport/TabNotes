@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Workspace } from '@tabnotes/shared';
-import type { Language } from '@tabnotes/i18n';
+import { useTranslation, type Language } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
 import { AppIcon } from './AppIcon';
 
@@ -70,6 +70,7 @@ export function HeaderBar({
   language: Language;
   setLanguage: (lng: Language) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const view = useSidePanelStore((s) => s.view);
   const setView = useSidePanelStore((s) => s.setView);
   const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
@@ -96,7 +97,7 @@ export function HeaderBar({
             }}
           />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 80 }}>
-            {activeWs ? activeWs.name : 'No Workspace'}
+            {activeWs ? activeWs.name : t('header.noWorkspace')}
           </span>
           <span className="sp-ws-chevron">
             <AppIcon name={wsDropdown ? 'chevronUp' : 'chevronDown'} size={12} />
@@ -108,7 +109,7 @@ export function HeaderBar({
               className={`sp-ws-option${activeWorkspaceId === null ? ' active' : ''}`}
               onClick={() => onSwitchWorkspace(null)}
             >
-              <AppIcon name="global" size={14} /> No Workspace
+              <AppIcon name="global" size={14} /> {t('header.noWorkspace')}
               {activeWorkspaceId === null && (
                 <span className="sp-ws-check">
                   <AppIcon name="check" size={13} />
@@ -150,7 +151,7 @@ export function HeaderBar({
                 setView('settings');
               }}
             >
-              <AppIcon name="settings" size={14} /> Manage workspaces
+              <AppIcon name="settings" size={14} /> {t('header.manageWorkspaces')}
             </div>
           </div>
         )}
@@ -180,7 +181,7 @@ export function HeaderBar({
 
         {/* Writing streak */}
         {features.writingStreak && streak >= 2 && (
-          <div className="tn-streak-badge" title={`${streak}-day writing streak! Keep it up.`}>
+          <div className="tn-streak-badge" title={t('header.streakTitle', { count: streak })}>
             <AppIcon name="flame" size={13} /> {streak}
           </div>
         )}
@@ -189,7 +190,11 @@ export function HeaderBar({
         {!isOnline && (
           <div
             className="tn-offline-badge"
-            title={`Offline — ${pendingSyncCount > 0 ? `${pendingSyncCount} note${pendingSyncCount !== 1 ? 's' : ''} queued for sync` : 'notes save locally as always'}`}
+            title={
+              pendingSyncCount > 0
+                ? t('header.offlineQueued', { count: pendingSyncCount })
+                : t('header.offlineSaved')
+            }
           >
             <span className="tn-offline-dot" />
             {pendingSyncCount > 0 && <span className="tn-offline-count">{pendingSyncCount}</span>}
@@ -197,7 +202,7 @@ export function HeaderBar({
         )}
         {syncedToast && (
           <div className="tn-synced-toast">
-            <AppIcon name="check" size={12} /> All synced
+            <AppIcon name="check" size={12} /> {t('header.allSynced')}
           </div>
         )}
 
@@ -205,15 +210,15 @@ export function HeaderBar({
           <button
             className={`sp-icon-btn${view === 'graph' ? ' active' : ''}`}
             onClick={() => setView(view === 'graph' ? 'note' : 'graph')}
-            title="Note graph view"
+            title={t('header.noteGraph')}
           >
             <AppIcon name="graph" size={15} />
           </button>
         )}
-        <button
+          <button
           className="sp-icon-btn"
           onClick={onToggleTheme}
-          title="Toggle theme"
+          title={t('header.toggleTheme')}
         >
           <AppIcon name={theme === 'dark' ? 'light' : 'dark'} size={15} />
         </button>
@@ -223,7 +228,7 @@ export function HeaderBar({
             setSettingsTarget(null);
             setView('settings');
           }}
-          title="Settings"
+          title={t('header.settings')}
         >
           <AppIcon name="settings" size={15} />
         </button>

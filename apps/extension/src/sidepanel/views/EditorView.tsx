@@ -27,7 +27,6 @@ import {
   Folder as FolderIcon,
   Focus as FocusIcon,
   History,
-  Keyboard,
   ListChecks,
   Lock,
   LockOpen,
@@ -92,8 +91,6 @@ export interface EditorViewProps {
   setFocusMode: (v: boolean) => void;
   showRefPanel: boolean;
   setShowRefPanel: (v: boolean) => void;
-  typewriterMode: boolean;
-  setTypewriterMode: (v: boolean) => void;
 
   // Clipboard functionality
   copied: boolean;
@@ -125,13 +122,13 @@ interface ModifiableSelection extends Selection {
 }
 
 const NOTE_COLORS = [
-  { value: '', label: 'Default' },
-  { value: '#f59e0b', label: 'Amber' },
-  { value: '#10b981', label: 'Green' },
-  { value: '#3b82f6', label: 'Blue' },
-  { value: '#ec4899', label: 'Pink' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#ef4444', label: 'Red' },
+  { value: '', key: 'default' },
+  { value: '#f59e0b', key: 'amber' },
+  { value: '#10b981', key: 'green' },
+  { value: '#3b82f6', key: 'blue' },
+  { value: '#ec4899', key: 'pink' },
+  { value: '#8b5cf6', key: 'purple' },
+  { value: '#ef4444', key: 'red' },
 ];
 
 export function EditorView({
@@ -174,8 +171,6 @@ export function EditorView({
   onSetReminder,
   onClearReminder,
   clipFeedback,
-  typewriterMode,
-  setTypewriterMode,
   selectNote,
 }: EditorViewProps) {
   const { t } = useTranslation();
@@ -350,6 +345,17 @@ export function EditorView({
     setShowMovePicker,
   ]);
 
+  const handleReminderConfirm = useCallback(async () => {
+    const ts = parseDateTimeLocalInput(reminderInput);
+    if (!isSchedulableReminderTimestamp(ts)) {
+      setReminderInput(formatDateTimeLocal(getDefaultReminderTimestamp()));
+      return;
+    }
+    await onSetReminder(ts);
+    setShowReminderPicker(false);
+    setReminderInput('');
+  }, [reminderInput, onSetReminder, setReminderInput, setShowReminderPicker]);
+
   // ── Smart suggestions: debounced related-note lookup ──────────
   useEffect(() => {
     if (suggDebounceRef.current) clearTimeout(suggDebounceRef.current);
@@ -398,20 +404,6 @@ export function EditorView({
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
   }, []);
-
-  // ── Typewriter mode: keep cursor line vertically centered ─────
-  useEffect(() => {
-    if (!typewriterMode || !editorRef.current) return;
-    const el = editorRef.current;
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    if (rect.top !== 0) {
-      el.scrollTop += rect.top - elRect.top - el.clientHeight / 2;
-    }
-  }, [content, typewriterMode, editorRef]);
 
   // Keep track of the last loaded note ID to force sync when switching notes
   const lastNoteIdRef = useRef<string | null>(null);
@@ -699,7 +691,7 @@ export function EditorView({
                   }
                   runtime.editorEl = el;
                 }}
-                className={`sp-note-textarea sp-rich-editor${typewriterMode ? ' tn-typewriter' : ''}`}
+                className="sp-note-textarea sp-rich-editor"
                 contentEditable={!tabLoading}
                 suppressContentEditableWarning
                 autoFocus={!tabLoading}
@@ -1066,7 +1058,7 @@ export function EditorView({
                                 }
                           }
                           onClick={() => setNoteColor(activeNoteId, c.value)}
-                          title={c.label}
+                          title={t(`formatting.colors.${c.key}` as TranslationKey)}
                         />
                       ))}
                     </div>
@@ -1103,19 +1095,6 @@ export function EditorView({
                   {metaAction(metaIcon(Camera), t('editor.actionScreenshot'))}
                 </button>
               )}
-
-              {/* Typewriter mode */}
-              <button
-                className={`sp-meta-toggle${typewriterMode ? ' active' : ''}`}
-                onClick={() => setTypewriterMode(!typewriterMode)}
-                title={
-                  typewriterMode
-                    ? t('editor.typewriterExitTooltip') + ' (Ctrl+Shift+T)'
-                    : t('editor.typewriterTooltip') + ' (Ctrl+Shift+T)'
-                }
-              >
-                {metaAction(metaIcon(Keyboard), t('editor.actionTypewriter'))}
-              </button>
 
               {/* Encrypt note */}
                 <button
@@ -1248,26 +1227,46 @@ export function EditorView({
                     <div className="sp-reminder-picker">
                       <div className="sp-reminder-label">{t('editor.remindMeAt')}</div>
                       <div className="sp-reminder-input-wrap">
-                        <input
-                          ref={reminderInputRef}
-                          type="datetime-local"
-                          className="sp-reminder-input"
-                          value={reminderInput}
-                          onChange={(e) => setReminderInput(e.target.value)}
-                          min={reminderMinValue}
-                        />
+                        <div className="sp-reminder-datetime-control">
+                          <input
+                            ref={reminderInputRef}
+                            type="datetime-local"
+                            className="sp-reminder-input"
+                            value={reminderInput}
+                            onChange={(e) => setReminderInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && canSetReminder) {
+                                e.preventDefault();
+                                void handleReminderConfirm();
+                              }
+                            }}
+                            min={reminderMinValue}
+                          />
+                          <button
+                            type="button"
+                            className="sp-reminder-picker-trigger"
+                            title={t('editor.remindMeAt')}
+                            aria-label={t('editor.remindMeAt')}
+                            onClick={() => {
+                              const input = reminderInputRef.current;
+                              input?.focus();
+                              input?.showPicker?.();
+                            }}
+                          >
+                            <CalendarDays size={15} strokeWidth={2.35} />
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          className="sp-reminder-picker-trigger"
-                          title={t('editor.remindMeAt')}
-                          aria-label={t('editor.remindMeAt')}
+                          className="sp-reminder-ok-btn"
+                          title={t('editor.setReminder')}
+                          aria-label={t('editor.setReminder')}
+                          disabled={!canSetReminder}
                           onClick={() => {
-                            const input = reminderInputRef.current;
-                            input?.focus();
-                            input?.showPicker?.();
+                            void handleReminderConfirm();
                           }}
                         >
-                          <CalendarDays size={15} strokeWidth={2.35} />
+                          {t('common.ok')}
                         </button>
                       </div>
                       {showReminderValidation && (
@@ -1275,22 +1274,6 @@ export function EditorView({
                           {t('editor.reminderInvalid')}
                         </div>
                       )}
-                      <button
-                        className="sp-reminder-set-btn"
-                        disabled={!canSetReminder}
-                        onClick={async () => {
-                          const ts = parseDateTimeLocalInput(reminderInput);
-                          if (!isSchedulableReminderTimestamp(ts)) {
-                            setReminderInput(formatDateTimeLocal(getDefaultReminderTimestamp()));
-                            return;
-                          }
-                          await onSetReminder(ts);
-                          setShowReminderPicker(false);
-                          setReminderInput('');
-                        }}
-                      >
-                        {t('editor.setReminder')}
-                      </button>
                     </div>
                   )}
                 </div>

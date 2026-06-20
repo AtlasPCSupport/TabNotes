@@ -1,6 +1,6 @@
 # Privacy Policy — TabNotes
 
-**Last updated: June 2026**
+**Last updated: June 20, 2026**
 
 ## Overview
 
@@ -46,10 +46,13 @@ TabNotes requests the following Chrome permissions:
 | Permission | Why it's needed |
 |---|---|
 | `storage` | Save your notes locally on your device |
+| `unlimitedStorage` | Support local-first note collections that may grow beyond standard storage quotas |
 | `tabs` | Read the current tab's URL to link notes to the right page |
 | `activeTab` | Access the active tab's URL when the panel is open |
 | `sidePanel` | Display the notes panel alongside your browser content |
+| `contextMenus` | Add "Clip selection to TabNotes" when the user selects text and uses the context menu |
 | `identity` | Optional Google sign-in for Google Drive backup |
+| `offscreen` | Play local reminder audio when a note reminder fires |
 | `alarms` | Schedule reminders and delayed backup sync |
 | `notifications` | Show reminders and daily digest notifications |
 | `https://www.googleapis.com/*` | Optional Google Drive backup API calls |

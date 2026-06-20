@@ -6,7 +6,6 @@ interface UseKeyboardShortcutsProps {
   tags: string;
   focusMode: boolean;
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
-  setTypewriterMode: React.Dispatch<React.SetStateAction<boolean>>;
   saveNote: (c: string, t: string, tg: string) => Promise<void>;
   insertDatetime: () => void;
   saveTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | undefined>;
@@ -18,7 +17,6 @@ export function useKeyboardShortcuts({
   tags,
   focusMode,
   setFocusMode,
-  setTypewriterMode,
   saveNote,
   insertDatetime,
   saveTimer,
@@ -39,9 +37,6 @@ export function useKeyboardShortcuts({
       } else if (e.key === 'f' && e.shiftKey) {
         e.preventDefault();
         setFocusMode((p) => !p);
-      } else if (e.key === 't' && e.shiftKey) {
-        e.preventDefault();
-        setTypewriterMode((p) => !p);
       } else if (e.key === 'Escape' && focusMode) {
         setFocusMode(false);
       }
@@ -49,5 +44,5 @@ export function useKeyboardShortcuts({
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, title, tags, focusMode, setFocusMode, setTypewriterMode, saveNote, insertDatetime]);
+  }, [content, title, tags, focusMode, setFocusMode, saveNote, insertDatetime]);
 }

@@ -9,7 +9,6 @@ const FEATURES = [
       { name: 'WYSIWYG Rich Text', desc: 'Bold, italic, underline, strikethrough, inline code and highlight render as you type — no markdown visible.' },
       { name: 'Keyboard Shortcuts', desc: 'Ctrl+B bold · Ctrl+I italic · Ctrl+U underline. Formatting always at your fingertips.' },
       { name: 'Markdown Preview', desc: 'Toggle between rich edit mode and a beautifully rendered markdown view with the ↓md button.' },
-      { name: 'Typewriter Mode', desc: 'Keeps the current line centered on screen for long, distraction-free writing sessions.' },
       { name: 'Text Alignment', desc: 'Left, center, right, or justify — format any paragraph exactly how you want it.' },
       { name: 'Font Size', desc: 'A– / A+ controls let you scale the editor to your comfort without touching browser zoom.' },
       { name: 'Date / Time Stamp', desc: 'Insert the current date and time anywhere with Ctrl+D or the calendar button.' },
@@ -70,7 +69,7 @@ const FEATURES = [
 
 const STATS = [
   { value: '4', label: 'note scopes' },
-  { value: '7', label: 'editor features' },
+  { value: '6', label: 'editor features' },
   { value: '3', label: 'AI capabilities' },
   { value: '100%', label: 'local-first' },
 ];

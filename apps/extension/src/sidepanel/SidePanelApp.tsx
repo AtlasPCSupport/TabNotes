@@ -251,7 +251,7 @@ export default function SidePanelApp() {
   // Tag filter in All Notes
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
-  // Typewriter mode / Wiki autocomplete / Encryption
+  // Wiki autocomplete / Encryption
   const [showEncPrompt, setShowEncPrompt] = useState<'lock' | 'unlock' | null>(null);
 
   // History / Reminders / Reference panel
@@ -377,8 +377,6 @@ export default function SidePanelApp() {
     copied,
     focusMode,
     setFocusMode,
-    typewriterMode,
-    setTypewriterMode,
     setTheme,
     setMarkdown,
     setDefaultScope,
@@ -916,7 +914,6 @@ export default function SidePanelApp() {
     tags,
     focusMode,
     setFocusMode,
-    setTypewriterMode,
     saveNote,
     insertDatetime,
     saveTimer,
@@ -977,7 +974,7 @@ export default function SidePanelApp() {
     return (
       <div className="sp-loading">
         <div className="sp-spinner" />
-        <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>Loading TabNotes…</span>
+        <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>{t('common.loading')}</span>
       </div>
     );
   }
@@ -991,8 +988,8 @@ export default function SidePanelApp() {
           <div className="sp-pin-lock-icon">
             <AppIcon name="lock" size={30} />
           </div>
-          <div className="sp-pin-lock-title">TabNotes is locked</div>
-          <div className="sp-pin-lock-desc">Enter your PIN to open the side panel.</div>
+          <div className="sp-pin-lock-title">{t('pin.locked')}</div>
+          <div className="sp-pin-lock-desc">{t('pin.enterPin')}</div>
           <form
             className="sp-pin-lock-form"
             onSubmit={(e) => {
@@ -1007,14 +1004,14 @@ export default function SidePanelApp() {
               autoComplete="off"
               autoFocus
               value={pinEntry}
-              placeholder="Enter PIN"
+              placeholder={t('pin.enterPinPlaceholder')}
               onChange={(e) => {
                 setPinEntry(e.target.value);
                 setPinError('');
               }}
             />
             <button type="submit" className="sp-pin-lock-btn" disabled={!pinEntry}>
-              Unlock
+              {t('pin.unlock')}
             </button>
           </form>
           {pinError && <div className="sp-pin-lock-error">{pinError}</div>}
@@ -1116,8 +1113,6 @@ export default function SidePanelApp() {
         clipFeedback={clipFeedback}
         focusMode={focusMode}
         setFocusMode={setFocusMode}
-        typewriterMode={typewriterMode}
-        setTypewriterMode={setTypewriterMode}
         colorPickerNoteId={colorPickerNoteId}
         setColorPickerNoteId={setColorPickerNoteId}
         onSetNoteColor={setNoteColor}
@@ -1216,7 +1211,6 @@ export default function SidePanelApp() {
 
       <CommandPalette
         setFocusMode={setFocusMode}
-        setTypewriterMode={setTypewriterMode}
         addNoteToContext={addNoteToContext}
         selectNote={selectNote}
         captureScreenshot={captureScreenshot}

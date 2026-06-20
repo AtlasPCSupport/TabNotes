@@ -2,7 +2,7 @@ import React from 'react';
 import { useSidePanelStore } from '../store';
 import type { NoteScope, PinHash } from '@tabnotes/shared';
 import type { Features, Theme, Align, SettingsTarget } from '../store/types';
-import { useTranslation } from '@tabnotes/i18n';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 import { FeatureToggles } from '../components/settings/FeatureToggles';
@@ -23,15 +23,15 @@ const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: AppIconName; desc:
   { value: 'global', label: 'Global', icon: 'global', desc: 'Everywhere' },
 ];
 
-const WORKSPACE_COLORS = [
-  { value: '#2f6dff', label: 'Blue' },
-  { value: '#ef4444', label: 'Red' },
-  { value: '#f59e0b', label: 'Orange' },
-  { value: '#10b981', label: 'Green' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#ec4899', label: 'Pink' },
-  { value: '#6366f1', label: 'Indigo' },
-  { value: '#14b8a6', label: 'Teal' },
+const WORKSPACE_COLORS: { value: string; labelKey: TranslationKey }[] = [
+  { value: '#2f6dff', labelKey: 'formatting.colors.blue' },
+  { value: '#ef4444', labelKey: 'formatting.colors.red' },
+  { value: '#f59e0b', labelKey: 'formatting.colors.orange' },
+  { value: '#10b981', labelKey: 'formatting.colors.green' },
+  { value: '#8b5cf6', labelKey: 'formatting.colors.purple' },
+  { value: '#ec4899', labelKey: 'formatting.colors.pink' },
+  { value: '#6366f1', labelKey: 'formatting.colors.indigo' },
+  { value: '#14b8a6', labelKey: 'formatting.colors.teal' },
 ];
 
 const SETTINGS_HIGHLIGHT_MS = 1400;

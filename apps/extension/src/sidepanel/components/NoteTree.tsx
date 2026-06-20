@@ -19,14 +19,14 @@ export const TEMPLATES: Template[] = [
 ];
 
 const WORKSPACE_COLORS = [
-  { value: '#2f6dff', label: 'Blue' },
-  { value: '#ef4444', label: 'Red' },
-  { value: '#f59e0b', label: 'Orange' },
-  { value: '#10b981', label: 'Green' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#ec4899', label: 'Pink' },
-  { value: '#6366f1', label: 'Indigo' },
-  { value: '#14b8a6', label: 'Teal' },
+  { value: '#2f6dff', key: 'blue' },
+  { value: '#ef4444', key: 'red' },
+  { value: '#f59e0b', key: 'orange' },
+  { value: '#10b981', key: 'green' },
+  { value: '#8b5cf6', key: 'purple' },
+  { value: '#ec4899', key: 'pink' },
+  { value: '#6366f1', key: 'indigo' },
+  { value: '#14b8a6', key: 'teal' },
 ];
 
 export interface NoteTreeProps {
@@ -470,7 +470,7 @@ export function NoteTree({
                         cursor: 'pointer',
                         padding: 0,
                       }}
-                      title={c.label}
+                      title={t(`formatting.colors.${c.key}` as TranslationKey)}
                     />
                   ))}
                 </div>

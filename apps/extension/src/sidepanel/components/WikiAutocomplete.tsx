@@ -1,5 +1,6 @@
 import React from 'react';
 import { stripFormatting } from '@tabnotes/shared';
+import { useTranslation } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
 
 export interface WikiAutocompleteProps {
@@ -13,6 +14,7 @@ export function WikiAutocomplete({
   activeNoteId,
   onSelect,
 }: WikiAutocompleteProps) {
+  const { t } = useTranslation();
   const allNotes = useSidePanelStore((s) => s.allNotes);
 
   const filteredNotes = React.useMemo(() => {
@@ -31,7 +33,7 @@ export function WikiAutocomplete({
   if (filteredNotes.length === 0) {
     return (
       <div className="tn-wiki-suggest">
-        <span className="tn-wiki-empty">No matching notes</span>
+        <span className="tn-wiki-empty">{t('wiki.noMatchingNotes')}</span>
       </div>
     );
   }

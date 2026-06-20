@@ -1,4 +1,5 @@
 import React, { useState, MutableRefObject } from 'react';
+import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon } from './AppIcon';
 
 export interface ChecklistItem {
@@ -20,6 +21,7 @@ export function ChecklistEditor({
   saveChecklist,
   isUpdatingChecklistRef,
 }: ChecklistEditorProps) {
+  const { t } = useTranslation();
   const [showCompletedList, setShowCompletedList] = useState(true);
   const [draggedChecklistIndex, setDraggedChecklistIndex] = useState<number | null>(null);
 
@@ -134,7 +136,7 @@ export function ChecklistEditor({
               value={item.text}
               onChange={(e) => handleItemTextChange(absoluteIndex, e.target.value)}
               onKeyDown={(e) => handleItemKeyDown(e, absoluteIndex)}
-              placeholder="Elemento de la lista"
+              placeholder={t('checklist.itemPlaceholder')}
             />
             <button
               className="sp-checklist-delete"
@@ -153,7 +155,7 @@ export function ChecklistEditor({
         <input
           type="text"
           className="sp-checklist-add-input"
-          placeholder="Elemento de la lista"
+          placeholder={t('checklist.itemPlaceholder')}
           onChange={(e) => {
             const val = e.target.value;
             if (!val) return;
@@ -197,7 +199,9 @@ export function ChecklistEditor({
                 <AppIcon name="chevronRight" size={13} />
               </span>
             <span>
-              Elementos completados ({checklistItems.filter((it) => it.checked).length})
+              {t('checklist.completed', {
+                count: checklistItems.filter((it) => it.checked).length,
+              })}
             </span>
           </button>
 
@@ -229,7 +233,7 @@ export function ChecklistEditor({
                       value={item.text}
                       onChange={(e) => handleItemTextChange(absoluteIndex, e.target.value)}
                       onKeyDown={(e) => handleItemKeyDown(e, absoluteIndex)}
-                      placeholder="Elemento de la lista"
+                      placeholder={t('checklist.itemPlaceholder')}
                     />
                     <button
                       className="sp-checklist-delete"

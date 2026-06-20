@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Note, stripFormatting } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { AppIcon } from '../components/AppIcon';
+import { useTranslation } from '@tabnotes/i18n';
 
 export type ChatMsg = { role: 'user' | 'assistant'; content: string };
 
@@ -14,6 +15,7 @@ export function ChatView({
 }: {
   groqKey: string;
 }) {
+  const { t } = useTranslation();
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const currentDomain = useSidePanelStore((s) => s.currentDomain);
   const setView = useSidePanelStore((s) => s.setView);
@@ -54,7 +56,7 @@ export function ChatView({
     if (!groqKey) {
       setChatMessages((m) => [
         ...m,
-        { role: 'assistant', content: '⚠ Add your Groq API key in Settings first.' },
+        { role: 'assistant', content: `⚠ ${t('chat.missingKeyMessage')}` },
       ]);
       return;
     }
@@ -64,14 +66,18 @@ export function ChatView({
         : allNotes;
     const relevant = rankNotes(pool, q);
     const scopeLabel =
-      chatScope === 'domain' ? `domain: ${currentDomain || 'current site'}` : 'all notes';
+      chatScope === 'domain'
+        ? currentDomain
+          ? t('chat.scopeDomain', { domain: currentDomain })
+          : t('chat.scopeCurrentSite')
+        : t('chat.scopeAll');
     const contextStr =
       relevant.length > 0
         ? relevant
-            .map((n) => `### ${n.title || 'Untitled'}\n${stripFormatting(n.content).slice(0, 800)}`)
+            .map((n) => `### ${n.title || t('chat.untitled')}\n${stripFormatting(n.content).slice(0, 800)}`)
             .join('\n\n---\n\n')
-        : '(no notes found)';
-    const system = `You are a personal knowledge assistant. Answer ONLY based on the user's notes below. If the answer isn't there, say so clearly. Be direct and concise.\n\nNotes from ${scopeLabel}:\n---\n${contextStr}\n---`;
+        : t('chat.noNotesFound');
+    const system = t('chat.systemPrompt', { scope: scopeLabel, context: contextStr });
 
     const userMsg = { role: 'user' as const, content: q };
     setChatMessages((m) => [...m, userMsg, { role: 'assistant', content: '' }]);
@@ -152,6 +158,7 @@ export function ChatView({
     currentDomain,
     chatMessages,
     rankNotes,
+    t,
   ]);
 
   // Auto-scroll chat to bottom
@@ -167,16 +174,16 @@ export function ChatView({
           <button
             className={`sp-chat-scope-btn${chatScope === 'domain' ? ' active' : ''}`}
             onClick={() => setChatScope('domain')}
-            title="Ask about notes from this domain"
+            title={t('chat.domainTitle')}
           >
-            <AppIcon name="domain" size={13} /> {currentDomain || 'Domain'}
+            <AppIcon name="domain" size={13} /> {currentDomain || t('chat.domainFallback')}
           </button>
           <button
             className={`sp-chat-scope-btn${chatScope === 'all' ? ' active' : ''}`}
             onClick={() => setChatScope('all')}
-            title="Ask about all your notes"
+            title={t('chat.allTitle')}
           >
-            <AppIcon name="global" size={13} /> All notes
+            <AppIcon name="global" size={13} /> {t('chat.allNotes')}
           </button>
         </div>
         <span className="sp-chat-ctx-count">
@@ -185,7 +192,7 @@ export function ChatView({
               chatScope === 'domain'
                 ? allNotes.filter((n: Note) => n.scope === 'domain' && n.scopeKey === currentDomain)
                 : allNotes;
-            return `${pool.length} note${pool.length !== 1 ? 's' : ''} in context`;
+            return t('chat.contextCount', { count: pool.length });
           })()}
         </span>
       </div>
@@ -199,7 +206,7 @@ export function ChatView({
                 <span className="sp-chat-no-key-icon">
                   <AppIcon name="key" size={32} />
                 </span>
-                <p>Add your Groq API key in Settings to start chatting with your notes.</p>
+                <p>{t('chat.missingKeyBody')}</p>
                 <button
                   className="sp-chat-goto-settings"
                   onClick={() => {
@@ -207,7 +214,7 @@ export function ChatView({
                     setView('settings');
                   }}
                 >
-                  Open Settings →
+                  {t('chat.openSettings')}
                 </button>
               </div>
             ) : (
@@ -215,12 +222,12 @@ export function ChatView({
                 <span className="sp-chat-hint-icon">
                   <AppIcon name="chat" size={30} />
                 </span>
-                <p>Ask anything about your notes.</p>
+                <p>{t('chat.hint')}</p>
                 <div className="sp-chat-examples">
                   {[
-                    'What ideas did I note here?',
-                    'Summarize my notes',
-                    'What should I follow up on?',
+                    t('chat.exampleIdeas'),
+                    t('chat.exampleSummary'),
+                    t('chat.exampleFollowUp'),
                   ].map((ex) => (
                     <button
                       key={ex}
@@ -268,7 +275,7 @@ export function ChatView({
               sendChat();
             }
           }}
-          placeholder="Ask about your notes…"
+          placeholder={t('chat.placeholder')}
           disabled={chatLoading}
           autoComplete="off"
         />
@@ -276,7 +283,7 @@ export function ChatView({
           className="sp-chat-send"
           onClick={sendChat}
           disabled={chatLoading || !chatInput.trim()}
-          title="Send (Enter)"
+          title={t('chat.sendTitle')}
         >
           {chatLoading ? '…' : <AppIcon name="send" size={14} />}
         </button>
@@ -284,7 +291,7 @@ export function ChatView({
 
       {chatMessages.length > 0 && (
         <button className="sp-chat-clear" onClick={() => setChatMessages([])}>
-          Clear chat
+          {t('chat.clearChat')}
         </button>
       )}
     </div>

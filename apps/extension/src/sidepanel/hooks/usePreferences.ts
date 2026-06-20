@@ -48,7 +48,6 @@ export function usePreferences({ adapter, title, content }: UsePreferencesProps)
 
   const [copied, setCopied] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [typewriterMode, setTypewriterMode] = useState(false);
 
   const setTheme = async (t: typeof theme) => {
     setThemeState(t);
@@ -111,8 +110,6 @@ export function usePreferences({ adapter, title, content }: UsePreferencesProps)
     copied,
     focusMode,
     setFocusMode,
-    typewriterMode,
-    setTypewriterMode,
     setTheme,
     setMarkdown,
     setDefaultScope,

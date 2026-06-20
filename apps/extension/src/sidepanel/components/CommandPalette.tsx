@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSidePanelStore } from '../store';
 import { stripFormatting, NoteScope, Note } from '@tabnotes/shared';
+import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from './AppIcon';
 
 export interface CommandPaletteProps {
   // Local states/handlers in parent
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
-  setTypewriterMode: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Callback/service functions from SidePanelApp
   addNoteToContext: (folder?: string) => Promise<void>;
@@ -32,7 +32,6 @@ interface PaletteItem {
 
 export function CommandPalette({
   setFocusMode,
-  setTypewriterMode,
   addNoteToContext,
   selectNote,
   captureScreenshot,
@@ -43,6 +42,7 @@ export function CommandPalette({
   scopeRef,
   wsIdRef,
 }: CommandPaletteProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
   const [cmdSelIdx, setCmdSelIdx] = useState(0);
@@ -97,7 +97,7 @@ export function CommandPalette({
 
     notePool.forEach((n) =>
       items.push({
-        label: stripFormatting(n.title || n.content.split('\n')[0]) || 'Untitled',
+        label: stripFormatting(n.title || n.content.split('\n')[0]) || t('editor.untitled'),
         sublabel: stripFormatting(n.content.replace(/\n+/g, ' ')).slice(0, 72).trim(),
         icon: n.encrypted ? 'lock' : 'doc',
         run: () => {
@@ -110,48 +110,54 @@ export function CommandPalette({
     // Actions
     const actions: PaletteItem[] = [
       {
-        label: 'New note',
+        label: t('commandPalette.newNote'),
         icon: 'note',
         run: () => {
           addNoteToContext();
           setView('note');
         },
       },
-      { label: 'All Notes', icon: 'list', run: () => setView('all') },
-      { label: 'Note Graph', icon: 'graph', run: () => setView('graph') },
+      { label: t('commandPalette.allNotes'), icon: 'list', run: () => setView('all') },
+      { label: t('commandPalette.noteGraph'), icon: 'graph', run: () => setView('graph') },
       {
-        label: 'Settings',
+        label: t('commandPalette.settings'),
         icon: 'settings',
         run: () => {
           setSettingsTarget(null);
           setView('settings');
         },
       },
-      { label: 'Toggle Markdown', icon: 'markdown', run: () => setMdState((p) => !p) },
+      { label: t('commandPalette.toggleMarkdown'), icon: 'markdown', run: () => setMdState((p) => !p) },
       {
-        label: 'Toggle Focus mode',
+        label: t('commandPalette.toggleFocus'),
         icon: 'focus',
         shortcut: 'Ctrl+Shift+F',
         run: () => setFocusMode((p) => !p),
       },
+      { label: t('commandPalette.captureScreenshot'), icon: 'camera', run: () => captureScreenshot() },
+      { label: t('commandPalette.exportPdf'), icon: 'print', run: () => exportToPDF() },
       {
-        label: 'Toggle Typewriter',
-        icon: 'typewriter',
-        shortcut: 'Ctrl+Shift+T',
-        run: () => setTypewriterMode((p) => !p),
+        label: t('commandPalette.scope', { scope: t('scope.url') }),
+        icon: 'url',
+        run: () => handleScopeChange('url'),
       },
-      { label: 'Capture screenshot', icon: 'camera', run: () => captureScreenshot() },
-      { label: 'Export to PDF', icon: 'print', run: () => exportToPDF() },
-      { label: 'Scope: URL', icon: 'url', run: () => handleScopeChange('url') },
-      { label: 'Scope: Domain', icon: 'domain', run: () => handleScopeChange('domain') },
       {
-        label: 'Scope: Projects',
+        label: t('commandPalette.scope', { scope: t('scope.domain') }),
+        icon: 'domain',
+        run: () => handleScopeChange('domain'),
+      },
+      {
+        label: t('commandPalette.scope', { scope: t('scope.workspace') }),
         icon: 'workspace',
         run: () => handleScopeChange('workspace'),
       },
-      { label: 'Scope: Global', icon: 'global', run: () => handleScopeChange('global') },
+      {
+        label: t('commandPalette.scope', { scope: t('scope.global') }),
+        icon: 'global',
+        run: () => handleScopeChange('global'),
+      },
       ...workspaces.map((ws) => ({
-        label: `Switch to workspace: ${ws.name}`,
+        label: t('commandPalette.switchWorkspace', { name: ws.name }),
         icon: 'workspace' as const,
         run: async () => {
           setActiveWorkspaceId(ws.id);
@@ -168,7 +174,7 @@ export function CommandPalette({
 
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cmdQuery, allNotes, workspaces, activeWorkspaceId, addNoteToContext, selectNote, captureScreenshot, exportToPDF, handleScopeChange, loadContextNotes]);
+  }, [cmdQuery, allNotes, workspaces, activeWorkspaceId, addNoteToContext, selectNote, captureScreenshot, exportToPDF, handleScopeChange, loadContextNotes, t]);
 
   const paletteItemsRef = useRef(paletteItems);
   paletteItemsRef.current = paletteItems;
@@ -185,7 +191,7 @@ export function CommandPalette({
           <input
             ref={cmdInputRef}
             className="tn-palette-input"
-            placeholder="Search notes or type a command…"
+            placeholder={t('commandPalette.placeholder')}
             value={cmdQuery}
             onChange={(e) => {
               setCmdQuery(e.target.value);
@@ -222,7 +228,9 @@ export function CommandPalette({
 
         <div className="tn-palette-list">
           {paletteItems.length === 0 && (
-            <div className="tn-palette-empty">No results for "{cmdQuery}"</div>
+            <div className="tn-palette-empty">
+              {t('commandPalette.noResults', { query: cmdQuery })}
+            </div>
           )}
           {paletteItems.map((item, idx) => (
             <button
@@ -249,13 +257,13 @@ export function CommandPalette({
 
         <div className="tn-palette-footer">
           <span>
-            <kbd>↑↓</kbd> navigate
+            <kbd>↑↓</kbd> {t('commandPalette.navigate')}
           </span>
           <span>
-            <kbd>↵</kbd> select
+            <kbd>↵</kbd> {t('commandPalette.select')}
           </span>
           <span>
-            <kbd>Esc</kbd> close
+            <kbd>Esc</kbd> {t('commandPalette.close')}
           </span>
         </div>
       </div>

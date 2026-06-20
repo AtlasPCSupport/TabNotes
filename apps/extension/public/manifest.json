@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_appName__",
   "default_locale": "en",
-  "version": "2.10.1",
+  "version": "2.10.2",
   "description": "__MSG_appDesc__",
   "icons": {
     "16": "icons/icon16.png",
@@ -24,17 +24,6 @@
     "service_worker": "background/index.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
   "commands": {
     "toggle-side-panel": {
       "suggested_key": {
@@ -60,7 +49,8 @@
     "alarms",
     "notifications",
     "identity",
-    "offscreen"
+    "offscreen",
+    "contextMenus"
   ],
   "oauth2": {
     "client_id": "770771238390-p2lkbe0j4vk2ihco2s50dhd9dq956en0.apps.googleusercontent.com",
@@ -69,7 +59,6 @@
     ]
   },
   "host_permissions": [
-    "<all_urls>",
     "https://www.googleapis.com/*"
   ]
 }

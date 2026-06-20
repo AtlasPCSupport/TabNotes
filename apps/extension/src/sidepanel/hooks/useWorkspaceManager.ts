@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WorkspacesService, NotesService, NoteScope, Note } from '@tabnotes/shared';
+import { useTranslation } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
 import { isSchedulableReminderTimestamp } from '../../shared/reminders';
 
@@ -53,6 +54,7 @@ export function useWorkspaceManager({
   refreshAllNotes,
   loadContextNotes,
 }: UseWorkspaceManagerProps) {
+  const { t } = useTranslation();
   const workspaces = useSidePanelStore((s) => s.workspaces);
   const setWorkspaces = useSidePanelStore((s) => s.setWorkspaces);
   const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
@@ -111,11 +113,7 @@ export function useWorkspaceManager({
   };
 
   const onDeleteWorkspace = async (id: string, name: string) => {
-    if (
-      confirm(
-        `Delete workspace "${name}"? All notes in this workspace will be deleted.`
-      )
-    ) {
+    if (confirm(t('settingsSections.deleteWorkspaceConfirm', { name }))) {
       await wsSvc.current.delete(id);
       const list = await wsSvc.current.getAll();
       setWorkspaces(list);

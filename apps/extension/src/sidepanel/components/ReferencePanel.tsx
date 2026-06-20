@@ -1,5 +1,6 @@
 import React from 'react';
 import { Note, stripFormatting, renderMarkdown } from '@tabnotes/shared';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';
 import { AppIcon } from './AppIcon';
 
@@ -9,14 +10,14 @@ export interface ReferencePanelProps {
   setShowRefPanel: (v: boolean) => void;
 }
 
-function pillLabel(n: Note, idx: number): string {
-  if (n.title?.trim()) return stripFormatting(n.title.trim()).slice(0, 18) || `Note ${idx + 1}`;
+function pillLabel(n: Note, fallback: string): string {
+  if (n.title?.trim()) return stripFormatting(n.title.trim()).slice(0, 18) || fallback;
   const plain = stripFormatting(n.content);
   if (plain.trim()) {
     const first = plain.split('\n')[0];
-    return first.length > 18 ? first.slice(0, 18) + '…' : first || `Note ${idx + 1}`;
+    return first.length > 18 ? first.slice(0, 18) + '…' : first || fallback;
   }
-  return `Note ${idx + 1}`;
+  return fallback;
 }
 
 export function ReferencePanel({
@@ -24,6 +25,7 @@ export function ReferencePanel({
   setRefNoteId,
   setShowRefPanel,
 }: ReferencePanelProps) {
+  const { t } = useTranslation();
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const contextNotes = useSidePanelStore((s) => s.contextNotes);
   const activeNoteId = useSidePanelStore((s) => s.activeNoteId);
@@ -31,10 +33,12 @@ export function ReferencePanel({
   return (
     <div className="sp-ref-panel">
       <div className="sp-ref-panel-header">
-        <span className="sp-ref-panel-title">Reference</span>
+        <span className="sp-ref-panel-title">{t('reference.title')}</span>
         <button
           className="sp-icon-btn"
           style={{ fontSize: 11 }}
+          title={t('common.close')}
+          aria-label={t('common.close')}
           onClick={() => {
             setRefNoteId(null);
             setShowRefPanel(false);
@@ -46,7 +50,7 @@ export function ReferencePanel({
       {refNoteId === null ? (
         <div className="sp-ref-note-list">
           {contextNotes.filter((n) => n.id !== activeNoteId).length === 0 ? (
-            <div className="sp-ref-empty">No other notes in this scope to reference.</div>
+            <div className="sp-ref-empty">{t('reference.empty')}</div>
           ) : (
             contextNotes
               .filter((n) => n.id !== activeNoteId)
@@ -56,7 +60,9 @@ export function ReferencePanel({
                   className="sp-ref-note-item"
                   onClick={() => setRefNoteId(n.id)}
                 >
-                  <span className="sp-ref-note-label">{pillLabel(n, i)}</span>
+                  <span className="sp-ref-note-label">
+                    {pillLabel(n, t('reference.noteFallback', { number: i + 1 }))}
+                  </span>
                   <span className="sp-ref-note-preview">
                     {stripFormatting(n.content).slice(0, 60) || '—'}
                   </span>
@@ -72,9 +78,12 @@ export function ReferencePanel({
                 className="sp-ref-note-item"
                 onClick={() => setRefNoteId(n.id)}
               >
-                <span className="sp-ref-note-label">{pillLabel(n, i)}</span>
+                <span className="sp-ref-note-label">
+                  {pillLabel(n, t('reference.noteFallback', { number: i + 1 }))}
+                </span>
                 <span className="sp-ref-note-preview" style={{ color: 'var(--text-subtle)' }}>
-                  {n.scope} · {stripFormatting(n.content).slice(0, 40) || '—'}
+                  {t(`scope.${n.scope}` as TranslationKey)} ·{' '}
+                  {stripFormatting(n.content).slice(0, 40) || '—'}
                 </span>
               </button>
             ))}
@@ -87,16 +96,20 @@ export function ReferencePanel({
             <div className="sp-ref-note-view">
               <div className="sp-ref-note-view-header">
                 <button className="sp-ref-back" onClick={() => setRefNoteId(null)}>
-                  ← Back
+                  ← {t('common.back')}
                 </button>
-                <span className="sp-ref-note-view-title">{rn.title || pillLabel(rn, 0)}</span>
+                <span className="sp-ref-note-view-title">
+                  {rn.title || pillLabel(rn, t('reference.noteFallback', { number: 1 }))}
+                </span>
               </div>
               <div
                 className="sp-ref-note-content sp-markdown-preview"
                 dangerouslySetInnerHTML={{
                   __html: rn.content
                     ? renderMarkdown(rn.content)
-                    : '<p style="color:var(--text-subtle);font-style:italic">Empty note</p>',
+                    : `<p style="color:var(--text-subtle);font-style:italic">${t(
+                        'reference.emptyNote'
+                      )}</p>`,
                 }}
               />
             </div>

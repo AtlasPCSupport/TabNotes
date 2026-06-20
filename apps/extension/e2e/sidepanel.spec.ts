@@ -1,5 +1,6 @@
 import { test, expect, openPanelWithRealTab } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 
 /**
  * Browser_Verification scenarios (Requirement 9) for the side panel.
@@ -160,7 +161,189 @@ test.describe('TabNotes side panel — baseline', () => {
     await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     await expect(page.locator('.sp-drive-sync')).toBeVisible();
     await expect(page.getByText('Google Drive backup')).toBeVisible();
-    await expect(page.getByText('Setup required')).toBeVisible();
+    await expect(page.locator('.sp-drive-sync-badge')).toContainText(/Setup required|Not connected/);
+  });
+
+  test('manual backup export/import restores settings, workspace UI, and reminders', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const now = Date.now();
+    const reminderAt = now + 60 * 60 * 1000;
+
+    await panel.evaluate(
+      ({ seedNow, seedReminderAt }) => {
+        const storage = {
+          notes_url: {},
+          notes_domain: {},
+          notes_workspace: {
+            ws_note: {
+              id: 'ws_note',
+              workspaceId: 'ws_a',
+              scope: 'workspace',
+              scopeKey: 'ws_a',
+              title: 'Workspace restored',
+              content: 'Workspace restored body',
+              tags: ['restore'],
+              folder: '/Client',
+              versions: [],
+              reminderAt: seedReminderAt,
+              createdAt: seedNow - 3000,
+              updatedAt: seedNow - 1000,
+            },
+          },
+          notes_global: {
+            global_note: {
+              id: 'global_note',
+              workspaceId: null,
+              scope: 'global',
+              scopeKey: '',
+              title: 'Global restored',
+              content: 'Global restored body',
+              tags: ['global'],
+              versions: [],
+              createdAt: seedNow - 2500,
+              updatedAt: seedNow - 900,
+            },
+          },
+          workspaces: {
+            ws_a: {
+              id: 'ws_a',
+              name: 'QA Workspace A',
+              color: '#dcae19',
+              createdAt: seedNow - 5000,
+              updatedAt: seedNow - 800,
+            },
+          },
+          activeWorkspaceId: 'ws_a',
+          defaultScope: 'workspace',
+          theme: 'dark',
+          markdownEnabled: true,
+          language: 'es',
+          version: 3,
+        };
+
+        return new Promise<void>((resolve) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const chromeApi = (globalThis as any).chrome;
+          chromeApi.storage.local.set(
+            {
+              tabnotes_data: storage,
+              tn_backup_remind: { days: 14 },
+            },
+            () => {
+              localStorage.setItem('tn_colors', JSON.stringify({ ws_note: '#dcae19' }));
+              localStorage.setItem(
+                'tn_folder_colors',
+                JSON.stringify({ '/Client': '#dcae19' })
+              );
+              localStorage.setItem('tn_pins', JSON.stringify(['global_note']));
+              localStorage.setItem('tn_fontsize', '15');
+              localStorage.setItem('tn_align', 'right');
+              localStorage.setItem(
+                'tn_features',
+                JSON.stringify({ focusMode: true })
+              );
+              resolve();
+            }
+          );
+        });
+      },
+      { seedNow: now, seedReminderAt: reminderAt }
+    );
+
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
+    await expect(panel.locator('.sp-data-btn.export')).toBeVisible();
+    const downloadPromise = panel.waitForEvent('download');
+    await panel.locator('.sp-data-btn.export').click();
+    const download = await downloadPromise;
+    const backupPath = await download.path();
+    expect(backupPath).toBeTruthy();
+    const exported = JSON.parse(await readFile(backupPath!, 'utf8')) as {
+      kind?: string;
+      storage?: { activeWorkspaceId?: string; theme?: string; language?: string };
+    };
+
+    expect(exported.kind).toBe('tabnotes.backup');
+    expect(exported.storage?.activeWorkspaceId).toBe('ws_a');
+    expect(exported.storage?.theme).toBe('dark');
+    expect(exported.storage?.language).toBe('es');
+
+    await panel.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        localStorage.clear();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (globalThis as any).chrome.storage.local.clear(() => resolve());
+      });
+    });
+    await panel.reload();
+    await expect(panel.locator('.sp-root')).toBeVisible();
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
+    await panel.locator('input[type="file"]').setInputFiles(backupPath!);
+    await expect(panel.locator('.sp-data-feedback.success')).toContainText(
+      'Restaurado: 2 notas'
+    );
+    await expect(panel.locator('.sp-data-feedback.success')).toContainText(
+      '1 recordatorio programado'
+    );
+
+    await expect(panel.locator('.sp-bottom-nav .sp-nav-label').first()).toHaveText('Nota');
+    await expect(panel.locator('.sp-workspace-pill')).toContainText('QA Workspace A');
+    await expect
+      .poll(() => panel.evaluate(() => document.documentElement.getAttribute('data-theme')))
+      .toBe('dark');
+
+    const restored = await panel.evaluate<Promise<{
+      activeWorkspaceId?: string | null;
+      defaultScope?: string;
+      markdownEnabled?: boolean;
+      alarmNames: string[];
+      colors: string | null;
+      folderColors: string | null;
+      pins: string | null;
+      fontSize: string | null;
+      align: string | null;
+    }>>(() => {
+      return new Promise((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        chromeApi.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
+          chromeApi.alarms.getAll((alarms: { name: string }[]) => {
+            const data = result.tabnotes_data as {
+              activeWorkspaceId?: string | null;
+              defaultScope?: string;
+              markdownEnabled?: boolean;
+            };
+            resolve({
+              activeWorkspaceId: data.activeWorkspaceId,
+              defaultScope: data.defaultScope,
+              markdownEnabled: data.markdownEnabled,
+              alarmNames: alarms.map((alarm) => alarm.name),
+              colors: localStorage.getItem('tn_colors'),
+              folderColors: localStorage.getItem('tn_folder_colors'),
+              pins: localStorage.getItem('tn_pins'),
+              fontSize: localStorage.getItem('tn_fontsize'),
+              align: localStorage.getItem('tn_align'),
+            });
+          });
+        });
+      });
+    });
+
+    expect(restored.activeWorkspaceId).toBe('ws_a');
+    expect(restored.defaultScope).toBe('workspace');
+    expect(restored.markdownEnabled).toBe(true);
+    expect(restored.alarmNames).toContain('tn_reminder_ws_note');
+    expect(JSON.parse(restored.colors ?? '{}').ws_note).toBe('#dcae19');
+    expect(JSON.parse(restored.folderColors ?? '{}')['/Client']).toBe('#dcae19');
+    expect(JSON.parse(restored.pins ?? '[]')).toContain('global_note');
+    expect(restored.fontSize).toBe('15');
+    expect(restored.align).toBe('right');
+
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
+    await panel.locator('.sp-group-header', { hasText: /Projects|Proyectos/ }).click();
+    await expect(panel.locator('.sp-note-card', { hasText: 'Workspace restored body' })).toBeVisible();
   });
 
   test('PIN lock gate: enabling a PIN locks the panel and the correct PIN unlocks it', async ({
@@ -209,6 +392,95 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
   }) => {
     const panel = await openPanelWithRealTab(context, sidePanelUrl);
     await expect(panel.locator('.sp-rich-editor')).toBeVisible({ timeout: 8000 });
+  });
+
+  test('context-menu clip appends selected text to the current note', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const editor = panel.locator('.sp-rich-editor');
+    await expect(editor).toBeVisible({ timeout: 8000 });
+
+    const clipText = `Context menu clip check ${Date.now()}`;
+    await panel.evaluate((text) => {
+      return new Promise<void>((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (globalThis as any).chrome.storage.local.set(
+          {
+            tn_pending_clip: {
+              id: `test-${Date.now()}`,
+              text,
+              sourceUrl: 'https://example.test/article',
+              sourceTitle: 'Example article',
+              createdAt: Date.now(),
+            },
+          },
+          () => resolve()
+        );
+      });
+    }, clipText);
+
+    await expect(editor).toContainText(clipText);
+    await expect(editor).toContainText('Example article');
+
+    const stored = await panel.evaluate<Promise<{
+      hasClip: boolean;
+      pendingClipExists: boolean;
+    }>, string>((text) => {
+      return new Promise((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        chromeApi.storage.local.get(['tabnotes_data', 'tn_pending_clip'], (r: Record<string, unknown>) => {
+          const data = r['tabnotes_data'] as Record<string, Record<string, { content?: string }>>;
+          const notes = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
+            .flatMap((key) => Object.values(data?.[key] ?? {}));
+          resolve({
+            hasClip: notes.some((note) => note.content?.includes(text)),
+            pendingClipExists: Boolean(r['tn_pending_clip']),
+          });
+        });
+      });
+    }, clipText);
+
+    expect(stored.hasClip).toBe(true);
+    expect(stored.pendingClipExists).toBe(false);
+  });
+
+  test('Spanish language switch translates the main visible surfaces', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await expect(panel.locator('.sp-rich-editor')).toBeVisible({ timeout: 8000 });
+
+    await panel.getByTitle('Español').click();
+
+    await expect(panel.locator('.sp-workspace-pill')).toContainText('Sin espacio');
+    await expect(panel.locator('.sp-bottom-nav .sp-nav-label').first()).toHaveText('Nota');
+    await expect(panel.locator('.sp-fmt-group-label')).toContainText([
+      'Texto',
+      'Marca',
+      'Color',
+    ]);
+
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
+    await expect(panel.getByPlaceholder('Buscar notas, títulos, etiquetas…')).toBeVisible();
+
+    const askButton = panel.locator('.sp-bottom-nav .sp-nav-btn', { hasText: 'Preguntar' });
+    if ((await askButton.count()) > 0) {
+      await askButton.click();
+      await expect(panel.locator('.sp-chat-view')).toContainText('Todas las notas');
+      await expect(panel.locator('.sp-chat-view')).toContainText(
+        'Añade tu clave API de Groq'
+      );
+    }
+
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
+    const dataSection = panel.locator('[data-settings-section="data"]');
+    await dataSection.scrollIntoViewIfNeeded();
+    await expect(dataSection).toContainText('Recordatorio de copia');
+    await expect(dataSection).not.toContainText('settingsSections.');
   });
 
   test('editor autosaves typed content to storage', async ({ context, sidePanelUrl }) => {
@@ -299,7 +571,8 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     const reminderValue = formatDateTimeLocal(roundUpToMinute(Date.now() + 10 * 60 * 1000));
     const reminderAt = new Date(reminderValue).getTime();
     await panel.locator('.sp-reminder-input').fill(reminderValue);
-    await panel.getByRole('button', { name: /Set reminder|Establecer recordatorio/ }).click();
+    await expect(panel.locator('.sp-reminder-ok-btn')).toHaveText('OK');
+    await panel.locator('.sp-reminder-ok-btn').click();
     await expect(panel.locator('.sp-reminder-picker')).toHaveCount(0);
 
     const stored = await panel.evaluate<Promise<{
@@ -347,7 +620,7 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     }).click();
 
     await panel.locator('.sp-reminder-input').fill(formatDateTimeLocal(Date.now() - 60 * 60 * 1000));
-    await expect(panel.getByRole('button', { name: /Set reminder|Establecer recordatorio/ })).toBeDisabled();
+    await expect(panel.locator('.sp-reminder-ok-btn')).toBeDisabled();
     await expect(panel.locator('.sp-reminder-validation')).toBeVisible();
 
     const stored = await panel.evaluate<Promise<{ reminderAt?: number; alarmCount: number }>, string>((text) => {
@@ -464,7 +737,7 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.locator('#tn-move-workspace').selectOption('__none__');
     await panel.locator('#tn-move-scope').selectOption('global');
     await panel.locator('#tn-move-folder').fill('');
-    await panel.getByRole('button', { name: /Move note|Mover nota/ }).click();
+    await panel.locator('.sp-move-submit-btn').click();
     await expect(panel.locator('.sp-move-picker')).toHaveCount(0);
 
     const stored = await panel.evaluate<Promise<{
@@ -640,7 +913,6 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
       /Color/,
       /Export|Exportar/,
       /PDF/,
-      /Typewriter|Máquina/,
       /Encrypt|Encriptar/,
       /Focus|Enfoque/,
       /Reference|Referencia/,
@@ -652,6 +924,7 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
       await expect(actionPanel.getByRole('button', { name: label })).toBeVisible();
     }
 
+    await expect(actionPanel.getByRole('button', { name: /Typewriter|Máquina/ })).toHaveCount(0);
     await expect(
       actionPanel.getByRole('button', { name: /Move note|Mover nota|Folder|Carpeta/ })
     ).toBeDisabled();

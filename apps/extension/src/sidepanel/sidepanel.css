@@ -2488,7 +2488,7 @@ select:focus-visible,
   position: absolute;
   bottom: calc(100% + 5px);
   right: 0;
-  min-width: min(200px, calc(100vw - 28px));
+  min-width: min(230px, calc(100vw - 28px));
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
@@ -2506,10 +2506,15 @@ select:focus-visible,
   color: var(--text-muted);
 }
 .sp-reminder-input-wrap {
-  position: relative;
   display: flex;
   align-items: center;
+  gap: 6px;
   width: 100%;
+}
+.sp-reminder-datetime-control {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 .sp-reminder-input {
   width: 100%;
@@ -2577,24 +2582,44 @@ select:focus-visible,
   font-weight: 600;
   line-height: 1.25;
 }
-.sp-reminder-set-btn {
-  padding: 5px 0;
+.sp-reminder-ok-btn {
+  flex: 0 0 auto;
+  min-width: 42px;
+  height: 31px;
+  padding: 0 10px;
   border-radius: var(--r-sm);
   border: none;
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 800;
+  letter-spacing: 0;
   cursor: pointer;
-  transition: background 120ms;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 4px 12px rgba(220, 174, 25, 0.24);
+  transition:
+    background 120ms var(--ease),
+    box-shadow 120ms var(--ease),
+    transform 120ms var(--ease);
 }
-.sp-reminder-set-btn:hover:not(:disabled) {
+.sp-reminder-ok-btn:hover:not(:disabled) {
   background: var(--accent-hover);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 6px 16px rgba(220, 174, 25, 0.34);
+  transform: translateY(-1px);
 }
-.sp-reminder-set-btn:disabled {
+.sp-reminder-ok-btn:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--bg-card),
+    0 0 0 4px var(--accent);
+}
+.sp-reminder-ok-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ─── Clip feedback badge ────────────────────────────────────── */
@@ -4057,11 +4082,6 @@ select:focus-visible,
   font-size: 11px;
   color: var(--text-subtle);
   font-style: italic;
-}
-
-/* ─── Typewriter mode ────────────────────────────────────────── */
-.tn-typewriter {
-  scroll-behavior: smooth;
 }
 
 /* ─── Note graph view ────────────────────────────────────────── */

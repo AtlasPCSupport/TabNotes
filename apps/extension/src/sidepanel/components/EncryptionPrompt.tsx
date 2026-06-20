@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon } from './AppIcon';
 
 export interface EncryptionPromptProps {
@@ -14,6 +15,7 @@ export function EncryptionPrompt({
   onLockNote,
   onUnlockNote,
 }: EncryptionPromptProps) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -36,7 +38,11 @@ export function EncryptionPrompt({
     if (success) {
       setShowEncPrompt(null);
     } else {
-      setError(showEncPrompt === 'lock' ? 'Encryption failed.' : 'Wrong password.');
+      setError(
+        showEncPrompt === 'lock'
+          ? t('encryption.encryptionFailed')
+          : t('encryption.wrongPassword')
+      );
     }
   };
 
@@ -49,17 +55,19 @@ export function EncryptionPrompt({
       <div className="tn-enc-dialog">
         <div className="tn-enc-title">
           <AppIcon name={showEncPrompt === 'lock' ? 'lock' : 'key'} size={16} />
-          <span>{showEncPrompt === 'lock' ? 'Encrypt note' : 'Decrypt note'}</span>
+          <span>
+            {showEncPrompt === 'lock' ? t('encryption.encryptNote') : t('encryption.decryptNote')}
+          </span>
         </div>
         <p className="tn-enc-desc">
           {showEncPrompt === 'lock'
-            ? "Enter a password to encrypt this note with AES-256. You'll need the same password to read it again."
-            : 'Enter your password to decrypt and restore this note.'}
+            ? t('encryption.encryptDesc')
+            : t('encryption.decryptDesc')}
         </p>
         <input
           className="tn-enc-input"
           type="password"
-          placeholder="Password…"
+          placeholder={t('encryption.passwordPlaceholder')}
           value={password}
           autoFocus
           onChange={(e) => {
@@ -78,14 +86,14 @@ export function EncryptionPrompt({
         {error && <p className="tn-enc-error">{error}</p>}
         <div className="tn-enc-actions">
           <button className="tn-enc-cancel" onClick={handleCancel}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             className="tn-enc-confirm"
             onClick={handleConfirm}
             disabled={!password}
           >
-            {showEncPrompt === 'lock' ? 'Encrypt' : 'Decrypt'}
+            {showEncPrompt === 'lock' ? t('encryption.encrypt') : t('encryption.decrypt')}
           </button>
         </div>
       </div>

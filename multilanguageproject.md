@@ -335,8 +335,8 @@ react-i18next does not require a Provider when using the default i18n instance, 
 
 ## 7. Replace hardcoded strings (the bulk of the work)
 
-Do this **component by component**, ideally as each is extracted by the side-panel refactor (see
-`.kiro/specs/side-panel-refactor/HANDOFF.md`). In each component:
+Do this **component by component**, ideally as each UI area is extracted by the side-panel refactor.
+In each component:
 
 ```tsx
 import { useTranslation } from '@tabnotes/i18n';

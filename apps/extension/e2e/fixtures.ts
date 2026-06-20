@@ -6,6 +6,9 @@ import { existsSync } from 'node:fs';
 // relative to the current working directory. Avoiding import.meta keeps this
 // compatible with Playwright's CJS test transform (the package is not ESM).
 const DIST = resolve(process.cwd(), 'dist');
+const REAL_TAB_URL = `data:text/html;charset=utf-8,${encodeURIComponent(
+  '<!doctype html><html><head><title>TabNotes E2E Page</title></head><body><main><h1>TabNotes E2E Page</h1><p>Local browser context for extension tests.</p></main></body></html>'
+)}`;
 
 /**
  * Playwright fixtures that load the built unpacked TabNotes extension into a
@@ -74,7 +77,7 @@ export async function openPanelWithRealTab(
   sidePanelUrl: string
 ): Promise<import('@playwright/test').Page> {
   const web = await context.newPage();
-  await web.goto('https://example.com/');
+  await web.goto(REAL_TAB_URL);
   const panel = await context.newPage();
   await panel.goto(sidePanelUrl);
   // Activate the real page so the panel adopts its URL as the current context.
