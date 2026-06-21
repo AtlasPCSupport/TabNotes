@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const basePath = process.env.VITE_BASE_PATH ?? '/';
+const normalizedBasePath = basePath.endsWith('/') ? basePath : `${basePath}/`;
 
 export default defineConfig({
+  base: normalizedBasePath,
   plugins: [react()],
+  root: __dirname,
   server: {
     host: '0.0.0.0',
     port: 5000,

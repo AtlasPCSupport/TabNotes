@@ -4,9 +4,9 @@
 
 ## Overview
 
-TabNotes is a local-first browser extension. By default, your notes stay on your device. If you
-choose to enable the optional Google Drive backup feature, TabNotes sends your backup directly to
-your own Google Drive app data folder.
+TabNotes is a local-first browser extension with a companion mobile PWA. By default, your notes
+stay on your device. If you choose to enable optional Google Drive sync, TabNotes sends sync data
+directly to your own Google Drive app data folder.
 
 ## Data We Collect
 
@@ -20,22 +20,22 @@ content with the TabNotes developer or any TabNotes server.
 All notes, workspaces, and settings created in TabNotes are stored in your browser's local storage
 (`chrome.storage.local`) on your own device. This data:
 
-- Never leaves your device unless you explicitly enable Google Drive backup
+- Never leaves your device unless you explicitly enable Google Drive sync
 - Is never sent to any TabNotes server
 - Is never accessible to the TabNotes developer or any third party
 - Is never used for analytics, advertising, or profiling
 
-## Optional Google Drive Backup
+## Optional Google Drive Sync
 
 If you connect Google Drive, TabNotes uses Chrome's `identity` API and the Google Drive
-`drive.appdata` scope to create or update a JSON backup file in your private Google Drive
+`drive.appdata` scope to create or update a JSON sync file in your private Google Drive
 `appDataFolder`.
 
 When enabled:
 
-- Your notes backup is transmitted directly between the extension and Google Drive
-- The backup is stored in your own Google account, not on TabNotes infrastructure
-- The backup file is hidden from your normal "My Drive" view by Google Drive
+- Your notes sync data is transmitted directly between TabNotes and Google Drive
+- The sync file is stored in your own Google account, not on TabNotes infrastructure
+- The sync file is hidden from your normal "My Drive" view by Google Drive
 - TabNotes does not persist your Google access token in extension storage
 - You can disconnect Google Drive from TabNotes at any time
 
@@ -51,11 +51,11 @@ TabNotes requests the following Chrome permissions:
 | `activeTab` | Access the active tab's URL when the panel is open |
 | `sidePanel` | Display the notes panel alongside your browser content |
 | `contextMenus` | Add "Clip selection to TabNotes" when the user selects text and uses the context menu |
-| `identity` | Optional Google sign-in for Google Drive backup |
+| `identity` | Optional Google sign-in for Google Drive sync |
 | `offscreen` | Play local reminder audio when a note reminder fires |
-| `alarms` | Schedule reminders and delayed backup sync |
+| `alarms` | Schedule reminders and periodic Drive sync checks |
 | `notifications` | Show reminders and daily digest notifications |
-| `https://www.googleapis.com/*` | Optional Google Drive backup API calls |
+| `https://www.googleapis.com/*` | Optional Google Drive sync API calls |
 
 No permission is used for data collection or tracking.
 
@@ -67,7 +67,7 @@ passes through a TabNotes server. The Import feature reads a local file from you
 ## Third-Party Services
 
 TabNotes does not use any third-party analytics, crash reporting, advertising, or tracking services.
-Google Drive is used only if you opt in to Drive backup.
+Google Drive is used only if you opt in to Drive sync.
 
 ## Children's Privacy
 

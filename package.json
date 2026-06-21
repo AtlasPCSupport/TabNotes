@@ -9,6 +9,7 @@
     "build": "pnpm build:web && pnpm build:extension",
     "build:extension": "pnpm --filter @tabnotes/extension build",
     "build:web": "pnpm --filter @tabnotes/web build",
+    "build:web:pwa": "node scripts/build-web-pwa.mjs",
     "lint": "eslint \"apps/**/*.{ts,tsx}\" \"packages/**/*.{ts,tsx}\" --max-warnings 0",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

@@ -8,6 +8,9 @@ import WorkspacesPage from './pages/Workspaces';
 import SettingsPage from './pages/Settings';
 import PrivacyPage from './pages/Privacy';
 import AboutPage from './pages/About';
+import MobileAppPage from './pages/MobileApp';
+
+const MOBILE_ENTRY = import.meta.env.VITE_TABNOTES_MOBILE_ENTRY === 'true';
 
 export default function App() {
   const { theme } = useThemeStore();
@@ -30,8 +33,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<HomePage />} />
+        <Route index element={MOBILE_ENTRY ? <MobileAppPage /> : <HomePage />} />
         <Route path="notes" element={<NotesPage />} />
+        <Route path="app" element={<MobileAppPage />} />
         <Route path="workspaces" element={<WorkspacesPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="privacy" element={<PrivacyPage />} />

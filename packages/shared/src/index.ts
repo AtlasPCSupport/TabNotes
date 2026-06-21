@@ -1,6 +1,7 @@
 export * from './types';
 export * from './utils';
 export * from './storage';
+export * from './indexedDbStorage';
 export * from './sanitize';
 export * from './markdown';
 export * from './crypto';
@@ -8,4 +9,5 @@ export * from './text';
 export * from './wikilinks';
 export * from './checklist';
 export * from './backup';
+export * from './sync';
 export * from './entitlements';

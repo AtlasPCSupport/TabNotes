@@ -4,19 +4,19 @@
 
 ## The one-line version
 TabNotes collects zero data. Your notes stay local unless you explicitly enable optional Google
-Drive backup.
+Drive sync.
 
 ## Data storage
 All notes, workspaces, tags, and settings are stored exclusively in:
 - **chrome.storage.local** (extension) — sandboxed to your browser, on your device
-- **localStorage** (web app) — stored in your browser for that origin only
+- **IndexedDB** (web/PWA app) — stored in your browser for that origin only
 
 No data is transmitted to any TabNotes server. TabNotes works offline by default.
 
-## Optional Google Drive backup
+## Optional Google Drive sync
 If enabled by the user, TabNotes uses Chrome identity and the Google Drive `drive.appdata` scope to
-store a JSON backup in the user's private Google Drive app data folder. The backup goes directly
-from the extension to Google Drive. The TabNotes developer cannot access it.
+store JSON sync data in the user's private Google Drive app data folder. The sync data goes
+directly between TabNotes and Google Drive. The TabNotes developer cannot access it.
 
 ## Permissions
 | Permission | Why |
@@ -27,11 +27,11 @@ from the extension to Google Drive. The TabNotes developer cannot access it.
 | `activeTab` | Access current tab URL when the panel is open |
 | `sidePanel` | Display the notes panel alongside browser content |
 | `contextMenus` | Let users clip selected text into TabNotes from the browser context menu |
-| `identity` | Optional Google sign-in for Drive backup |
+| `identity` | Optional Google sign-in for Drive sync |
 | `offscreen` | Play local reminder audio when a reminder fires |
-| `alarms` | Backup debounce, reminders, and scheduled notifications |
+| `alarms` | Sync debounce, reminders, and scheduled notifications |
 | `notifications` | User reminders and daily digest |
-| `https://www.googleapis.com/*` | Optional Google Drive backup API calls |
+| `https://www.googleapis.com/*` | Optional Google Drive sync API calls |
 
 ## No analytics, no tracking
 TabNotes contains no analytics, telemetry, crash reporting, advertising SDKs, or tracking of any kind.

@@ -2,8 +2,14 @@ import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useThemeStore } from '../store/theme';
 
-const NAV_ITEMS = [
+const MOBILE_ENTRY = import.meta.env.VITE_TABNOTES_MOBILE_ENTRY === 'true';
+
+const NAV_ITEMS = MOBILE_ENTRY ? [
+  { to: '/', label: 'Mobile', icon: '▣', exact: true },
+  { to: '/settings', label: 'Settings', icon: '⚙', exact: false },
+] : [
   { to: '/', label: 'Home', icon: '⌂', exact: true },
+  { to: '/app', label: 'Mobile', icon: '▣', exact: false },
   { to: '/notes', label: 'Notes', icon: '✎', exact: false },
   { to: '/workspaces', label: 'Workspaces', icon: '⊞', exact: false },
   { to: '/about', label: 'About', icon: '✦', exact: false },

@@ -181,4 +181,8 @@ select {
       radial-gradient(700px 400px at 12% -8%, rgba(47, 109, 255, 0.22), transparent 62%),
       linear-gradient(180deg, rgba(var(--color-bg-rgb), 1) 0%, rgba(var(--color-bg-rgb), 0.98) 100%);
   }
+
+  .mobile-app-grid {
+    grid-template-columns: 1fr !important;
+  }
 }

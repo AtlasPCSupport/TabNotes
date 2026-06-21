@@ -10,7 +10,7 @@
 </p>
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Published-ffd84d?logo=googlechrome&logoColor=111215)](https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj)
-[![Version](https://img.shields.io/badge/version-2.10.2-79a7ff)](./tabnotes-extension.zip)
+[![Version](https://img.shields.io/badge/version-2.11.0-79a7ff)](./tabnotes-extension.zip)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ffffff)](LICENSE)
 
@@ -28,12 +28,13 @@
 
 | Item | Value |
 |---|---|
-| Public version | `2.10.2` |
+| Public version | `2.11.0` |
 | Chrome Web Store ID | `pniapenkdphjolncppcichbahomfiffj` |
 | Store package | [`tabnotes-extension.zip`](./tabnotes-extension.zip) |
 | Product site | `https://tabnotes.atlaspcsupport.com/` |
 | Privacy policy | `https://tabnotes.atlaspcsupport.com/privacy/` |
 | Terms | `https://tabnotes.atlaspcsupport.com/terms/` |
+| Mobile PWA route | `/app` in `apps/web` |
 
 ## What TabNotes Does
 
@@ -53,14 +54,22 @@ The extension runs in Chrome's side panel, autosaves notes locally, supports mul
 | Writing | Rich text, Markdown preview, templates, checklist mode, text alignment, colors, note history |
 | Organization | Workspaces, folders, tags, pinned notes, note colors, search, note graph |
 | Productivity | Command palette, contextual clipping, reminders, daily digest, backup reminders |
-| Privacy | Local-first storage, JSON export/restore, optional Drive backup, per-note encryption, PIN lock |
+| Privacy | Local-first storage, JSON export/restore, optional Drive appData sync, per-note encryption, PIN lock |
 | Languages | English and Spanish interface support |
+
+## Mobile PWA
+
+The companion PWA lives in `apps/web` and exposes a mobile-first route at `/app`.
+It uses the same private Google Drive `appDataFolder` file as the extension, with a v2 sync envelope that supports tombstones for deletions and conflict copies when two devices edit the same note after the last sync.
+
+For Drive sync in the PWA, create a Google OAuth **Web application** client and set `VITE_GOOGLE_CLIENT_ID` before building or deploying the web app.
+For deployment under `https://tabnotes.atlaspcsupport.com/app/`, build with `VITE_BASE_PATH=/app/` and `VITE_TABNOTES_MOBILE_ENTRY=true`.
 
 ## Screenshots
 
-| Search and notes | Google Drive backup |
+| Search and notes | Google Drive sync |
 |---|---|
-| ![Search and all notes](store/assets-final-20260619/02-search-and-all-notes-1280x800.png) | ![Drive backup settings](store/assets-final-20260619/03-drive-backup-settings-1280x800.png) |
+| ![Search and all notes](store/assets-final-20260619/02-search-and-all-notes-1280x800.png) | ![Drive sync settings](store/assets-final-20260619/03-drive-backup-settings-1280x800.png) |
 
 | Reminders | Workspaces |
 |---|---|
@@ -72,8 +81,8 @@ TabNotes does not use a TabNotes server for your notes.
 
 - Notes are stored locally in `chrome.storage.local` by default.
 - Manual export creates a JSON file controlled by the user.
-- Optional Google Drive backup uses only `https://www.googleapis.com/auth/drive.appdata`.
-- Drive backup data is written to the user's private Google Drive app data folder.
+- Optional Google Drive sync uses only `https://www.googleapis.com/auth/drive.appdata`.
+- Drive sync data is written to the user's private Google Drive app data folder.
 - The extension does not include advertising, analytics, telemetry, or tracking SDKs.
 
 ## Manual Install From ZIP
@@ -91,6 +100,8 @@ The recommended install path is the Chrome Web Store. For local testing:
 
 ```bash
 pnpm install
+pnpm --filter @tabnotes/shared typecheck
+pnpm --filter @tabnotes/web typecheck
 pnpm --filter @tabnotes/extension typecheck
 pnpm --filter @tabnotes/extension e2e
 pnpm --filter @tabnotes/extension build
@@ -102,7 +113,7 @@ pnpm --filter @tabnotes/extension build
 apps/
   extension/       Chrome MV3 extension
   tabnotes-site/   Static public site for product, privacy, and terms
-  web/             Companion local web app prototype
+  web/             Companion web/PWA app for mobile access
 packages/
   shared/          Storage, backup, crypto, markdown, and utility logic
   i18n/            English and Spanish translations

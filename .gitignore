@@ -14,3 +14,8 @@ options/
 test-results/
 playwright-report/
 .playwright/
+
+# Local-only private material and transient QA artifacts.
+PRIVADO_CUIDADO/
+output/
+design/

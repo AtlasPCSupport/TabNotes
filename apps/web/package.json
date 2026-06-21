@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5000",
-    "build": "tsc && vite build",
+    "build": "tsc && node ../../scripts/build-vite-app.mjs web",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx"

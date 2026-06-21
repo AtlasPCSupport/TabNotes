@@ -1,4 +1,10 @@
-import { handleDriveAlarm, handleDriveMessage, scheduleDriveAutoSync } from './driveSync';
+import {
+  DRIVE_REMOTE_APPLY_STORAGE_KEY,
+  handleDriveAlarm,
+  handleDriveMessage,
+  recordDriveDeletionTombstones,
+  scheduleDriveAutoSync,
+} from './driveSync';
 import {
   ACTIVE_REMINDER_ALERT_STORAGE_KEY,
   ActiveReminderAlert,
@@ -768,7 +774,14 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   }
 
   if (changes['tabnotes_data']) {
-    await scheduleDriveAutoSync();
+    const isDriveRemoteApply = Boolean(changes[DRIVE_REMOTE_APPLY_STORAGE_KEY]);
+    if (!isDriveRemoteApply) {
+      await recordDriveDeletionTombstones(
+        changes['tabnotes_data'].oldValue,
+        changes['tabnotes_data'].newValue,
+      );
+      await scheduleDriveAutoSync();
+    }
   }
 });
 

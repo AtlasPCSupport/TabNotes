@@ -2,7 +2,7 @@
 
 ## Current public package
 
-- Version: `2.10.2`
+- Version: `2.11.0`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
@@ -16,7 +16,7 @@ TabNotes
 
 ## Short description
 
-Contextual notes per page, domain, workspace, or browser context. Local-first, private, and backup-ready.
+Contextual notes per page, domain, workspace, or browser context. Local-first, private, and sync-ready.
 
 ## Detailed description
 
@@ -35,12 +35,12 @@ Key features:
 - Templates: insert common note structures quickly.
 - Reminders: create note reminders and receive browser notifications.
 - Export and restore: back up notes manually with JSON export and restore.
-- Optional Google Drive backup: if enabled, TabNotes stores a backup in your private Google Drive app data folder using the limited drive.appdata scope.
+- Optional Google Drive sync: if enabled, TabNotes stores sync data in your private Google Drive app data folder using the limited drive.appdata scope.
 - Themes and language support: light mode, dark mode, and multilingual interface support.
 
 Privacy:
 
-TabNotes does not collect, sell, track, or analyze your personal data. Notes are stored locally by default. Google Drive backup is optional and only runs when you choose to enable it.
+TabNotes does not collect, sell, track, or analyze your personal data. Notes are stored locally by default. Google Drive sync is optional and only runs when you choose to enable it.
 
 TabNotes is designed for researchers, students, developers, support technicians, writers, and anyone who needs notes that stay connected to their browsing context.
 
@@ -50,17 +50,17 @@ Work and planning / Productivity
 
 ## Permissions justification
 
-- `storage`: stores notes, workspaces, reminders, preferences, backup settings, and app state locally in the browser.
+- `storage`: stores notes, workspaces, reminders, preferences, sync settings, and app state locally in the browser.
 - `unlimitedStorage`: supports local-first note collections that may include many or long notes.
 - `tabs`: reads the active tab URL, title, and domain so notes can be associated with the correct page or domain.
 - `activeTab`: accesses the current tab only when the user invokes TabNotes.
 - `sidePanel`: provides the main TabNotes interface inside Chrome's side panel.
-- `alarms`: schedules user-created reminders and background backup checks.
+- `alarms`: schedules user-created reminders and background sync checks.
 - `notifications`: shows browser notifications when reminders or backup reminders are due.
-- `identity`: enables optional Google OAuth authentication for Google Drive backup and restore.
+- `identity`: enables optional Google OAuth authentication for Google Drive sync and restore.
 - `offscreen`: plays local reminder audio when a reminder fires.
 - `contextMenus`: adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
-- `https://www.googleapis.com/*`: used only for optional Google Drive appData backup and restore after the user enables Drive sync.
+- `https://www.googleapis.com/*`: used only for optional Google Drive appData sync and restore after the user enables Drive sync.
 
 ## Data usage disclosure
 

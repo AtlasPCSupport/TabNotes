@@ -2,13 +2,18 @@ import {
   DEFAULT_ENTITLEMENTS,
   DEFAULT_STORAGE,
   ENTITLEMENTS_STORAGE_KEY,
-  createDriveBackupEnvelope,
+  TOMBSTONE_RETENTION_MS,
+  createDeleteTombstone,
+  createDriveSyncEnvelope,
   hasFeature,
-  mergeDriveBackupEnvelope,
-  parseDriveBackupEnvelope,
+  mergeDriveSyncEnvelope,
+  parseAnyDriveSyncEnvelope,
   type EntitlementState,
   type ExportPrefs,
+  type Note,
   type StorageData,
+  type SyncTombstone,
+  type Workspace,
 } from '@tabnotes/shared';
 import {
   disconnectGoogle,
@@ -20,6 +25,7 @@ import {
 import { DriveApiError, findBackupFile, loadBackupFile, saveBackupFile } from './driveClient';
 
 export const DRIVE_SYNC_STORAGE_KEY = 'tn_drive_sync';
+export const DRIVE_REMOTE_APPLY_STORAGE_KEY = 'tn_drive_remote_apply';
 const DRIVE_AUTO_SYNC_ALARM = 'tn_drive_auto_sync';
 const SYNC_DEBOUNCE_MS = 3_000;
 
@@ -33,8 +39,10 @@ export interface DriveSyncState {
   fileId?: string;
   remoteModifiedTime?: string;
   lastSyncAt?: string;
+  lastSyncedAt?: number;
   lastRestoreAt?: string;
   lastError?: string;
+  tombstones?: SyncTombstone[];
 }
 
 const DEFAULT_DRIVE_STATE: DriveSyncState = {
@@ -98,18 +106,61 @@ function normalizeStorageData(raw: unknown): StorageData {
   };
 }
 
+function getAllNotes(data: StorageData): Note[] {
+  return [
+    ...Object.values(data.notes_url ?? {}),
+    ...Object.values(data.notes_domain ?? {}),
+    ...Object.values(data.notes_workspace ?? {}),
+    ...Object.values(data.notes_global ?? {}),
+  ];
+}
+
+function pruneTombstones(tombstones: SyncTombstone[], now = Date.now()): SyncTombstone[] {
+  const cutoff = now - TOMBSTONE_RETENTION_MS;
+  const byEntity = new Map<string, SyncTombstone>();
+
+  for (const tombstone of tombstones) {
+    if (tombstone.deletedAt < cutoff) continue;
+    const key = `${tombstone.entityType}:${tombstone.id}`;
+    const current = byEntity.get(key);
+    if (!current || tombstone.deletedAt > current.deletedAt) byEntity.set(key, tombstone);
+  }
+
+  return [...byEntity.values()].sort((a, b) => b.deletedAt - a.deletedAt);
+}
+
+function getRemovedWorkspaces(oldData: StorageData, newData: StorageData): Workspace[] {
+  return Object.values(oldData.workspaces ?? {}).filter((workspace) => !newData.workspaces?.[workspace.id]);
+}
+
+function getRemovedNotes(oldData: StorageData, newData: StorageData, removedWorkspaceIds: Set<string>): Note[] {
+  const currentNoteIds = new Set(getAllNotes(newData).map((note) => note.id));
+  return getAllNotes(oldData).filter((note) => {
+    if (currentNoteIds.has(note.id)) return false;
+    if (note.workspaceId && removedWorkspaceIds.has(note.workspaceId)) return false;
+    return true;
+  });
+}
+
 async function getDriveState(): Promise<DriveSyncState> {
   const result = await chromeGet(DRIVE_SYNC_STORAGE_KEY);
   return {
     ...DEFAULT_DRIVE_STATE,
     ...((result[DRIVE_SYNC_STORAGE_KEY] as Partial<DriveSyncState> | undefined) ?? {}),
+    tombstones: pruneTombstones(
+      ((result[DRIVE_SYNC_STORAGE_KEY] as Partial<DriveSyncState> | undefined)?.tombstones ?? []),
+    ),
   };
 }
 
 async function setDriveState(patch: Partial<DriveSyncState>): Promise<DriveSyncState> {
   const current = await getDriveState();
   const next = Object.fromEntries(
-    Object.entries({ ...current, ...patch }).filter(([, value]) => value !== undefined),
+    Object.entries({
+      ...current,
+      ...patch,
+      tombstones: pruneTombstones(patch.tombstones ?? current.tombstones ?? []),
+    }).filter(([, value]) => value !== undefined),
   ) as unknown as DriveSyncState;
   await chromeSet({ [DRIVE_SYNC_STORAGE_KEY]: next });
   return next;
@@ -153,9 +204,54 @@ function driveErrorMessage(error: unknown): string {
   return String(error);
 }
 
+async function loadBackupFileRecoveringFromStaleId(
+  token: string,
+  fileId?: string,
+): Promise<unknown | null> {
+  try {
+    return await loadBackupFile(token, fileId);
+  } catch (error) {
+    if (!(error instanceof DriveApiError) || error.status !== 404 || !fileId) throw error;
+    return loadBackupFile(token);
+  }
+}
+
 async function saveCurrentBackupWithToken(token: string): Promise<DriveSyncState> {
-  const envelope = await createCurrentBackupEnvelope();
   const latestState = await getDriveState();
+  const rawBackup = await loadBackupFileRecoveringFromStaleId(token, latestState.fileId);
+  const remoteEnvelope = rawBackup ? parseAnyDriveSyncEnvelope(rawBackup) : null;
+  if (rawBackup && !remoteEnvelope) {
+    throw new Error('Drive backup is missing or uses an unsupported format.');
+  }
+  const deviceId = await ensureDeviceId();
+  let local = await getCurrentStorage();
+  let tombstones = latestState.tombstones ?? [];
+  const now = Date.now();
+
+  if (remoteEnvelope) {
+    const merged = mergeDriveSyncEnvelope(remoteEnvelope, local, {
+      sourceDeviceId: deviceId,
+      localTombstones: tombstones,
+      lastSyncedAt: latestState.lastSyncedAt,
+      now,
+    });
+    local = merged.data;
+    tombstones = merged.tombstones;
+    await chromeSet({
+      tabnotes_data: local,
+      [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: now, source: 'drive-sync' },
+    });
+    await applyBackupPrefs(remoteEnvelope.data.prefs);
+  }
+
+  const prefs = await collectBackupPrefs(local);
+  const envelope = createDriveSyncEnvelope(local, {
+    sourceDeviceId: deviceId,
+    previous: remoteEnvelope,
+    tombstones,
+    prefs,
+    now: now + 1,
+  });
   const file = await saveBackupFile(token, envelope, latestState.fileId);
 
   return setDriveState({
@@ -163,7 +259,9 @@ async function saveCurrentBackupWithToken(token: string): Promise<DriveSyncState
     status: 'ok',
     fileId: file.id,
     remoteModifiedTime: file.modifiedTime,
-    lastSyncAt: new Date().toISOString(),
+    lastSyncAt: new Date(now + 1).toISOString(),
+    lastSyncedAt: now + 1,
+    tombstones,
     lastError: undefined,
   });
 }
@@ -187,12 +285,9 @@ async function collectBackupPrefs(storage: StorageData): Promise<ExportPrefs> {
   return prefs;
 }
 
-async function createCurrentBackupEnvelope() {
+async function getCurrentStorage(): Promise<StorageData> {
   const result = await chromeGet('tabnotes_data');
-  const storage = normalizeStorageData(result.tabnotes_data);
-  const prefs = await collectBackupPrefs(storage);
-  const deviceId = await ensureDeviceId();
-  return createDriveBackupEnvelope(storage, deviceId, prefs);
+  return normalizeStorageData(result.tabnotes_data);
 }
 
 async function applyBackupPrefs(prefs: ExportPrefs | undefined): Promise<void> {
@@ -277,19 +372,28 @@ export async function restoreDriveBackup() {
 
   const state = await getDriveState();
   const token = await getGoogleAuthToken(false);
-  const rawBackup = await loadBackupFile(token, state.fileId);
-  const envelope = parseDriveBackupEnvelope(rawBackup);
+  const rawBackup = await loadBackupFileRecoveringFromStaleId(token, state.fileId);
+  const envelope = parseAnyDriveSyncEnvelope(rawBackup);
   if (!envelope) throw new Error('Drive backup is missing or uses an unsupported format.');
 
-  const result = await chromeGet('tabnotes_data');
-  const current = normalizeStorageData(result.tabnotes_data);
-  const merged = mergeDriveBackupEnvelope(envelope, current);
-  await chromeSet({ tabnotes_data: merged.data });
+  const current = await getCurrentStorage();
+  const merged = mergeDriveSyncEnvelope(envelope, current, {
+    sourceDeviceId: await ensureDeviceId(),
+    localTombstones: state.tombstones ?? [],
+    lastSyncedAt: state.lastSyncedAt,
+  });
+  await chromeSet({
+    tabnotes_data: merged.data,
+    [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: Date.now(), source: 'drive-restore' },
+  });
   await applyBackupPrefs(envelope.data.prefs);
   await setDriveState({
     enabled: true,
     status: 'ok',
     lastRestoreAt: new Date().toISOString(),
+    lastSyncAt: new Date().toISOString(),
+    lastSyncedAt: Date.now(),
+    tombstones: merged.tombstones,
     lastError: undefined,
   });
 
@@ -298,6 +402,45 @@ export async function restoreDriveBackup() {
     restoredAt: envelope.syncedAt,
     summary: merged.summary,
   };
+}
+
+export async function recordDriveDeletionTombstones(
+  oldValue: unknown,
+  newValue: unknown,
+): Promise<number> {
+  const state = await getDriveState();
+  const oldData = normalizeStorageData(oldValue);
+  const newData = normalizeStorageData(newValue);
+  const removedWorkspaces = getRemovedWorkspaces(oldData, newData);
+  const removedWorkspaceIds = new Set(removedWorkspaces.map((workspace) => workspace.id));
+  const removedNotes = getRemovedNotes(oldData, newData, removedWorkspaceIds);
+  if (removedWorkspaces.length === 0 && removedNotes.length === 0) return 0;
+
+  const deviceId = await ensureDeviceId();
+  const deletedAt = Date.now();
+  const tombstones = [
+    ...(state.tombstones ?? []),
+    ...removedWorkspaces.map((workspace) =>
+      createDeleteTombstone(
+        { entityType: 'workspace', id: workspace.id, workspaceId: workspace.id },
+        deviceId,
+        deletedAt,
+      ),
+    ),
+    ...removedNotes.map((note) =>
+      createDeleteTombstone(
+        { entityType: 'note', id: note.id, scope: note.scope, workspaceId: note.workspaceId },
+        deviceId,
+        deletedAt,
+      ),
+    ),
+  ];
+
+  await setDriveState({
+    tombstones,
+    status: state.status === 'disconnected' ? state.status : 'idle',
+  });
+  return removedWorkspaces.length + removedNotes.length;
 }
 
 export async function disconnectDriveSync() {
