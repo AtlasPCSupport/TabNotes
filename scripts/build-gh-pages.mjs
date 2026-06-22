@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process';
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const siteSource = join(root, 'apps', 'tabnotes-site');
+const runtimeConfigSource = join(root, 'apps', 'web', 'public', 'tabnotes.config.json');
 const webDist = join(root, 'apps', 'web', 'dist');
 const output = join(root, 'dist-gh-pages');
 
@@ -21,6 +22,19 @@ function run(command, args, options = {}) {
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} failed with status ${result.status}`);
+  }
+}
+
+async function getGoogleClientId() {
+  const envClientId = process.env.VITE_GOOGLE_CLIENT_ID?.trim();
+  if (envClientId) return envClientId;
+
+  try {
+    const config = JSON.parse(await readFile(runtimeConfigSource, 'utf8'));
+    const value = typeof config.googleClientId === 'string' ? config.googleClientId.trim() : '';
+    return value;
+  } catch {
+    return '';
   }
 }
 
@@ -41,9 +55,10 @@ await mkdir(output, { recursive: true });
 await cp(siteSource, output, { recursive: true });
 await mkdir(join(output, 'app'), { recursive: true });
 await cp(webDist, join(output, 'app'), { recursive: true });
+const googleClientId = await getGoogleClientId();
 await writeFile(
   join(output, 'app', 'tabnotes.config.json'),
-  `${JSON.stringify({ googleClientId: process.env.VITE_GOOGLE_CLIENT_ID ?? '' }, null, 2)}\n`,
+  `${JSON.stringify({ googleClientId }, null, 2)}\n`,
 );
 await writeFile(join(output, '.nojekyll'), '');
 
