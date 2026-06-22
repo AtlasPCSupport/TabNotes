@@ -25,17 +25,29 @@ function run(command, args, options = {}) {
   }
 }
 
-async function getGoogleClientId() {
-  const envClientId = process.env.VITE_GOOGLE_CLIENT_ID?.trim();
-  if (envClientId) return envClientId;
-
+async function getRuntimeConfig() {
   try {
-    const config = JSON.parse(await readFile(runtimeConfigSource, 'utf8'));
-    const value = typeof config.googleClientId === 'string' ? config.googleClientId.trim() : '';
-    return value;
+    return JSON.parse(await readFile(runtimeConfigSource, 'utf8'));
   } catch {
-    return '';
+    return {};
   }
+}
+
+async function getPublicRuntimeConfig() {
+  const config = await getRuntimeConfig();
+  const googleClientId =
+    process.env.VITE_GOOGLE_CLIENT_ID?.trim() ||
+    (typeof config.googleClientId === 'string' ? config.googleClientId.trim() : '');
+  const extensionId =
+    process.env.VITE_TABNOTES_EXTENSION_ID?.trim() ||
+    (typeof config.extensionId === 'string' ? config.extensionId.trim() : '');
+
+  return Object.fromEntries(
+    Object.entries({
+      googleClientId,
+      extensionId,
+    }).filter(([, value]) => value)
+  );
 }
 
 const pnpm = process.env.npm_execpath ? process.execPath : 'pnpm';
@@ -55,10 +67,10 @@ await mkdir(output, { recursive: true });
 await cp(siteSource, output, { recursive: true });
 await mkdir(join(output, 'app'), { recursive: true });
 await cp(webDist, join(output, 'app'), { recursive: true });
-const googleClientId = await getGoogleClientId();
+const runtimeConfig = await getPublicRuntimeConfig();
 await writeFile(
   join(output, 'app', 'tabnotes.config.json'),
-  `${JSON.stringify({ googleClientId }, null, 2)}\n`,
+  `${JSON.stringify(runtimeConfig, null, 2)}\n`
 );
 await writeFile(join(output, '.nojekyll'), '');
 

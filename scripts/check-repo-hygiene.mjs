@@ -9,7 +9,10 @@ function gitLsFiles() {
     cwd: root,
     encoding: 'utf8',
   });
-  return output.split('\0').filter(Boolean).map((file) => file.replace(/\\/g, '/'));
+  return output
+    .split('\0')
+    .filter(Boolean)
+    .map((file) => file.replace(/\\/g, '/'));
 }
 
 const forbiddenTrackedPatterns = [
@@ -21,7 +24,7 @@ const forbiddenTrackedPatterns = [
 
 const trackedFiles = gitLsFiles();
 const forbiddenTrackedFiles = trackedFiles.filter((file) =>
-  forbiddenTrackedPatterns.some((pattern) => pattern.test(file)),
+  forbiddenTrackedPatterns.some((pattern) => pattern.test(file))
 );
 
 if (forbiddenTrackedFiles.length > 0) {
@@ -33,10 +36,21 @@ if (forbiddenTrackedFiles.length > 0) {
 
 const pwaConfigPath = join(root, 'apps', 'web', 'public', 'tabnotes.config.json');
 const pwaConfig = JSON.parse(readFileSync(pwaConfigPath, 'utf8'));
-const googleClientId = typeof pwaConfig.googleClientId === 'string' ? pwaConfig.googleClientId.trim() : '';
+const googleClientId =
+  typeof pwaConfig.googleClientId === 'string' ? pwaConfig.googleClientId.trim() : '';
+const extensionId = typeof pwaConfig.extensionId === 'string' ? pwaConfig.extensionId.trim() : '';
 
 if (!googleClientId || googleClientId.includes('REPLACE_WITH')) {
-  console.error('apps/web/public/tabnotes.config.json must contain the public Google OAuth Web client ID.');
+  console.error(
+    'apps/web/public/tabnotes.config.json must contain the public Google OAuth Web client ID.'
+  );
+  process.exit(1);
+}
+
+if (!/^[a-p]{32}$/.test(extensionId)) {
+  console.error(
+    'apps/web/public/tabnotes.config.json must contain the public Chrome extension ID.'
+  );
   process.exit(1);
 }
 

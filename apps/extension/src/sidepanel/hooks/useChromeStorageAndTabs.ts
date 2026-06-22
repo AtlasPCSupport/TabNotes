@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Note,
   NoteScope,
   ChromeStorageAdapter,
   NotesService,
@@ -46,9 +47,7 @@ function formatClipMarkdown(clip: PendingClip, fallbackUrl: string): string {
     .map((line) => `> ${line}`)
     .join('\n');
 
-  return sourceUrl
-    ? `\n\n${quotedText}\n\n- [${sourceTitle}](${sourceUrl})`
-    : `\n\n${quotedText}`;
+  return sourceUrl ? `\n\n${quotedText}\n\n- [${sourceTitle}](${sourceUrl})` : `\n\n${quotedText}`;
 }
 
 interface UseChromeStorageAndTabsProps {
@@ -107,6 +106,7 @@ export function useChromeStorageAndTabs({
   const setMdState = useSidePanelStore((s) => s.setMdState);
   const setPreview = useSidePanelStore((s) => s.setPreview);
   const setScope = useSidePanelStore((s) => s.setScope);
+  const setActiveNoteId = useSidePanelStore((s) => s.setActiveNoteId);
   const setCurrentUrl = useSidePanelStore((s) => s.setCurrentUrl);
   const setCurrentDomain = useSidePanelStore((s) => s.setCurrentDomain);
   const setAllNotes = useSidePanelStore((s) => s.setAllNotes);
@@ -121,6 +121,30 @@ export function useChromeStorageAndTabs({
   const setTags = useSidePanelStore((s) => s.setTags);
   const setSaved = useSidePanelStore((s) => s.setSaved);
 
+  const applyCleanNoteToEditor = useCallback(
+    (note: Note | null) => {
+      const nextContent = note?.content ?? '';
+      activeNoteIdRef.current = note?.id ?? null;
+      contentSavedRef.current = nextContent;
+      setActiveNoteId(note?.id ?? null);
+      setContent(nextContent);
+      setTitle(stripFormatting(note?.title ?? ''));
+      setTags(note?.tags.join(', ') ?? '');
+      setSaved(false);
+      setPreview(false);
+    },
+    [
+      activeNoteIdRef,
+      contentSavedRef,
+      setActiveNoteId,
+      setContent,
+      setPreview,
+      setSaved,
+      setTags,
+      setTitle,
+    ]
+  );
+
   const requestDriveSyncIfEnabled = useCallback(() => {
     if (!cr?.runtime?.sendMessage || !navigator.onLine) return;
     const now = Date.now();
@@ -131,8 +155,6 @@ export function useChromeStorageAndTabs({
       void cr.runtime.lastError;
     });
   }, []);
-
-
 
   const refreshAllNotes = useCallback(async () => {
     const notes = await noteSvc.current.getAllNotes();
@@ -224,10 +246,7 @@ export function useChromeStorageAndTabs({
       if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
         setContextNotes([]);
         setActiveWorkspaceId(wsId);
-        activeNoteIdRef.current = null;
-        setContent('');
-        setTitle('');
-        setTags('');
+        applyCleanNoteToEditor(null);
         return;
       }
 
@@ -238,14 +257,9 @@ export function useChromeStorageAndTabs({
         ? (notes.find((n) => n.id === preferNoteId) ?? notes[0] ?? null)
         : (notes[0] ?? null);
 
-      activeNoteIdRef.current = pick?.id ?? null;
-      setContent(pick?.content ?? '');
-      setTitle(pick?.title ?? '');
-      setTags(pick?.tags.join(', ') ?? '');
-      setSaved(false);
-      setPreview(false);
+      applyCleanNoteToEditor(pick);
     },
-    [noteSvc, setContextNotes, setActiveWorkspaceId, activeNoteIdRef, setContent, setTitle, setTags, setSaved, setPreview]
+    [noteSvc, setContextNotes, setActiveWorkspaceId, applyCleanNoteToEditor]
   );
 
   const switchToTab = useCallback(
@@ -261,7 +275,15 @@ export function useChromeStorageAndTabs({
       ]);
       setTabLoading(false);
     },
-    [loadContextNotes, refreshAllNotes, setCurrentDomain, setCurrentUrl, currentUrlRef, scopeRef, wsIdRef]
+    [
+      loadContextNotes,
+      refreshAllNotes,
+      setCurrentDomain,
+      setCurrentUrl,
+      currentUrlRef,
+      scopeRef,
+      wsIdRef,
+    ]
   );
 
   // Online / offline detection
@@ -311,9 +333,11 @@ export function useChromeStorageAndTabs({
       area: string
     ) => {
       if (area === 'local' && changes[PENDING_CLIP_STORAGE_KEY]?.newValue) {
-        void appendClipToCurrentNote(changes[PENDING_CLIP_STORAGE_KEY].newValue).then((consumed) => {
-          if (consumed) cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
-        });
+        void appendClipToCurrentNote(changes[PENDING_CLIP_STORAGE_KEY].newValue).then(
+          (consumed) => {
+            if (consumed) cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
+          }
+        );
         return;
       }
       if (area === 'local' && changes['tn_quick_capture']?.newValue) {
@@ -346,7 +370,9 @@ export function useChromeStorageAndTabs({
         wsIdRef.current = wsId;
 
         const resolvedLng = resolveLanguage(
-          (storageData as unknown as { language?: string }).language ?? cr?.i18n?.getUILanguage?.() ?? navigator.language
+          (storageData as unknown as { language?: string }).language ??
+            cr?.i18n?.getUILanguage?.() ??
+            navigator.language
         );
         setLanguageState(resolvedLng);
         i18n.changeLanguage(resolvedLng);
@@ -358,17 +384,17 @@ export function useChromeStorageAndTabs({
         const id = activeNoteIdRef.current;
         if (id) {
           const remote = ctxUpdated.find((n) => n.id === id) ?? allUpdated.find((n) => n.id === id);
-          if (remote && remote.content !== contentSavedRef.current) {
-            setContent((localContent) => {
-              if (localContent === contentSavedRef.current) {
-                contentSavedRef.current = remote.content;
-                setTitle(stripFormatting(remote.title ?? ''));
-                setTags(remote.tags.join(', '));
-                return remote.content;
-              }
-              return localContent;
-            });
-          }
+          const nextNote = remote ?? ctxUpdated[0] ?? null;
+          setContent((localContent) => {
+            if (localContent !== contentSavedRef.current) return localContent;
+            activeNoteIdRef.current = nextNote?.id ?? null;
+            setActiveNoteId(nextNote?.id ?? null);
+            contentSavedRef.current = nextNote?.content ?? '';
+            setTitle(stripFormatting(nextNote?.title ?? ''));
+            setTags(nextNote?.tags.join(', ') ?? '');
+            setSaved(false);
+            return nextNote?.content ?? '';
+          });
         }
       }, 250);
     };
@@ -378,7 +404,32 @@ export function useChromeStorageAndTabs({
       cr.storage.onChanged.removeListener(handler);
       clearTimeout(t);
     };
-  }, [addNoteToContextRef, appendClipToCurrentNote, setView, editorRef, lastSaveTs, noteSvc, setAllNotes, scopeRef, currentUrlRef, wsIdRef, setContextNotes, wsSvc, setWorkspaces, setActiveWorkspaceId, activeNoteIdRef, contentSavedRef, setContent, setTitle, setTags, adapter, setLanguageState, setThemeState]);
+  }, [
+    addNoteToContextRef,
+    appendClipToCurrentNote,
+    setView,
+    editorRef,
+    lastSaveTs,
+    noteSvc,
+    setAllNotes,
+    scopeRef,
+    currentUrlRef,
+    wsIdRef,
+    setContextNotes,
+    wsSvc,
+    setWorkspaces,
+    setActiveWorkspaceId,
+    activeNoteIdRef,
+    contentSavedRef,
+    setContent,
+    setActiveNoteId,
+    setSaved,
+    setTitle,
+    setTags,
+    adapter,
+    setLanguageState,
+    setThemeState,
+  ]);
 
   // Initial load
   useEffect(() => {
@@ -402,11 +453,14 @@ export function useChromeStorageAndTabs({
       wsIdRef.current = wsId;
       setWorkspaces(wsList);
       setMdState(storageData.markdownEnabled ?? false);
-      const themeValue = (storageData as unknown as { theme: 'light' | 'dark' | 'system' }).theme ?? 'system';
+      const themeValue =
+        (storageData as unknown as { theme: 'light' | 'dark' | 'system' }).theme ?? 'system';
       setThemeState(themeValue);
 
       const resolvedLng = resolveLanguage(
-        (storageData as unknown as { language?: string }).language ?? cr?.i18n?.getUILanguage?.() ?? navigator.language
+        (storageData as unknown as { language?: string }).language ??
+          cr?.i18n?.getUILanguage?.() ??
+          navigator.language
       );
       setLanguageState(resolvedLng);
       i18n.changeLanguage(resolvedLng);
@@ -485,7 +539,29 @@ export function useChromeStorageAndTabs({
     };
 
     init();
-  }, [adapter, wsSvc, setDefaultScopeState, setScope, scopeRef, setActiveWorkspaceId, wsIdRef, setWorkspaces, setMdState, setThemeState, setLanguageState, refreshAllNotes, setCurrentUrl, setCurrentDomain, currentUrlRef, loadContextNotes, appendClipToCurrentNote, addNoteToContextRef, setView, editorRef, requestDriveSyncIfEnabled]);
+  }, [
+    adapter,
+    wsSvc,
+    setDefaultScopeState,
+    setScope,
+    scopeRef,
+    setActiveWorkspaceId,
+    wsIdRef,
+    setWorkspaces,
+    setMdState,
+    setThemeState,
+    setLanguageState,
+    refreshAllNotes,
+    setCurrentUrl,
+    setCurrentDomain,
+    currentUrlRef,
+    loadContextNotes,
+    appendClipToCurrentNote,
+    addNoteToContextRef,
+    setView,
+    editorRef,
+    requestDriveSyncIfEnabled,
+  ]);
 
   useEffect(() => {
     const onFocus = () => requestDriveSyncIfEnabled();

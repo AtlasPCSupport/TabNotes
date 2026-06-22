@@ -29,9 +29,11 @@ import {
   requestGoogleDriveToken,
   revokeGoogleDriveToken,
 } from '../sync/googleIdentity';
+import { notifyExtensionDriveUpdated } from '../sync/extensionBridge';
 
 const SYNC_META_KEY = 'tabnotes_web_sync_meta';
-const MISSING_CLIENT_ID_ERROR = 'Missing Google OAuth Web Application client ID for the TabNotes web app.';
+const MISSING_CLIENT_ID_ERROR =
+  'Missing Google OAuth Web Application client ID for the TabNotes web app.';
 const AUTO_SYNC_DELAY_MS = 1_200;
 
 type SyncStatus =
@@ -81,11 +83,14 @@ interface NotesStore {
   }) => Promise<Note>;
   updateNote: (
     id: string,
-    updates: Partial<Pick<Note, 'content' | 'title' | 'tags' | 'folder'>>,
+    updates: Partial<Pick<Note, 'content' | 'title' | 'tags' | 'folder'>>
   ) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   createWorkspace: (name: string, color?: string) => Promise<Workspace>;
-  updateWorkspace: (id: string, updates: Partial<Pick<Workspace, 'name' | 'color'>>) => Promise<void>;
+  updateWorkspace: (
+    id: string,
+    updates: Partial<Pick<Workspace, 'name' | 'color'>>
+  ) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   setActiveWorkspace: (id: string | null) => Promise<void>;
   setDefaultScope: (scope: NoteScope) => Promise<void>;
@@ -163,7 +168,10 @@ async function setSyncMeta(patch: Partial<WebSyncMeta>): Promise<WebSyncMeta> {
   if (Object.prototype.hasOwnProperty.call(patch, 'lastSyncAt') && patch.lastSyncAt === undefined) {
     delete next.lastSyncAt;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, 'lastSyncIso') && patch.lastSyncIso === undefined) {
+  if (
+    Object.prototype.hasOwnProperty.call(patch, 'lastSyncIso') &&
+    patch.lastSyncIso === undefined
+  ) {
     delete next.lastSyncIso;
   }
   await adapter.setMeta(SYNC_META_KEY, next);
@@ -173,7 +181,9 @@ async function setSyncMeta(patch: Partial<WebSyncMeta>): Promise<WebSyncMeta> {
 async function addTombstone(tombstone: SyncTombstone): Promise<void> {
   const meta = await getSyncMeta();
   const key = `${tombstone.entityType}:${tombstone.id}`;
-  const tombstones = new Map(meta.tombstones.map((item) => [`${item.entityType}:${item.id}`, item]));
+  const tombstones = new Map(
+    meta.tombstones.map((item) => [`${item.entityType}:${item.id}`, item])
+  );
   const current = tombstones.get(key);
   if (!current || tombstone.deletedAt > current.deletedAt) tombstones.set(key, tombstone);
   await setSyncMeta({ tombstones: [...tombstones.values()] });
@@ -262,7 +272,15 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     });
   },
 
-  createNote: async ({ scope, url = 'https://tabnotes.app/mobile', workspaceId, content, title, tags, folder }) => {
+  createNote: async ({
+    scope,
+    url = 'https://tabnotes.app/mobile',
+    workspaceId,
+    content,
+    title,
+    tags,
+    folder,
+  }) => {
     const fallbackWorkspaceId = get().activeWorkspaceId;
     const note = await notesService.createNote({
       scope,
@@ -293,8 +311,8 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       await addTombstone(
         createDeleteTombstone(
           { entityType: 'note', id, scope: note.scope, workspaceId: note.workspaceId },
-          meta.deviceId,
-        ),
+          meta.deviceId
+        )
       );
     }
     await notesService.deleteNote(id);
@@ -320,7 +338,9 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   deleteWorkspace: async (id) => {
     const meta = await getSyncMeta();
-    await addTombstone(createDeleteTombstone({ entityType: 'workspace', id, workspaceId: id }, meta.deviceId));
+    await addTombstone(
+      createDeleteTombstone({ entityType: 'workspace', id, workspaceId: id }, meta.deviceId)
+    );
     await workspacesService.delete(id);
     await get().load();
     set({ sync: markLocalChanges(get().sync) });
@@ -420,6 +440,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
           pendingTombstones: nextMeta.tombstones.length,
         },
       });
+      void notifyExtensionDriveUpdated();
     } catch (error) {
       set({
         sync: {

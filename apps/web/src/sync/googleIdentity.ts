@@ -1,3 +1,5 @@
+import { cleanRuntimeString, getRuntimeConfig } from './runtimeConfig';
+
 const GOOGLE_IDENTITY_SCRIPT = 'https://accounts.google.com/gsi/client';
 const DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
@@ -32,19 +34,12 @@ declare global {
   }
 }
 
-interface RuntimeConfig {
-  googleClientId?: unknown;
-  VITE_GOOGLE_CLIENT_ID?: unknown;
-}
-
 let scriptPromise: Promise<void> | null = null;
 let clientIdPromise: Promise<string | null> | null = null;
 let cachedClientId: string | null | undefined;
 
 function cleanClientId(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed && !trimmed.includes('REPLACE_WITH') ? trimmed : null;
+  return cleanRuntimeString(value);
 }
 
 function getBuildTimeClientId(): string | null {
@@ -53,18 +48,8 @@ function getBuildTimeClientId(): string | null {
 }
 
 async function loadRuntimeClientId(): Promise<string | null> {
-  const configUrl = new URL('tabnotes.config.json', window.location.origin + import.meta.env.BASE_URL);
-  try {
-    const response = await fetch(configUrl, {
-      cache: 'no-store',
-      credentials: 'omit',
-    });
-    if (!response.ok) return null;
-    const config = (await response.json()) as RuntimeConfig;
-    return cleanClientId(config.googleClientId) ?? cleanClientId(config.VITE_GOOGLE_CLIENT_ID);
-  } catch {
-    return null;
-  }
+  const config = await getRuntimeConfig();
+  return cleanClientId(config.googleClientId) ?? cleanClientId(config.VITE_GOOGLE_CLIENT_ID);
 }
 
 async function getConfiguredClientId(): Promise<string | null> {
@@ -90,13 +75,17 @@ function loadGoogleIdentityScript(): Promise<void> {
 
   scriptPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${GOOGLE_IDENTITY_SCRIPT}"]`,
+      `script[src="${GOOGLE_IDENTITY_SCRIPT}"]`
     );
     if (existing) {
       existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Google Identity failed to load.')), {
-        once: true,
-      });
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('Google Identity failed to load.')),
+        {
+          once: true,
+        }
+      );
       return;
     }
 

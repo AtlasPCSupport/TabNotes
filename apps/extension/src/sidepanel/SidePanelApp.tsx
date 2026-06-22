@@ -82,7 +82,6 @@ function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeRe
 
 // ── Chat types now imported from views/ChatView ──────────────
 
-
 export default function SidePanelApp() {
   const { t, i18n } = useTranslation();
 
@@ -185,7 +184,9 @@ export default function SidePanelApp() {
 
   // Local UI / Interactive States
   const [checklistMode, setChecklistMode] = useState(false);
-  const [checklistItems, setChecklistItems] = useState<{ id: string; checked: boolean; text: string }[]>([]);
+  const [checklistItems, setChecklistItems] = useState<
+    { id: string; checked: boolean; text: string }[]
+  >([]);
   const isUpdatingChecklistRef = useRef(false);
 
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -278,16 +279,20 @@ export default function SidePanelApp() {
   } = usePinLock();
 
   // ── Note Selection Callback ──
-  const selectNote = useCallback((n: Note) => {
-    clearTimeout(saveTimer.current);
-    setActiveNoteId(n.id);
-    activeNoteIdRef.current = n.id;
-    setContent(n.content);
-    setTitle(stripFormatting(n.title ?? ''));
-    setTags(n.tags.join(', '));
-    setSaved(false);
-    setPreview(false);
-  }, [setActiveNoteId, setContent, setTitle, setTags, setSaved, setPreview]);
+  const selectNote = useCallback(
+    (n: Note) => {
+      clearTimeout(saveTimer.current);
+      setActiveNoteId(n.id);
+      activeNoteIdRef.current = n.id;
+      contentSavedRef.current = n.content;
+      setContent(n.content);
+      setTitle(stripFormatting(n.title ?? ''));
+      setTags(n.tags.join(', '));
+      setSaved(false);
+      setPreview(false);
+    },
+    [setActiveNoteId, setContent, setTitle, setTags, setSaved, setPreview]
+  );
 
   // Invoke Folder Manager hook
   const {
@@ -513,7 +518,6 @@ export default function SidePanelApp() {
     return () => cr.storage.onChanged.removeListener(handler);
   }, [openPendingReminder]);
 
-
   // ── Load extra prefs from localStorage ───────────────────────
   useEffect(() => {
     try {
@@ -532,7 +536,14 @@ export default function SidePanelApp() {
     } catch {
       /* ignore */
     }
-  }, [setNoteColors, setPinnedNotes, setFontSizeState, setDefaultAlignState, setFeatures, setFolderColors]);
+  }, [
+    setNoteColors,
+    setPinnedNotes,
+    setFontSizeState,
+    setDefaultAlignState,
+    setFeatures,
+    setFolderColors,
+  ]);
 
   // ── Click outside → close templates dropdown ─────────────────
   useEffect(() => {
@@ -555,8 +566,6 @@ export default function SidePanelApp() {
     return () => document.removeEventListener('mousedown', handle);
   }, [colorPickerNoteId]);
 
-
-
   // ── Scope switch ──────────────────────────────────────────────
   const handleScopeChange = async (s: NoteScope) => {
     setScope(s);
@@ -566,8 +575,6 @@ export default function SidePanelApp() {
     await loadContextNotes(currentUrlRef.current, s, wsIdRef.current);
     await refreshAllNotes();
   };
-
-
 
   const updateStreak = React.useCallback(async () => {
     if (!cr?.storage?.local) return;
@@ -732,16 +739,15 @@ export default function SidePanelApp() {
   );
 
   // ── Checklist mode (Google Keep style) handlers ───────────────────
-  const saveChecklist = useCallback((items: { id: string; checked: boolean; text: string }[]) => {
-    const md = items
-      .map(it => `${it.checked ? '- [x]' : '- [ ]'} ${it.text}`)
-      .join('<br>');
-    isUpdatingChecklistRef.current = true;
-    setContent(md);
-    schedule(md, title, tags);
-  }, [title, tags, schedule, setContent]);
-
-
+  const saveChecklist = useCallback(
+    (items: { id: string; checked: boolean; text: string }[]) => {
+      const md = items.map((it) => `${it.checked ? '- [x]' : '- [ ]'} ${it.text}`).join('<br>');
+      isUpdatingChecklistRef.current = true;
+      setContent(md);
+      schedule(md, title, tags);
+    },
+    [title, tags, schedule, setContent]
+  );
 
   const toggleChecklistMode = () => {
     const nextMode = !checklistMode;
@@ -767,7 +773,11 @@ export default function SidePanelApp() {
           return { id: `item-${idx}-${Date.now()}-${idx}`, checked, text };
         }
         if (line.startsWith('- ')) {
-          return { id: `item-${idx}-${Date.now()}-${idx}`, checked: false, text: line.substring(2) };
+          return {
+            id: `item-${idx}-${Date.now()}-${idx}`,
+            checked: false,
+            text: line.substring(2),
+          };
         }
         return { id: `item-${idx}-${Date.now()}-${idx}`, checked: false, text: line };
       });
@@ -794,16 +804,9 @@ export default function SidePanelApp() {
 
   // Export to PDF is handled by useNoteActions hook
 
-
   // Note encryption is handled by useNoteActions hook
 
   // Daily digest saving is handled by useChromeStorageAndTabs hook
-
-
-
-
-
-
 
   // ── Bulk delete selected notes ────────────────────────────────
   const bulkDeleteNotes = async () => {
@@ -820,6 +823,7 @@ export default function SidePanelApp() {
       setContextNotes(notes);
       const next = notes[0] ?? null;
       activeNoteIdRef.current = next?.id ?? null;
+      contentSavedRef.current = next?.content ?? '';
       setActiveNoteId(next?.id ?? null);
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
@@ -841,6 +845,7 @@ export default function SidePanelApp() {
       setContextNotes(notes);
       const next = notes[0] ?? null;
       activeNoteIdRef.current = next?.id ?? null;
+      contentSavedRef.current = next?.content ?? '';
       setActiveNoteId(next?.id ?? null);
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
@@ -862,6 +867,7 @@ export default function SidePanelApp() {
     if (id === activeNoteIdRef.current) {
       const next = notes[0] ?? null;
       activeNoteIdRef.current = next?.id ?? null;
+      contentSavedRef.current = next?.content ?? '';
       setActiveNoteId(next?.id ?? null);
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
@@ -911,8 +917,6 @@ export default function SidePanelApp() {
     setColorPickerNoteId(null);
   };
 
-
-
   // Folder operations are handled by useFolderManager hook
 
   // ── Apply template ────────────────────────────────────────────
@@ -941,8 +945,6 @@ export default function SidePanelApp() {
 
   // ── Export / Import ───────────────────────────────────────────
   // Import/Export and feedback are handled by useNoteActions hook
-
-
 
   const activeWs = workspaces.find((w) => w.id === activeWorkspaceId);
   const isRestrictedUrl =
@@ -1071,122 +1073,122 @@ export default function SidePanelApp() {
           />
         )}
 
-      <ViewHost
-        tabLoading={tabLoading}
-        isRestrictedUrl={isRestrictedUrl}
-        selectNote={selectNote}
-        checklistMode={checklistMode}
-        checklistItems={checklistItems}
-        setChecklistItems={setChecklistItems}
-        toggleChecklistMode={toggleChecklistMode}
-        saveChecklist={saveChecklist}
-        editorRef={editorRef}
-        onSetReminder={onSetReminder}
-        onClearReminder={onClearReminder}
-        setShowReminderPicker={setShowReminderPicker}
-        setShowHistory={setShowHistory}
-        showRefPanel={showRefPanel}
-        setShowRefPanel={setShowRefPanel}
-        setShowEncPrompt={setShowEncPrompt}
-        insertDatetime={insertDatetime}
-        copyNote={copyNote}
-        clipFeedback={clipFeedback}
-        focusMode={focusMode}
-        setFocusMode={setFocusMode}
-        colorPickerNoteId={colorPickerNoteId}
-        setColorPickerNoteId={setColorPickerNoteId}
-        onSetNoteColor={setNoteColor}
-        isUpdatingChecklistRef={isUpdatingChecklistRef}
-        schedule={schedule}
-        showMovePicker={showMovePicker}
-        setShowMovePicker={setShowMovePicker}
-        moveNote={moveNote}
-        copied={copied}
-        showHistory={showHistory}
-        historyRef={historyRef}
-        showReminderPicker={showReminderPicker}
-        reminderRef={reminderRef}
-        reminderInput={reminderInput}
-        setReminderInput={setReminderInput}
-        exportCurrentNote={exportCurrentNote}
-        exportToPDF={exportToPDF}
-        captureScreenshot={captureScreenshot}
-        refNoteId={refNoteId}
-        setRefNoteId={setRefNoteId}
-        searchQ={searchQ}
-        setSearchQ={setSearchQ}
-        selectedId={selectedId}
-        setSelectedId={setSelectedId}
-        tagFilter={tagFilter}
-        setTagFilter={setTagFilter}
-        selectMode={selectMode}
-        setSelectMode={setSelectMode}
-        bulkSelectedIds={bulkSelectedIds}
-        setBulkSelectedIds={setBulkSelectedIds}
-        bulkDeleteConfirm={bulkDeleteConfirm}
-        setBulkDeleteConfirm={setBulkDeleteConfirm}
-        collapsedScopes={collapsedScopes}
-        toggleScope={toggleScope}
-        deleteCardConfirmId={deleteCardConfirmId}
-        setDeleteCardConfirmId={setDeleteCardConfirmId}
-        deleteCardNote={deleteCardNote}
-        bulkDeleteNotes={bulkDeleteNotes}
-        addNoteToContext={addNoteToContext}
-        togglePin={togglePin}
-        groqKey={groqKey}
-        toggleFeature={toggleFeature}
-        groqKeyInput={groqKeyInput}
-        setGroqKeyInput={setGroqKeyInput}
-        groqKeyVisible={groqKeyVisible}
-        setGroqKeyVisible={setGroqKeyVisible}
-        saveGroqKey={(key) => {
-          cr?.storage?.local?.set({ tn_groq_key: key });
-          setGroqKey(key);
-        }}
-        setTheme={setTheme}
-        pinHash={pinHash}
-        pinSetInput={pinSetInput}
-        setPinSetInput={setPinSetInput}
-        pinSetConfirm={pinSetConfirm}
-        setPinSetConfirm={setPinSetConfirm}
-        pinSetFeedback={pinSetFeedback}
-        savePin={savePin}
-        removePin={removePin}
-        lockNow={lockNow}
-        setMarkdown={setMarkdown}
-        changeFontSize={changeFontSize}
-        setDefaultAlign={setDefaultAlign}
-        setDefaultScope={setDefaultScope}
-        digestEnabled={digestEnabled}
-        setDigestEnabled={setDigestEnabled}
-        digestTime={digestTime}
-        setDigestTime={setDigestTime}
-        saveDigest={saveDigest}
-        editWsName={editWsName}
-        setEditWsName={setEditWsName}
-        editWsColor={editWsColor}
-        setEditWsColor={setEditWsColor}
-        newWsNameInput={newWsNameInput}
-        setNewWsNameInput={setNewWsNameInput}
-        newWsColorInput={newWsColorInput}
-        setNewWsColorInput={setNewWsColorInput}
-        onSetActiveWorkspace={onSetActiveWorkspace}
-        onUpdateWorkspace={onUpdateWorkspace}
-        onDeleteWorkspace={onDeleteWorkspace}
-        onCreateWorkspace={onCreateWorkspace}
-        handleExport={handleExport}
-        handleImport={handleImport}
-        importInputRef={importInputRef}
-        dataFeedback={dataFeedback}
-        backupRemindDays={backupRemindDays}
-        setBackupRemind={(days) => {
-          setBackupRemindDays(days);
-          cr?.storage?.local?.set({ tn_backup_remind: { days } });
-          cr?.runtime?.sendMessage({ type: 'SET_BACKUP_REMIND', days });
-        }}
-        language={language}
-        setLanguage={setLanguage}
-      />
+        <ViewHost
+          tabLoading={tabLoading}
+          isRestrictedUrl={isRestrictedUrl}
+          selectNote={selectNote}
+          checklistMode={checklistMode}
+          checklistItems={checklistItems}
+          setChecklistItems={setChecklistItems}
+          toggleChecklistMode={toggleChecklistMode}
+          saveChecklist={saveChecklist}
+          editorRef={editorRef}
+          onSetReminder={onSetReminder}
+          onClearReminder={onClearReminder}
+          setShowReminderPicker={setShowReminderPicker}
+          setShowHistory={setShowHistory}
+          showRefPanel={showRefPanel}
+          setShowRefPanel={setShowRefPanel}
+          setShowEncPrompt={setShowEncPrompt}
+          insertDatetime={insertDatetime}
+          copyNote={copyNote}
+          clipFeedback={clipFeedback}
+          focusMode={focusMode}
+          setFocusMode={setFocusMode}
+          colorPickerNoteId={colorPickerNoteId}
+          setColorPickerNoteId={setColorPickerNoteId}
+          onSetNoteColor={setNoteColor}
+          isUpdatingChecklistRef={isUpdatingChecklistRef}
+          schedule={schedule}
+          showMovePicker={showMovePicker}
+          setShowMovePicker={setShowMovePicker}
+          moveNote={moveNote}
+          copied={copied}
+          showHistory={showHistory}
+          historyRef={historyRef}
+          showReminderPicker={showReminderPicker}
+          reminderRef={reminderRef}
+          reminderInput={reminderInput}
+          setReminderInput={setReminderInput}
+          exportCurrentNote={exportCurrentNote}
+          exportToPDF={exportToPDF}
+          captureScreenshot={captureScreenshot}
+          refNoteId={refNoteId}
+          setRefNoteId={setRefNoteId}
+          searchQ={searchQ}
+          setSearchQ={setSearchQ}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          tagFilter={tagFilter}
+          setTagFilter={setTagFilter}
+          selectMode={selectMode}
+          setSelectMode={setSelectMode}
+          bulkSelectedIds={bulkSelectedIds}
+          setBulkSelectedIds={setBulkSelectedIds}
+          bulkDeleteConfirm={bulkDeleteConfirm}
+          setBulkDeleteConfirm={setBulkDeleteConfirm}
+          collapsedScopes={collapsedScopes}
+          toggleScope={toggleScope}
+          deleteCardConfirmId={deleteCardConfirmId}
+          setDeleteCardConfirmId={setDeleteCardConfirmId}
+          deleteCardNote={deleteCardNote}
+          bulkDeleteNotes={bulkDeleteNotes}
+          addNoteToContext={addNoteToContext}
+          togglePin={togglePin}
+          groqKey={groqKey}
+          toggleFeature={toggleFeature}
+          groqKeyInput={groqKeyInput}
+          setGroqKeyInput={setGroqKeyInput}
+          groqKeyVisible={groqKeyVisible}
+          setGroqKeyVisible={setGroqKeyVisible}
+          saveGroqKey={(key) => {
+            cr?.storage?.local?.set({ tn_groq_key: key });
+            setGroqKey(key);
+          }}
+          setTheme={setTheme}
+          pinHash={pinHash}
+          pinSetInput={pinSetInput}
+          setPinSetInput={setPinSetInput}
+          pinSetConfirm={pinSetConfirm}
+          setPinSetConfirm={setPinSetConfirm}
+          pinSetFeedback={pinSetFeedback}
+          savePin={savePin}
+          removePin={removePin}
+          lockNow={lockNow}
+          setMarkdown={setMarkdown}
+          changeFontSize={changeFontSize}
+          setDefaultAlign={setDefaultAlign}
+          setDefaultScope={setDefaultScope}
+          digestEnabled={digestEnabled}
+          setDigestEnabled={setDigestEnabled}
+          digestTime={digestTime}
+          setDigestTime={setDigestTime}
+          saveDigest={saveDigest}
+          editWsName={editWsName}
+          setEditWsName={setEditWsName}
+          editWsColor={editWsColor}
+          setEditWsColor={setEditWsColor}
+          newWsNameInput={newWsNameInput}
+          setNewWsNameInput={setNewWsNameInput}
+          newWsColorInput={newWsColorInput}
+          setNewWsColorInput={setNewWsColorInput}
+          onSetActiveWorkspace={onSetActiveWorkspace}
+          onUpdateWorkspace={onUpdateWorkspace}
+          onDeleteWorkspace={onDeleteWorkspace}
+          onCreateWorkspace={onCreateWorkspace}
+          handleExport={handleExport}
+          handleImport={handleImport}
+          importInputRef={importInputRef}
+          dataFeedback={dataFeedback}
+          backupRemindDays={backupRemindDays}
+          setBackupRemind={(days) => {
+            setBackupRemindDays(days);
+            cr?.storage?.local?.set({ tn_backup_remind: { days } });
+            cr?.runtime?.sendMessage({ type: 'SET_BACKUP_REMIND', days });
+          }}
+          language={language}
+          setLanguage={setLanguage}
+        />
       </div>
 
       <CommandPalette
@@ -1208,8 +1210,6 @@ export default function SidePanelApp() {
         onLockNote={handleLockNote}
         onUnlockNote={handleUnlockNote}
       />
-
-
 
       {/* ── Bottom nav ── */}
       <BottomNav groqKey={groqKey} />

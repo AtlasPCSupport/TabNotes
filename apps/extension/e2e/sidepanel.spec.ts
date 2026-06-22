@@ -51,7 +51,10 @@ function roundUpToMinute(timestamp: number): number {
   return date.getTime();
 }
 
-async function createSavedNote(panel: Page, text: string): Promise<{ id: string; content: string }> {
+async function createSavedNote(
+  panel: Page,
+  text: string
+): Promise<{ id: string; content: string }> {
   const editor = panel.locator('.sp-rich-editor');
   await expect(editor).toBeVisible();
   await editor.evaluate((el, noteText) => {
@@ -65,7 +68,10 @@ async function createSavedNote(panel: Page, text: string): Promise<{ id: string;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const chromeApi = (globalThis as any).chrome;
       chromeApi.storage.local.get('tabnotes_data', (r: Record<string, unknown>) => {
-        const data = r['tabnotes_data'] as Record<string, Record<string, { id?: string; content?: string }>>;
+        const data = r['tabnotes_data'] as Record<
+          string,
+          Record<string, { id?: string; content?: string }>
+        >;
         const note = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
           .flatMap((key) => Object.values(data?.[key] ?? {}))
           .find((candidate) => candidate.content?.includes(noteText));
@@ -82,25 +88,31 @@ async function createSavedNote(panel: Page, text: string): Promise<{ id: string;
 }
 
 async function seedPendingReminder(panel: Page, note: { id: string; content: string }) {
-  await panel.evaluate(({ noteId, content }) => {
-    return new Promise<void>((resolve) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const chromeApi = (globalThis as any).chrome;
-      const firedAt = Date.now();
-      chromeApi.storage.local.set({
-        tn_pending_reminders: [
+  await panel.evaluate(
+    ({ noteId, content }) => {
+      return new Promise<void>((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        const firedAt = Date.now();
+        chromeApi.storage.local.set(
           {
-            id: `${noteId}:${firedAt}`,
-            noteId,
-            title: 'Reminder test note',
-            preview: content,
-            firedAt,
-            reminderAt: firedAt - 1000,
+            tn_pending_reminders: [
+              {
+                id: `${noteId}:${firedAt}`,
+                noteId,
+                title: 'Reminder test note',
+                preview: content,
+                firedAt,
+                reminderAt: firedAt - 1000,
+              },
+            ],
           },
-        ],
-      }, () => resolve());
-    });
-  }, { noteId: note.id, content: note.content });
+          () => resolve()
+        );
+      });
+    },
+    { noteId: note.id, content: note.content }
+  );
 }
 
 test.describe('TabNotes side panel — baseline', () => {
@@ -161,7 +173,9 @@ test.describe('TabNotes side panel — baseline', () => {
     await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     await expect(page.locator('.sp-drive-sync')).toBeVisible();
     await expect(page.getByText('Google Drive backup')).toBeVisible();
-    await expect(page.locator('.sp-drive-sync-badge')).toContainText(/Setup required|Not connected/);
+    await expect(page.locator('.sp-drive-sync-badge')).toContainText(
+      /Setup required|Not connected/
+    );
   });
 
   test('manual backup export/import restores settings, workspace UI, and reminders', async ({
@@ -234,17 +248,11 @@ test.describe('TabNotes side panel — baseline', () => {
             },
             () => {
               localStorage.setItem('tn_colors', JSON.stringify({ ws_note: '#dcae19' }));
-              localStorage.setItem(
-                'tn_folder_colors',
-                JSON.stringify({ '/Client': '#dcae19' })
-              );
+              localStorage.setItem('tn_folder_colors', JSON.stringify({ '/Client': '#dcae19' }));
               localStorage.setItem('tn_pins', JSON.stringify(['global_note']));
               localStorage.setItem('tn_fontsize', '15');
               localStorage.setItem('tn_align', 'right');
-              localStorage.setItem(
-                'tn_features',
-                JSON.stringify({ focusMode: true })
-              );
+              localStorage.setItem('tn_features', JSON.stringify({ focusMode: true }));
               resolve();
             }
           );
@@ -281,9 +289,7 @@ test.describe('TabNotes side panel — baseline', () => {
     await expect(panel.locator('.sp-root')).toBeVisible();
     await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     await panel.locator('input[type="file"]').setInputFiles(backupPath!);
-    await expect(panel.locator('.sp-data-feedback.success')).toContainText(
-      'Restaurado: 2 notas'
-    );
+    await expect(panel.locator('.sp-data-feedback.success')).toContainText('Restaurado: 2 notas');
     await expect(panel.locator('.sp-data-feedback.success')).toContainText(
       '1 recordatorio programado'
     );
@@ -294,17 +300,19 @@ test.describe('TabNotes side panel — baseline', () => {
       .poll(() => panel.evaluate(() => document.documentElement.getAttribute('data-theme')))
       .toBe('dark');
 
-    const restored = await panel.evaluate<Promise<{
-      activeWorkspaceId?: string | null;
-      defaultScope?: string;
-      markdownEnabled?: boolean;
-      alarmNames: string[];
-      colors: string | null;
-      folderColors: string | null;
-      pins: string | null;
-      fontSize: string | null;
-      align: string | null;
-    }>>(() => {
+    const restored = await panel.evaluate<
+      Promise<{
+        activeWorkspaceId?: string | null;
+        defaultScope?: string;
+        markdownEnabled?: boolean;
+        alarmNames: string[];
+        colors: string | null;
+        folderColors: string | null;
+        pins: string | null;
+        fontSize: string | null;
+        align: string | null;
+      }>
+    >(() => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
@@ -343,7 +351,9 @@ test.describe('TabNotes side panel — baseline', () => {
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
     await panel.locator('.sp-group-header', { hasText: /Projects|Proyectos/ }).click();
-    await expect(panel.locator('.sp-note-card', { hasText: 'Workspace restored body' })).toBeVisible();
+    await expect(
+      panel.locator('.sp-note-card', { hasText: 'Workspace restored body' })
+    ).toBeVisible();
   });
 
   test('PIN lock gate: enabling a PIN locks the panel and the correct PIN unlocks it', async ({
@@ -424,22 +434,29 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await expect(editor).toContainText(clipText);
     await expect(editor).toContainText('Example article');
 
-    const stored = await panel.evaluate<Promise<{
-      hasClip: boolean;
-      pendingClipExists: boolean;
-    }>, string>((text) => {
+    const stored = await panel.evaluate<
+      Promise<{
+        hasClip: boolean;
+        pendingClipExists: boolean;
+      }>,
+      string
+    >((text) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
-        chromeApi.storage.local.get(['tabnotes_data', 'tn_pending_clip'], (r: Record<string, unknown>) => {
-          const data = r['tabnotes_data'] as Record<string, Record<string, { content?: string }>>;
-          const notes = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
-            .flatMap((key) => Object.values(data?.[key] ?? {}));
-          resolve({
-            hasClip: notes.some((note) => note.content?.includes(text)),
-            pendingClipExists: Boolean(r['tn_pending_clip']),
-          });
-        });
+        chromeApi.storage.local.get(
+          ['tabnotes_data', 'tn_pending_clip'],
+          (r: Record<string, unknown>) => {
+            const data = r['tabnotes_data'] as Record<string, Record<string, { content?: string }>>;
+            const notes = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'].flatMap(
+              (key) => Object.values(data?.[key] ?? {})
+            );
+            resolve({
+              hasClip: notes.some((note) => note.content?.includes(text)),
+              pendingClipExists: Boolean(r['tn_pending_clip']),
+            });
+          }
+        );
       });
     }, clipText);
 
@@ -458,11 +475,7 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
 
     await expect(panel.locator('.sp-workspace-pill')).toContainText('Sin espacio');
     await expect(panel.locator('.sp-bottom-nav .sp-nav-label').first()).toHaveText('Nota');
-    await expect(panel.locator('.sp-fmt-group-label')).toContainText([
-      'Texto',
-      'Marca',
-      'Color',
-    ]);
+    await expect(panel.locator('.sp-fmt-group-label')).toContainText(['Texto', 'Marca', 'Color']);
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
     await expect(panel.getByPlaceholder('Buscar notas, títulos, etiquetas…')).toBeVisible();
@@ -471,9 +484,7 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     if ((await askButton.count()) > 0) {
       await askButton.click();
       await expect(panel.locator('.sp-chat-view')).toContainText('Todas las notas');
-      await expect(panel.locator('.sp-chat-view')).toContainText(
-        'Añade tu clave API de Groq'
-      );
+      await expect(panel.locator('.sp-chat-view')).toContainText('Añade tu clave API de Groq');
     }
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
@@ -503,6 +514,87 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
       });
     });
     expect(stored).toContain('Playwright autosave check');
+  });
+
+  test('remote storage refresh updates the loaded note when local editor is clean', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const setup = await context.newPage();
+    await setup.goto(sidePanelUrl);
+    const noteId = 'remote_refresh_note';
+    const seedText = `Remote refresh seed ${Date.now()}`;
+    const remoteText = `Remote refresh updated ${Date.now()}`;
+    const seedNow = Date.now();
+
+    await setup.evaluate(
+      ({ id, content, now }) =>
+        new Promise<void>((resolve) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (globalThis as any).chrome.storage.local.set(
+            {
+              tabnotes_data: {
+                notes_url: {},
+                notes_domain: {},
+                notes_workspace: {},
+                notes_global: {
+                  [id]: {
+                    id,
+                    workspaceId: null,
+                    scope: 'global',
+                    scopeKey: '',
+                    title: 'Remote refresh',
+                    content,
+                    tags: [],
+                    versions: [],
+                    createdAt: now - 1000,
+                    updatedAt: now - 1000,
+                  },
+                },
+                workspaces: {},
+                activeWorkspaceId: null,
+                defaultScope: 'global',
+                version: 3,
+              },
+            },
+            () => resolve()
+          );
+        }),
+      { id: noteId, content: seedText, now: seedNow }
+    );
+    await setup.close();
+
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const editor = panel.locator('.sp-rich-editor');
+    await expect(editor).toContainText(seedText);
+
+    await panel.evaluate(
+      ({ id, content, now }) =>
+        new Promise<void>((resolve) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const chromeApi = (globalThis as any).chrome;
+          chromeApi.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
+            const data = result.tabnotes_data as {
+              notes_global: Record<string, { content?: string; updatedAt?: number }>;
+            };
+            data.notes_global[id] = {
+              ...data.notes_global[id],
+              content,
+              updatedAt: now,
+            };
+            chromeApi.storage.local.set(
+              {
+                tabnotes_data: data,
+                tn_drive_remote_apply: { at: now, source: 'e2e' },
+              },
+              () => resolve()
+            );
+          });
+        }),
+      { id: noteId, content: remoteText, now: Date.now() }
+    );
+
+    await expect(editor).toContainText(remoteText);
   });
 
   // Note: command-palette open/run is covered by the baseline suite (single
@@ -575,16 +667,22 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.locator('.sp-reminder-ok-btn').click();
     await expect(panel.locator('.sp-reminder-picker')).toHaveCount(0);
 
-    const stored = await panel.evaluate<Promise<{
-      noteId?: string;
-      reminderAt?: number;
-      alarmNames: string[];
-    }>, string>((text) => {
+    const stored = await panel.evaluate<
+      Promise<{
+        noteId?: string;
+        reminderAt?: number;
+        alarmNames: string[];
+      }>,
+      string
+    >((text) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
         chromeApi.storage.local.get('tabnotes_data', (r: Record<string, unknown>) => {
-          const data = r['tabnotes_data'] as Record<string, Record<string, { id?: string; content?: string; reminderAt?: number }>>;
+          const data = r['tabnotes_data'] as Record<
+            string,
+            Record<string, { id?: string; content?: string; reminderAt?: number }>
+          >;
           const note = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
             .flatMap((key) => Object.values(data?.[key] ?? {}))
             .find((candidate) => candidate.content?.includes(text));
@@ -615,20 +713,30 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.waitForTimeout(1300);
 
     await panel.locator('.sp-note-meta-actions').hover();
-    await panel.locator('.sp-note-meta-action-panel .sp-meta-toggle', {
-      hasText: /Reminder|Recordar/,
-    }).click();
+    await panel
+      .locator('.sp-note-meta-action-panel .sp-meta-toggle', {
+        hasText: /Reminder|Recordar/,
+      })
+      .click();
 
-    await panel.locator('.sp-reminder-input').fill(formatDateTimeLocal(Date.now() - 60 * 60 * 1000));
+    await panel
+      .locator('.sp-reminder-input')
+      .fill(formatDateTimeLocal(Date.now() - 60 * 60 * 1000));
     await expect(panel.locator('.sp-reminder-ok-btn')).toBeDisabled();
     await expect(panel.locator('.sp-reminder-validation')).toBeVisible();
 
-    const stored = await panel.evaluate<Promise<{ reminderAt?: number; alarmCount: number }>, string>((text) => {
+    const stored = await panel.evaluate<
+      Promise<{ reminderAt?: number; alarmCount: number }>,
+      string
+    >((text) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
         chromeApi.storage.local.get('tabnotes_data', (r: Record<string, unknown>) => {
-          const data = r['tabnotes_data'] as Record<string, Record<string, { content?: string; reminderAt?: number }>>;
+          const data = r['tabnotes_data'] as Record<
+            string,
+            Record<string, { content?: string; reminderAt?: number }>
+          >;
           const note = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
             .flatMap((key) => Object.values(data?.[key] ?? {}))
             .find((candidate) => candidate.content?.includes(text));
@@ -672,18 +780,20 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     const pendingCount = await panel.evaluate<Promise<number>>(() => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (globalThis as any).chrome.storage.local.get('tn_pending_reminders', (r: Record<string, unknown>) => {
-          resolve(Array.isArray(r['tn_pending_reminders']) ? r['tn_pending_reminders'].length : 0);
-        });
+        (globalThis as any).chrome.storage.local.get(
+          'tn_pending_reminders',
+          (r: Record<string, unknown>) => {
+            resolve(
+              Array.isArray(r['tn_pending_reminders']) ? r['tn_pending_reminders'].length : 0
+            );
+          }
+        );
       });
     });
     expect(pendingCount).toBe(0);
   });
 
-  test('pending reminder banner can snooze into a new alarm', async ({
-    context,
-    sidePanelUrl,
-  }) => {
+  test('pending reminder banner can snooze into a new alarm', async ({ context, sidePanelUrl }) => {
     const panel = await openPanelWithRealTab(context, sidePanelUrl);
     const noteText = `Pending reminder snooze check ${Date.now()}`;
     const note = await createSavedNote(panel, noteText);
@@ -693,28 +803,39 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.locator('.sp-pending-reminder-snooze').click();
     await expect(panel.locator('.sp-pending-reminders')).toHaveCount(0);
 
-    const result = await panel.evaluate<Promise<{
-      pendingCount: number;
-      reminderAt?: number;
-      alarmNames: string[];
-    }>, string>((noteId) => {
+    const result = await panel.evaluate<
+      Promise<{
+        pendingCount: number;
+        reminderAt?: number;
+        alarmNames: string[];
+      }>,
+      string
+    >((noteId) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
-        chromeApi.storage.local.get(['tn_pending_reminders', 'tabnotes_data'], (r: Record<string, unknown>) => {
-          const data = r['tabnotes_data'] as Record<string, Record<string, { id?: string; reminderAt?: number }>>;
-          const savedNote = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
-            .flatMap((key) => Object.values(data?.[key] ?? {}))
-            .find((candidate) => candidate.id === noteId);
+        chromeApi.storage.local.get(
+          ['tn_pending_reminders', 'tabnotes_data'],
+          (r: Record<string, unknown>) => {
+            const data = r['tabnotes_data'] as Record<
+              string,
+              Record<string, { id?: string; reminderAt?: number }>
+            >;
+            const savedNote = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
+              .flatMap((key) => Object.values(data?.[key] ?? {}))
+              .find((candidate) => candidate.id === noteId);
 
-          chromeApi.alarms.getAll((alarms: { name: string }[]) => {
-            resolve({
-              pendingCount: Array.isArray(r['tn_pending_reminders']) ? r['tn_pending_reminders'].length : 0,
-              reminderAt: savedNote?.reminderAt,
-              alarmNames: alarms.map((alarm) => alarm.name),
+            chromeApi.alarms.getAll((alarms: { name: string }[]) => {
+              resolve({
+                pendingCount: Array.isArray(r['tn_pending_reminders'])
+                  ? r['tn_pending_reminders'].length
+                  : 0,
+                reminderAt: savedNote?.reminderAt,
+                alarmNames: alarms.map((alarm) => alarm.name),
+              });
             });
-          });
-        });
+          }
+        );
       });
     }, note.id);
 
@@ -729,9 +850,11 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     const note = await createSavedNote(panel, noteText);
 
     await panel.locator('.sp-note-meta-actions').hover();
-    await panel.locator('.sp-note-meta-action-panel .sp-meta-toggle', {
-      hasText: /Move note|Mover nota|Folder|Carpeta/,
-    }).click();
+    await panel
+      .locator('.sp-note-meta-action-panel .sp-meta-toggle', {
+        hasText: /Move note|Mover nota|Folder|Carpeta/,
+      })
+      .click();
     await expect(panel.locator('.sp-move-picker')).toBeVisible();
 
     await panel.locator('#tn-move-workspace').selectOption('__none__');
@@ -740,19 +863,26 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.locator('.sp-move-submit-btn').click();
     await expect(panel.locator('.sp-move-picker')).toHaveCount(0);
 
-    const stored = await panel.evaluate<Promise<{
-      scope?: string;
-      workspaceId?: string | null;
-      inGlobal: boolean;
-      inDomain: boolean;
-    }>, string>((noteId) => {
+    const stored = await panel.evaluate<
+      Promise<{
+        scope?: string;
+        workspaceId?: string | null;
+        inGlobal: boolean;
+        inDomain: boolean;
+      }>,
+      string
+    >((noteId) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
         chromeApi.storage.local.get('tabnotes_data', (r: Record<string, unknown>) => {
-          const data = r['tabnotes_data'] as Record<string, Record<string, { id?: string; scope?: string; workspaceId?: string | null }>>;
-          const all = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
-            .flatMap((key) => Object.values(data?.[key] ?? {}));
+          const data = r['tabnotes_data'] as Record<
+            string,
+            Record<string, { id?: string; scope?: string; workspaceId?: string | null }>
+          >;
+          const all = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'].flatMap(
+            (key) => Object.values(data?.[key] ?? {})
+          );
           const savedNote = all.find((candidate) => candidate.id === noteId);
           resolve({
             scope: savedNote?.scope,
@@ -786,29 +916,34 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
 
     await expect(panel.locator('.sp-pending-reminders')).toBeVisible({ timeout: 5000 });
 
-    const alertState = await panel.evaluate<Promise<{
-      activeNoteId?: string;
-      offscreenCount: number | null;
-    }>>(() => {
+    const alertState = await panel.evaluate<
+      Promise<{
+        activeNoteId?: string;
+        offscreenCount: number | null;
+      }>
+    >(() => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeApi = (globalThis as any).chrome;
-        chromeApi.storage.local.get('tn_active_reminder_alert', async (r: Record<string, unknown>) => {
-          const active = r['tn_active_reminder_alert'] as { noteId?: string } | undefined;
-          const getContexts = chromeApi.runtime.getContexts;
-          let offscreenCount: number | null = null;
-          if (getContexts) {
-            const contexts = await getContexts.call(chromeApi.runtime, {
-              contextTypes: ['OFFSCREEN_DOCUMENT'],
-              documentUrls: [chromeApi.runtime.getURL('offscreen/index.html')],
+        chromeApi.storage.local.get(
+          'tn_active_reminder_alert',
+          async (r: Record<string, unknown>) => {
+            const active = r['tn_active_reminder_alert'] as { noteId?: string } | undefined;
+            const getContexts = chromeApi.runtime.getContexts;
+            let offscreenCount: number | null = null;
+            if (getContexts) {
+              const contexts = await getContexts.call(chromeApi.runtime, {
+                contextTypes: ['OFFSCREEN_DOCUMENT'],
+                documentUrls: [chromeApi.runtime.getURL('offscreen/index.html')],
+              });
+              offscreenCount = contexts.length;
+            }
+            resolve({
+              activeNoteId: active?.noteId,
+              offscreenCount,
             });
-            offscreenCount = contexts.length;
           }
-          resolve({
-            activeNoteId: active?.noteId,
-            offscreenCount,
-          });
-        });
+        );
       });
     });
 
@@ -841,9 +976,8 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await panel.evaluate<Promise<void>, string>((noteId) => {
       return new Promise((resolve) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (globalThis as any).chrome.runtime.sendMessage(
-          { type: 'DISMISS_REMINDER', noteId },
-          () => resolve()
+        (globalThis as any).chrome.runtime.sendMessage({ type: 'DISMISS_REMINDER', noteId }, () =>
+          resolve()
         );
       });
     }, note.id);

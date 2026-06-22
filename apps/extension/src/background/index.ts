@@ -1,7 +1,9 @@
 import {
   DRIVE_REMOTE_APPLY_STORAGE_KEY,
+  driveErrorMessage,
   handleDriveAlarm,
   handleDriveMessage,
+  performDriveBackup,
   recordDriveDeletionTombstones,
   scheduleDriveAutoSync,
   scheduleDrivePeriodicSync,
@@ -52,6 +54,8 @@ const REMINDER_COLLECTION_KEYS: ReminderCollectionKey[] = [
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen/index.html';
 const CLIP_SELECTION_CONTEXT_MENU_ID = 'tabnotes_clip_selection';
 const PENDING_CLIP_STORAGE_KEY = 'tn_pending_clip';
+const TRUSTED_WEB_ORIGINS = new Set(['https://tabnotes.atlaspcsupport.com']);
+const WEB_SYNC_UPDATED_MESSAGE = 'TABNOTES_WEB_SYNC_UPDATED';
 
 interface RuntimeContext {
   url?: string;
@@ -83,14 +87,31 @@ let badgeFlashOn = false;
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalizeDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 function normalizeUrl(url: string): string {
   try {
     const TRACKING = new Set([
-      'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
-      'ref','fbclid','gclid','msclkid','twclid','mc_cid','mc_eid','_ga','_gl','igshid',
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'ref',
+      'fbclid',
+      'gclid',
+      'msclkid',
+      'twclid',
+      'mc_cid',
+      'mc_eid',
+      '_ga',
+      '_gl',
+      'igshid',
     ]);
     const u = new URL(url);
     u.hash = '';
@@ -99,7 +120,9 @@ function normalizeUrl(url: string): string {
     let out = `${u.origin}${u.pathname}`.replace(/\/$/, '');
     if (search) out += `?${search}`;
     return out;
-  } catch { return url; }
+  } catch {
+    return url;
+  }
 }
 
 function clearAlarm(name: string): Promise<boolean> {
@@ -131,6 +154,18 @@ function getNotificationButtonTitle(key: string, fallback: string): string {
   return chrome.i18n.getMessage(key) || fallback;
 }
 
+function getExternalSenderOrigin(sender: chrome.runtime.MessageSender): string | null {
+  const origin = (sender as chrome.runtime.MessageSender & { origin?: string }).origin;
+  const rawUrl = origin || sender.url;
+  if (!rawUrl) return null;
+
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
 function getOffscreenApi() {
   return (chrome as ChromeWithOffscreen).offscreen;
 }
@@ -147,9 +182,11 @@ async function hasOffscreenDocument(): Promise<boolean> {
     return contexts.length > 0;
   }
 
-  const clientsApi = (globalThis as unknown as {
-    clients?: { matchAll: () => Promise<Array<{ url: string }>> };
-  }).clients;
+  const clientsApi = (
+    globalThis as unknown as {
+      clients?: { matchAll: () => Promise<Array<{ url: string }>> };
+    }
+  ).clients;
   if (!clientsApi?.matchAll) return false;
   const clients = await clientsApi.matchAll();
   return clients.some((client) => client.url === offscreenUrl);
@@ -252,12 +289,18 @@ function startBadgeFlashLoop(expiresAt: number): void {
 
   tick();
   badgeFlashTimer = setInterval(tick, REMINDER_BADGE_FLASH_MS);
-  alertStopTimer = setTimeout(() => {
-    void stopReminderAlert();
-  }, Math.max(0, expiresAt - Date.now()));
+  alertStopTimer = setTimeout(
+    () => {
+      void stopReminderAlert();
+    },
+    Math.max(0, expiresAt - Date.now())
+  );
 }
 
-async function startReminderAlert(noteId: string, durationMs = REMINDER_ALERT_DURATION_MS): Promise<void> {
+async function startReminderAlert(
+  noteId: string,
+  durationMs = REMINDER_ALERT_DURATION_MS
+): Promise<void> {
   const now = Date.now();
   const expiresAt = now + durationMs;
 
@@ -329,15 +372,11 @@ function createClipContextMenu(): void {
   });
 }
 
-
 // ── Badge updater ─────────────────────────────────────────────────────────────
 
 async function updateBadge(tabId: number, url: string): Promise<void> {
   try {
-    const result = await chrome.storage.local.get([
-      'tabnotes_data',
-      PENDING_REMINDERS_STORAGE_KEY,
-    ]);
+    const result = await chrome.storage.local.get(['tabnotes_data', PENDING_REMINDERS_STORAGE_KEY]);
     const pendingCount = normalizePendingReminders(result[PENDING_REMINDERS_STORAGE_KEY]).length;
 
     if (pendingCount > 0) {
@@ -347,19 +386,26 @@ async function updateBadge(tabId: number, url: string): Promise<void> {
       return;
     }
 
-    if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') ||
-        url.startsWith('about:') || url === 'chrome://newtab/') {
+    if (
+      !url ||
+      url.startsWith('chrome://') ||
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('about:') ||
+      url === 'chrome://newtab/'
+    ) {
       chrome.action.setBadgeText({ text: '', tabId });
       return;
     }
 
-    const data = result['tabnotes_data'] as {
-      notes_url?: Record<string, { scope: string; scopeKey: string; url?: string }>;
-      notes_domain?: Record<string, { scope: string; scopeKey: string; url?: string }>;
-      notes_workspace?: Record<string, { scope: string; scopeKey: string; url?: string }>;
-      notes_global?: Record<string, { scope: string; scopeKey: string; url?: string }>;
-      activeWorkspaceId?: string | null;
-    } | undefined;
+    const data = result['tabnotes_data'] as
+      | {
+          notes_url?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+          notes_domain?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+          notes_workspace?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+          notes_global?: Record<string, { scope: string; scopeKey: string; url?: string }>;
+          activeWorkspaceId?: string | null;
+        }
+      | undefined;
 
     const allNotes = [
       ...Object.values(data?.notes_url ?? {}),
@@ -378,7 +424,7 @@ async function updateBadge(tabId: number, url: string): Promise<void> {
     const currentDomainKey = normalizeDomain(url);
     const currentWorkspaceKey = wsId ?? 'default';
 
-    const count = allNotes.filter(n => {
+    const count = allNotes.filter((n) => {
       if (n.scope === 'url') return n.scopeKey === currentUrlKey;
       if (n.scope === 'domain') return n.scopeKey === currentDomainKey;
       if (n.scope === 'workspace') return n.scopeKey === currentWorkspaceKey;
@@ -404,7 +450,10 @@ async function updateBadgeForActiveTab(): Promise<void> {
 
 // ── Daily Digest ──────────────────────────────────────────────────────────────
 
-interface DigestSettings { enabled?: boolean; time?: string; }
+interface DigestSettings {
+  enabled?: boolean;
+  time?: string;
+}
 
 async function scheduleDigest(): Promise<void> {
   chrome.alarms.clear('tn_daily_digest');
@@ -429,12 +478,26 @@ async function fireDigest(): Promise<void> {
   const settings = (result['tn_digest'] as DigestSettings | undefined) ?? {};
   if (!settings.enabled) return;
 
-  const data = result['tabnotes_data'] as {
-    notes_url?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
-    notes_domain?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
-    notes_workspace?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
-    notes_global?: Record<string, { updatedAt?: number; createdAt?: number; title?: string; content?: string }>;
-  } | undefined;
+  const data = result['tabnotes_data'] as
+    | {
+        notes_url?: Record<
+          string,
+          { updatedAt?: number; createdAt?: number; title?: string; content?: string }
+        >;
+        notes_domain?: Record<
+          string,
+          { updatedAt?: number; createdAt?: number; title?: string; content?: string }
+        >;
+        notes_workspace?: Record<
+          string,
+          { updatedAt?: number; createdAt?: number; title?: string; content?: string }
+        >;
+        notes_global?: Record<
+          string,
+          { updatedAt?: number; createdAt?: number; title?: string; content?: string }
+        >;
+      }
+    | undefined;
 
   const notes = [
     ...Object.values(data?.notes_url ?? {}),
@@ -443,12 +506,18 @@ async function fireDigest(): Promise<void> {
     ...Object.values(data?.notes_global ?? {}),
   ];
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const recent = notes.filter(n => (n.updatedAt ?? 0) > cutoff || (n.createdAt ?? 0) > cutoff);
+  const recent = notes.filter((n) => (n.updatedAt ?? 0) > cutoff || (n.createdAt ?? 0) > cutoff);
   const total = notes.length;
 
-  const message = recent.length > 0
-    ? chrome.i18n.getMessage(recent.length === 1 ? 'digestRecent_one' : 'digestRecent_other', [String(recent.length), String(total)])
-    : chrome.i18n.getMessage(total === 1 ? 'digestNoChanges_one' : 'digestNoChanges_other', [String(total)]);
+  const message =
+    recent.length > 0
+      ? chrome.i18n.getMessage(recent.length === 1 ? 'digestRecent_one' : 'digestRecent_other', [
+          String(recent.length),
+          String(total),
+        ])
+      : chrome.i18n.getMessage(total === 1 ? 'digestNoChanges_one' : 'digestNoChanges_other', [
+          String(total),
+        ]);
 
   chrome.notifications.create('tn_digest_' + Date.now(), {
     type: 'basic',
@@ -476,9 +545,13 @@ async function checkBackupReminder(): Promise<void> {
   if (msElapsed < msDue) return;
 
   const daysSince = lastExport === 0 ? null : Math.floor(msElapsed / (24 * 60 * 60 * 1000));
-  const message = daysSince === null
-    ? chrome.i18n.getMessage('backupNever')
-    : chrome.i18n.getMessage(daysSince === 1 ? 'backupReminderMessage_one' : 'backupReminderMessage_other', [String(daysSince)]);
+  const message =
+    daysSince === null
+      ? chrome.i18n.getMessage('backupNever')
+      : chrome.i18n.getMessage(
+          daysSince === 1 ? 'backupReminderMessage_one' : 'backupReminderMessage_other',
+          [String(daysSince)]
+        );
   const btnTitle = chrome.i18n.getMessage('backupOpenButton');
 
   chrome.notifications.create('tn_backup_remind_' + Date.now(), {
@@ -626,8 +699,13 @@ async function updateNoteReminderAt(noteId: string, reminderAt: number | undefin
   });
 }
 
-async function snoozeReminder(noteId: string, minutes = DEFAULT_SNOOZE_MINUTES): Promise<number | null> {
-  const boundedMinutes = Number.isFinite(minutes) ? Math.max(1, Math.min(24 * 60, minutes)) : DEFAULT_SNOOZE_MINUTES;
+async function snoozeReminder(
+  noteId: string,
+  minutes = DEFAULT_SNOOZE_MINUTES
+): Promise<number | null> {
+  const boundedMinutes = Number.isFinite(minutes)
+    ? Math.max(1, Math.min(24 * 60, minutes))
+    : DEFAULT_SNOOZE_MINUTES;
   const reminderAt = roundUpToMinute(Date.now() + boundedMinutes * 60 * 1000);
 
   await updateNoteReminderAt(noteId, reminderAt);
@@ -781,7 +859,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     if (!isDriveRemoteApply) {
       await recordDriveDeletionTombstones(
         changes['tabnotes_data'].oldValue,
-        changes['tabnotes_data'].newValue,
+        changes['tabnotes_data'].newValue
       );
       await scheduleDriveAutoSync();
     }
@@ -796,9 +874,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   // CAPTURE_TAB: take a screenshot of the active tab
   if (msg.type === 'CAPTURE_TAB') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (!tabs[0]?.windowId) { sendResponse({ error: 'No active tab' }); return; }
+      if (!tabs[0]?.windowId) {
+        sendResponse({ error: 'No active tab' });
+        return;
+      }
       try {
-        const dataUrl = await chrome.tabs.captureVisibleTab(tabs[0].windowId, { format: 'jpeg', quality: 40 });
+        const dataUrl = await chrome.tabs.captureVisibleTab(tabs[0].windowId, {
+          format: 'jpeg',
+          quality: 40,
+        });
         sendResponse({ dataUrl });
       } catch (e) {
         sendResponse({ error: String(e) });
@@ -869,9 +953,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const minutes = typeof msg.minutes === 'number' ? msg.minutes : DEFAULT_SNOOZE_MINUTES;
       const reminderAt = noteId ? await snoozeReminder(noteId, minutes) : null;
       sendResponse(
-        reminderAt
-          ? { ok: true, reminderAt }
-          : { ok: false, error: 'UNABLE_TO_SNOOZE_REMINDER' }
+        reminderAt ? { ok: true, reminderAt } : { ok: false, error: 'UNABLE_TO_SNOOZE_REMINDER' }
       );
     })().catch((error) => {
       sendResponse({ ok: false, error: String(error) });
@@ -899,6 +981,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     });
     return true;
   }
+});
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  const msg = message as { type?: unknown };
+  if (msg?.type !== WEB_SYNC_UPDATED_MESSAGE) return false;
+
+  const origin = getExternalSenderOrigin(sender);
+  if (!origin || !TRUSTED_WEB_ORIGINS.has(origin)) {
+    sendResponse({ ok: false, error: 'UNTRUSTED_ORIGIN' });
+    return false;
+  }
+
+  performDriveBackup('external')
+    .then((result) => sendResponse({ ok: true, result }))
+    .catch((error) => sendResponse({ ok: false, error: driveErrorMessage(error) }));
+  return true;
 });
 
 // ── Alarm handler ─────────────────────────────────────────────────────────────

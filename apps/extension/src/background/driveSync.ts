@@ -31,8 +31,15 @@ const DRIVE_PERIODIC_SYNC_ALARM = 'tn_drive_periodic_sync';
 const SYNC_DEBOUNCE_MS = 3_000;
 const PERIODIC_SYNC_MINUTES = 5;
 
-type DriveSyncStatus = 'idle' | 'syncing' | 'ok' | 'error' | 'disconnected' | 'setup_required' | 'blocked';
-type DriveSyncSource = 'auto' | 'manual' | 'connect';
+type DriveSyncStatus =
+  | 'idle'
+  | 'syncing'
+  | 'ok'
+  | 'error'
+  | 'disconnected'
+  | 'setup_required'
+  | 'blocked';
+type DriveSyncSource = 'auto' | 'external' | 'manual' | 'connect';
 
 export interface DriveSyncState {
   enabled: boolean;
@@ -91,7 +98,10 @@ function normalizeStorageData(raw: unknown): StorageData {
   return {
     ...DEFAULT_STORAGE,
     ...((raw as Partial<StorageData> | undefined) ?? {}),
-    notes_url: { ...DEFAULT_STORAGE.notes_url, ...((raw as Partial<StorageData> | undefined)?.notes_url ?? {}) },
+    notes_url: {
+      ...DEFAULT_STORAGE.notes_url,
+      ...((raw as Partial<StorageData> | undefined)?.notes_url ?? {}),
+    },
     notes_domain: {
       ...DEFAULT_STORAGE.notes_domain,
       ...((raw as Partial<StorageData> | undefined)?.notes_domain ?? {}),
@@ -104,7 +114,10 @@ function normalizeStorageData(raw: unknown): StorageData {
       ...DEFAULT_STORAGE.notes_global,
       ...((raw as Partial<StorageData> | undefined)?.notes_global ?? {}),
     },
-    workspaces: { ...DEFAULT_STORAGE.workspaces, ...((raw as Partial<StorageData> | undefined)?.workspaces ?? {}) },
+    workspaces: {
+      ...DEFAULT_STORAGE.workspaces,
+      ...((raw as Partial<StorageData> | undefined)?.workspaces ?? {}),
+    },
   };
 }
 
@@ -127,7 +140,9 @@ function hasLocalChangesSinceLastSync(data: StorageData, state: DriveSyncState):
 
   return (
     getAllNotes(data).some((note) => (note.updatedAt ?? note.createdAt ?? 0) > lastSyncedAt) ||
-    getAllWorkspaces(data).some((workspace) => (workspace.updatedAt ?? workspace.createdAt ?? 0) > lastSyncedAt) ||
+    getAllWorkspaces(data).some(
+      (workspace) => (workspace.updatedAt ?? workspace.createdAt ?? 0) > lastSyncedAt
+    ) ||
     (state.tombstones ?? []).some((tombstone) => tombstone.deletedAt > lastSyncedAt)
   );
 }
@@ -147,10 +162,16 @@ function pruneTombstones(tombstones: SyncTombstone[], now = Date.now()): SyncTom
 }
 
 function getRemovedWorkspaces(oldData: StorageData, newData: StorageData): Workspace[] {
-  return Object.values(oldData.workspaces ?? {}).filter((workspace) => !newData.workspaces?.[workspace.id]);
+  return Object.values(oldData.workspaces ?? {}).filter(
+    (workspace) => !newData.workspaces?.[workspace.id]
+  );
 }
 
-function getRemovedNotes(oldData: StorageData, newData: StorageData, removedWorkspaceIds: Set<string>): Note[] {
+function getRemovedNotes(
+  oldData: StorageData,
+  newData: StorageData,
+  removedWorkspaceIds: Set<string>
+): Note[] {
   const currentNoteIds = new Set(getAllNotes(newData).map((note) => note.id));
   return getAllNotes(oldData).filter((note) => {
     if (currentNoteIds.has(note.id)) return false;
@@ -165,7 +186,7 @@ async function getDriveState(): Promise<DriveSyncState> {
     ...DEFAULT_DRIVE_STATE,
     ...((result[DRIVE_SYNC_STORAGE_KEY] as Partial<DriveSyncState> | undefined) ?? {}),
     tombstones: pruneTombstones(
-      ((result[DRIVE_SYNC_STORAGE_KEY] as Partial<DriveSyncState> | undefined)?.tombstones ?? []),
+      (result[DRIVE_SYNC_STORAGE_KEY] as Partial<DriveSyncState> | undefined)?.tombstones ?? []
     ),
   };
 }
@@ -177,7 +198,7 @@ async function setDriveState(patch: Partial<DriveSyncState>): Promise<DriveSyncS
       ...current,
       ...patch,
       tombstones: pruneTombstones(patch.tombstones ?? current.tombstones ?? []),
-    }).filter(([, value]) => value !== undefined),
+    }).filter(([, value]) => value !== undefined)
   ) as unknown as DriveSyncState;
   await chromeSet({ [DRIVE_SYNC_STORAGE_KEY]: next });
   return next;
@@ -202,7 +223,10 @@ async function getEntitlements(): Promise<EntitlementState> {
 async function assertDriveFeatureAllowed(): Promise<void> {
   const entitlements = await getEntitlements();
   if (!hasFeature('drive_sync', entitlements)) {
-    await setDriveState({ status: 'blocked', lastError: 'Google Drive Sync requires TabNotes Pro.' });
+    await setDriveState({
+      status: 'blocked',
+      lastError: 'Google Drive Sync requires TabNotes Pro.',
+    });
     throw new Error('Google Drive Sync requires TabNotes Pro.');
   }
 }
@@ -215,7 +239,7 @@ async function assertOAuthConfigured(): Promise<void> {
   }
 }
 
-function driveErrorMessage(error: unknown): string {
+export function driveErrorMessage(error: unknown): string {
   if (error instanceof DriveApiError) return `${error.status}: ${error.reason ?? error.message}`;
   if (error instanceof Error) return error.message;
   return String(error);
@@ -223,7 +247,7 @@ function driveErrorMessage(error: unknown): string {
 
 async function loadBackupFileRecoveringFromStaleId(
   token: string,
-  fileId?: string,
+  fileId?: string
 ): Promise<unknown | null> {
   try {
     return await loadBackupFile(token, fileId);
@@ -367,9 +391,12 @@ export async function connectDriveSync() {
   };
 }
 
-export async function performDriveBackup(source: DriveSyncSource = 'manual', existingToken?: string) {
+export async function performDriveBackup(
+  source: DriveSyncSource = 'manual',
+  existingToken?: string
+) {
   const currentState = await getDriveState();
-  if (!currentState.enabled && source === 'auto') return currentState;
+  if (!currentState.enabled && (source === 'auto' || source === 'external')) return currentState;
 
   await assertDriveFeatureAllowed();
   await assertOAuthConfigured();
@@ -379,7 +406,7 @@ export async function performDriveBackup(source: DriveSyncSource = 'manual', exi
   let token = existingToken;
   try {
     token = token ?? (await getGoogleAuthToken(false));
-    if (source === 'auto' && await shouldSkipAutomaticSync(token, currentState)) {
+    if (source === 'auto' && (await shouldSkipAutomaticSync(token, currentState))) {
       return setDriveState({
         status: currentState.enabled ? 'ok' : currentState.status,
         lastError: undefined,
@@ -396,11 +423,11 @@ export async function performDriveBackup(source: DriveSyncSource = 'manual', exi
         await scheduleDrivePeriodicSync();
         return state;
       } catch (retryError) {
-        return failDriveSync(retryError, source !== 'auto');
+        return failDriveSync(retryError, source !== 'auto' && source !== 'external');
       }
     }
 
-    return failDriveSync(error, source !== 'auto');
+    return failDriveSync(error, source !== 'auto' && source !== 'external');
   }
 }
 
@@ -446,7 +473,7 @@ export async function restoreDriveBackup() {
 
 export async function recordDriveDeletionTombstones(
   oldValue: unknown,
-  newValue: unknown,
+  newValue: unknown
 ): Promise<number> {
   const state = await getDriveState();
   const oldData = normalizeStorageData(oldValue);
@@ -464,15 +491,15 @@ export async function recordDriveDeletionTombstones(
       createDeleteTombstone(
         { entityType: 'workspace', id: workspace.id, workspaceId: workspace.id },
         deviceId,
-        deletedAt,
-      ),
+        deletedAt
+      )
     ),
     ...removedNotes.map((note) =>
       createDeleteTombstone(
         { entityType: 'note', id: note.id, scope: note.scope, workspaceId: note.workspaceId },
         deviceId,
-        deletedAt,
-      ),
+        deletedAt
+      )
     ),
   ];
 
@@ -519,7 +546,7 @@ export async function handleDriveAlarm(alarmName: string): Promise<boolean> {
 
 export function handleDriveMessage(
   msg: { type?: string },
-  sendResponse: (response?: unknown) => void,
+  sendResponse: (response?: unknown) => void
 ): boolean {
   const actions: Record<string, () => Promise<unknown>> = {
     DRIVE_GET_STATUS: getDriveSyncStatus,

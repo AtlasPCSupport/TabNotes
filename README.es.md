@@ -10,7 +10,7 @@
 </p>
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Publicada-ffd84d?logo=googlechrome&logoColor=111215)](https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.11.1-79a7ff)](https://github.com/mikepchelper-spec/TabNotes/releases/tag/v2.11.1)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.11.3-79a7ff)](https://github.com/mikepchelper-spec/TabNotes/releases/tag/v2.11.3)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-ffffff)](LICENSE)
 [![Invítame a un café](https://img.shields.io/badge/PayPal-Inv%C3%ADtame%20a%20un%20caf%C3%A9-ffdd00?logo=paypal&logoColor=111215)](https://www.paypal.me/atlaspcsupport)
@@ -27,15 +27,15 @@
 
 ## Versión Actual
 
-| Elemento | Valor |
-|---|---|
-| Versión pública | `2.11.1` |
-| ID de Chrome Web Store | `pniapenkdphjolncppcichbahomfiffj` |
-| Paquete ZIP | [`tabnotes-extension-v2.11.1.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.1/tabnotes-extension-v2.11.1.zip) |
-| Sitio del producto | `https://tabnotes.atlaspcsupport.com/` |
-| Política de privacidad | `https://tabnotes.atlaspcsupport.com/privacy/` |
-| Términos | `https://tabnotes.atlaspcsupport.com/terms/` |
-| Ruta PWA móvil | `/app` en `apps/web` |
+| Elemento               | Valor                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Versión pública        | `2.11.3`                                                                                                                                   |
+| ID de Chrome Web Store | `pniapenkdphjolncppcichbahomfiffj`                                                                                                         |
+| Paquete ZIP            | [`tabnotes-extension-v2.11.3.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.3/tabnotes-extension-v2.11.3.zip) |
+| Sitio del producto     | `https://tabnotes.atlaspcsupport.com/`                                                                                                     |
+| Política de privacidad | `https://tabnotes.atlaspcsupport.com/privacy/`                                                                                             |
+| Términos               | `https://tabnotes.atlaspcsupport.com/terms/`                                                                                               |
+| Ruta PWA móvil         | `/app` en `apps/web`                                                                                                                       |
 
 ## Qué Hace TabNotes
 
@@ -50,13 +50,13 @@ La extensión funciona en el panel lateral de Chrome, guarda automáticamente en
 
 ## Funciones Principales
 
-| Área | Funciones |
-|---|---|
-| Escritura | Texto enriquecido, vista Markdown, plantillas, checklist, alineación, colores, historial de notas |
-| Organización | Workspaces, carpetas, etiquetas, notas fijadas, colores, búsqueda, grafo de notas |
-| Productividad | Paleta de comandos, recorte contextual, recordatorios, digest diario, avisos de backup |
-| Privacidad | Almacenamiento local-first, exportar/restaurar JSON, sync opcional en Drive appData, cifrado por nota, bloqueo con PIN |
-| Idiomas | Interfaz en español e inglés |
+| Área          | Funciones                                                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Escritura     | Texto enriquecido, vista Markdown, plantillas, checklist, alineación, colores, historial de notas                      |
+| Organización  | Workspaces, carpetas, etiquetas, notas fijadas, colores, búsqueda, grafo de notas                                      |
+| Productividad | Paleta de comandos, recorte contextual, recordatorios, digest diario, avisos de backup                                 |
+| Privacidad    | Almacenamiento local-first, exportar/restaurar JSON, sync opcional en Drive appData, cifrado por nota, bloqueo con PIN |
+| Idiomas       | Interfaz en español e inglés                                                                                           |
 
 ## PWA Móvil
 
@@ -65,16 +65,16 @@ Usa el mismo archivo privado de Google Drive `appDataFolder` que la extensión, 
 
 Para que Drive funcione en la PWA, crea un cliente OAuth de Google de tipo **Aplicación web** y configura `VITE_GOOGLE_CLIENT_ID` antes de compilar o desplegar la web.
 Para desplegar bajo `https://tabnotes.atlaspcsupport.com/app/`, compila con `VITE_BASE_PATH=/app/` y `VITE_TABNOTES_MOBILE_ENTRY=true`.
-El build de GitHub Pages también escribe `/app/tabnotes.config.json`, así que el OAuth client ID público de la web puede actualizarse sin cambiar el bundle de la aplicación.
+El build de GitHub Pages también escribe `/app/tabnotes.config.json`, así que el OAuth client ID público de la web y el ID de la extensión de Chrome pueden actualizarse sin cambiar el bundle de la aplicación.
 
 ## Capturas
 
-| Búsqueda y notas | Sync en Google Drive |
-|---|---|
+| Búsqueda y notas                                                                                | Sync en Google Drive                                                                           |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | ![Búsqueda y todas las notas](store/assets-final-20260619/02-search-and-all-notes-1280x800.png) | ![Ajustes de sync en Drive](store/assets-final-20260619/03-drive-backup-settings-1280x800.png) |
 
-| Recordatorios | Workspaces |
-|---|---|
+| Recordatorios                                                           | Workspaces                                                                       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | ![Recordatorios](store/assets-final-20260619/04-reminders-1280x800.png) | ![Workspaces](store/assets-final-20260619/05-workspaces-light-mode-1280x800.png) |
 
 ## Modelo de Privacidad
@@ -91,7 +91,7 @@ TabNotes no usa un servidor propio para tus notas.
 
 La instalación recomendada es Chrome Web Store. Para pruebas locales:
 
-1. Descarga [`tabnotes-extension-v2.11.1.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.1/tabnotes-extension-v2.11.1.zip).
+1. Descarga [`tabnotes-extension-v2.11.3.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.3/tabnotes-extension-v2.11.3.zip).
 2. Descomprime el archivo.
 3. Abre Chrome y entra a `chrome://extensions`.
 4. Activa **Modo de desarrollador**.
