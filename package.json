@@ -2,6 +2,7 @@
   "name": "tabnotes-monorepo",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.5.3",
   "description": "TabNotes — contextual notes per tab/URL/domain/workspace",
   "scripts": {
     "dev": "pnpm --filter @tabnotes/web dev",
@@ -11,6 +12,7 @@
     "build:gh-pages": "node scripts/build-gh-pages.mjs",
     "build:web": "pnpm --filter @tabnotes/web build",
     "build:web:pwa": "node scripts/build-web-pwa.mjs",
+    "check:repo-hygiene": "node scripts/check-repo-hygiene.mjs",
     "lint": "eslint \"apps/**/*.{ts,tsx}\" \"packages/**/*.{ts,tsx}\" --max-warnings 0",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

@@ -254,8 +254,42 @@ function putWorkspace(data: StorageData, workspace: Workspace): void {
   data.workspaces = { ...data.workspaces, [workspace.id]: workspace };
 }
 
+function normalizeTags(tags: string[] | undefined): string[] {
+  return [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+function noteSemanticSignature(note: Note): Record<string, unknown> {
+  return {
+    id: note.id,
+    workspaceId: note.workspaceId,
+    scope: note.scope,
+    scopeKey: note.scopeKey,
+    title: note.title ?? '',
+    content: note.content,
+    tags: normalizeTags(note.tags),
+    folder: note.folder ?? '',
+    reminderAt: note.reminderAt ?? null,
+    encrypted: note.encrypted ?? false,
+    encryptedData: note.encryptedData ?? '',
+  };
+}
+
 function notesDiffer(left: Note, right: Note): boolean {
-  return JSON.stringify(left) !== JSON.stringify(right);
+  const leftSignature = noteSemanticSignature(left);
+  const rightSignature = noteSemanticSignature(right);
+  for (const key of Object.keys(leftSignature)) {
+    const leftValue = leftSignature[key];
+    const rightValue = rightSignature[key];
+    if (Array.isArray(leftValue) && Array.isArray(rightValue)) {
+      if (leftValue.length !== rightValue.length) return true;
+      if (leftValue.some((value, index) => value !== rightValue[index])) return true;
+      continue;
+    }
+    if (leftValue !== rightValue) return true;
+  }
+  return false;
 }
 
 function conflictNoteId(remote: Note, sourceDeviceId: string): string {

@@ -10,7 +10,7 @@
 </p>
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Published-ffd84d?logo=googlechrome&logoColor=111215)](https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj)
-[![Version](https://img.shields.io/badge/version-2.11.0-79a7ff)](./tabnotes-extension.zip)
+[![Version](https://img.shields.io/badge/version-2.11.1-79a7ff)](https://github.com/mikepchelper-spec/TabNotes/releases/tag/v2.11.1)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ffffff)](LICENSE)
 [![Invítame a un café](https://img.shields.io/badge/PayPal-Inv%C3%ADtame%20a%20un%20caf%C3%A9-ffdd00?logo=paypal&logoColor=111215)](https://www.paypal.me/atlaspcsupport)
@@ -29,9 +29,9 @@
 
 | Item | Value |
 |---|---|
-| Public version | `2.11.0` |
+| Public version | `2.11.1` |
 | Chrome Web Store ID | `pniapenkdphjolncppcichbahomfiffj` |
-| Store package | [`tabnotes-extension.zip`](./tabnotes-extension.zip) |
+| Store package | [`tabnotes-extension-v2.11.1.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.1/tabnotes-extension-v2.11.1.zip) |
 | Product site | `https://tabnotes.atlaspcsupport.com/` |
 | Privacy policy | `https://tabnotes.atlaspcsupport.com/privacy/` |
 | Terms | `https://tabnotes.atlaspcsupport.com/terms/` |
@@ -91,7 +91,7 @@ TabNotes does not use a TabNotes server for your notes.
 
 The recommended install path is the Chrome Web Store. For local testing:
 
-1. Download [`tabnotes-extension.zip`](./tabnotes-extension.zip).
+1. Download [`tabnotes-extension-v2.11.1.zip`](https://github.com/mikepchelper-spec/TabNotes/releases/download/v2.11.1/tabnotes-extension-v2.11.1.zip).
 2. Unzip it.
 3. Open Chrome and go to `chrome://extensions`.
 4. Enable **Developer mode**.

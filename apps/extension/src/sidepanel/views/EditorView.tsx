@@ -44,6 +44,14 @@ import {
   isSchedulableReminderTimestamp,
   parseDateTimeLocalInput,
 } from '../../shared/reminders';
+import {
+  applyInlineColor,
+  getActiveInlineFormats,
+  insertHtmlAtSelection,
+  insertTextAtSelection,
+  replaceTextOffsets,
+  toggleInlineFormat,
+} from '../utils/editorCommands';
 
 export interface EditorViewProps {
   // Loading states
@@ -115,10 +123,6 @@ export interface EditorViewProps {
 
   // Global actions / Select
   selectNote: (n: Note) => void;
-}
-
-interface ModifiableSelection extends Selection {
-  modify(alter: 'move' | 'extend', direction: string, granularity: string): void;
 }
 
 const NOTE_COLORS = [
@@ -270,17 +274,7 @@ export function EditorView({
     const update = () => {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || !editorRef.current?.contains(sel.anchorNode)) return;
-      const anchor = sel.anchorNode;
-      const anchorEl =
-        anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element);
-      setFmtActive({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        strike: document.queryCommandState('strikeThrough'),
-        code: !!anchorEl?.closest('code'),
-        highlight: !!anchorEl?.closest('.tn-highlight'),
-      });
+      setFmtActive(getActiveInlineFormats(editorRef.current));
     };
     document.addEventListener('selectionchange', update);
     return () => document.removeEventListener('selectionchange', update);
@@ -430,12 +424,7 @@ export function EditorView({
     (color: string, mode: 'text' | 'highlight') => {
       const el = editorRef.current;
       if (!el) return;
-      el.focus();
-      if (mode === 'text') {
-        document.execCommand('foreColor', false, color);
-      } else {
-        document.execCommand('hiliteColor', false, color);
-      }
+      applyInlineColor(el, color, mode);
       requestAnimationFrame(() => {
         const html = el.innerHTML;
         setContent(html);
@@ -451,7 +440,6 @@ export function EditorView({
     (cmd: string, _after?: string) => {
       const el = editorRef.current;
       if (!el) return;
-      el.focus();
       const execMap: Record<string, string> = {
         '**': 'bold',
         '*': 'italic',
@@ -459,87 +447,12 @@ export function EditorView({
         '~~': 'strikeThrough',
       };
       if (execMap[cmd]) {
-        document.execCommand(execMap[cmd]);
+        const command = execMap[cmd] === 'strikeThrough' ? 'strike' : execMap[cmd];
+        toggleInlineFormat(el, command as 'bold' | 'italic' | 'underline' | 'strike');
       } else if (cmd === '==') {
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0) return;
-        const range = sel.getRangeAt(0);
-        const anchor = range.commonAncestorContainer;
-        const anchorEl =
-          anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element);
-        const existing = anchorEl?.closest('.tn-highlight');
-        if (existing) {
-          // Toggle OFF — unwrap the highlight span
-          const p = existing.parentNode!;
-          while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
-          p.removeChild(existing);
-          p.normalize();
-        } else if (!sel.isCollapsed) {
-          // Toggle ON — wrap selection in highlight span
-          const span = document.createElement('span');
-          span.className = 'tn-highlight';
-          span.appendChild(range.extractContents());
-          range.insertNode(span);
-          sel.removeAllRanges();
-          const r2 = document.createRange();
-          r2.selectNodeContents(span);
-          sel.addRange(r2);
-        }
+        toggleInlineFormat(el, 'highlight');
       } else if (cmd === '`') {
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0) return;
-        const range = sel.getRangeAt(0);
-        const anchor = range.commonAncestorContainer;
-        const anchorEl =
-          anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element);
-        const existing = anchorEl?.closest('code');
-        if (existing) {
-          // Toggle OFF — unwrap the code element
-          const p = existing.parentNode!;
-          const children = Array.from(existing.childNodes);
-          if (children.length > 0) {
-            const first = children[0];
-            const last = children[children.length - 1];
-            while (existing.firstChild) p.insertBefore(existing.firstChild, existing);
-            p.removeChild(existing);
-            p.normalize();
-
-            // Re-select the contents
-            const r2 = document.createRange();
-            r2.setStartBefore(first);
-            r2.setEndAfter(last);
-            sel.removeAllRanges();
-            sel.addRange(r2);
-          } else {
-            p.removeChild(existing);
-            p.normalize();
-          }
-        } else {
-          // Toggle ON — wrap selection in code element
-          const code = document.createElement('code');
-          if (!sel.isCollapsed) {
-            code.appendChild(range.extractContents());
-            range.insertNode(code);
-            // Select the code element contents
-            sel.removeAllRanges();
-            const r2 = document.createRange();
-            r2.selectNodeContents(code);
-            sel.addRange(r2);
-          } else {
-            // If selection is collapsed, insert a zero-width space so the element is not empty,
-            // allowing text to be typed inside it.
-            const zwsp = document.createTextNode('\u200B');
-            code.appendChild(zwsp);
-            range.insertNode(code);
-
-            // Position the cursor inside the code element, after the zero-width space
-            const r2 = document.createRange();
-            r2.setStart(zwsp, 1);
-            r2.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(r2);
-          }
-        }
+        toggleInlineFormat(el, 'code');
       }
       requestAnimationFrame(() => {
         const html = el.innerHTML;
@@ -555,16 +468,7 @@ export function EditorView({
   const insertWikiLink = useCallback(
     (noteTitle: string) => {
       if (!wikiAnchor || !editorRef.current) return;
-      editorRef.current.focus();
-      const sel = window.getSelection();
-      if (!sel) return;
-      const queryLen = wikiAnchor.end - wikiAnchor.start;
-      sel.collapseToEnd();
-      const modifiableSel = sel as ModifiableSelection;
-      for (let i = 0; i < queryLen; i++) {
-        modifiableSel.modify('extend', 'backward', 'character');
-      }
-      document.execCommand('insertText', false, `[[${noteTitle}]]`);
+      replaceTextOffsets(editorRef.current, wikiAnchor.start, wikiAnchor.end, `[[${noteTitle}]]`);
       const html = editorRef.current.innerHTML;
       setContent(html);
       schedule(html, title, tags);
@@ -714,10 +618,10 @@ export function EditorView({
                   e.preventDefault();
                   if (html) {
                     const safe = sanitizeHtml(html);
-                    document.execCommand('insertHTML', false, safe);
+                    insertHtmlAtSelection(e.currentTarget, safe);
                   } else {
                     const text = cd.getData('text/plain');
-                    document.execCommand('insertText', false, text);
+                    insertTextAtSelection(e.currentTarget, text);
                   }
                   const el = e.currentTarget;
                   const next = el.innerHTML;

@@ -1,5 +1,7 @@
 node_modules
 dist
+dist_backup/
+apps/extension/dist_backup/
 dist-gh-pages/
 .turbo
 *.local

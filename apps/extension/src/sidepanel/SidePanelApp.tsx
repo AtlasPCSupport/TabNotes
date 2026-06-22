@@ -26,8 +26,11 @@ import { NoteTree, type Template } from './components/NoteTree';
 import { CommandPalette } from './components/CommandPalette';
 import { EncryptionPrompt } from './components/EncryptionPrompt';
 import { PendingReminders } from './components/PendingReminders';
-import { AppIcon, type AppIconName } from './components/AppIcon';
-import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
+import { AppIcon } from './components/AppIcon';
+import { useTranslation } from '@tabnotes/i18n';
+import { formatEditorDateTime } from './utils/dateTime';
+import { insertTextAtSelection } from './utils/editorCommands';
+import { SCOPE_OPTIONS, templateDateLocale, templateFieldKey } from './sidepanelConfig';
 import {
   DEFAULT_SNOOZE_MINUTES,
   OPEN_REMINDER_REQUEST_STORAGE_KEY,
@@ -67,21 +70,6 @@ function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeRe
     });
   });
 }
-
-
-
-const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: AppIconName; desc: string }[] = [
-  { value: 'url', label: 'URL', icon: 'url', desc: 'Exact page URL' },
-  { value: 'domain', label: 'Domain', icon: 'domain', desc: 'Entire site' },
-  { value: 'workspace', label: 'Projects', icon: 'workspace', desc: 'Your project' },
-  { value: 'global', label: 'Global', icon: 'global', desc: 'Everywhere' },
-];
-
-const templateFieldKey = (id: Template['id'], field: 'title' | 'content'): TranslationKey =>
-  `templates.${id}.${field}` as TranslationKey;
-
-const templateDateLocale = (language?: string) =>
-  language?.toLowerCase().startsWith('es') ? 'es-ES' : 'en-US';
 
 // ── Crypto utilities ──────────────────────────────────────────
 // AES-256-GCM encryption now lives in @tabnotes/shared (crypto.ts), where it
@@ -886,17 +874,9 @@ export default function SidePanelApp() {
   // ── Insert date/time at cursor ────────────────────────────────
   const insertDatetime = () => {
     const el = editorRef.current;
-    const now = new Date();
-    const str = now.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const str = formatEditorDateTime();
     if (el) {
-      el.focus();
-      document.execCommand('insertText', false, str);
+      insertTextAtSelection(el, str);
       const html = el.innerHTML;
       setContent(html);
       schedule(html, title, tags);

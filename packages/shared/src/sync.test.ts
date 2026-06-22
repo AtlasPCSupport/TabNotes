@@ -198,6 +198,64 @@ describe('mergeDriveSyncEnvelope', () => {
     expect(second.summary.noteConflictsCreated).toBe(0);
   });
 
+  it('does not create conflicts for notes with equivalent visible content', () => {
+    const localNote: Note = {
+      ...note('n', 300, 'same content'),
+      tags: ['beta', 'alpha', 'alpha'],
+      versions: [{ content: 'local previous', savedAt: 250 }],
+    };
+    const remoteNote: Note = {
+      ...note('n', 320, 'same content'),
+      tags: ['alpha', 'beta'],
+      versions: [{ content: 'remote previous', savedAt: 260 }],
+    };
+    const local = storage({
+      notes_global: { n: localNote },
+    });
+    const remote = createDriveSyncEnvelope(
+      storage({ notes_global: { n: remoteNote } }),
+      { sourceDeviceId: 'mobile', now: 330 },
+    );
+
+    const result = mergeDriveSyncEnvelope(remote, local, {
+      sourceDeviceId: 'desktop',
+      lastSyncedAt: 200,
+      now: 400,
+    });
+
+    const conflictIds = Object.keys(result.data.notes_global).filter((id) => id.includes('__conflict__'));
+
+    expect(conflictIds).toHaveLength(0);
+    expect(result.summary.noteConflictsCreated).toBe(0);
+    expect(result.data.notes_global.n.content).toBe('same content');
+    expect(result.data.notes_global.n.updatedAt).toBe(320);
+  });
+
+  it('creates conflicts when both sides changed user-visible note fields', () => {
+    const local = storage({
+      notes_global: { n: note('n', 300, 'same content') },
+    });
+    const remoteNote = {
+      ...note('n', 320, 'same content'),
+      folder: 'different-folder',
+    };
+    const remote = createDriveSyncEnvelope(
+      storage({ notes_global: { n: remoteNote } }),
+      { sourceDeviceId: 'mobile', now: 330 },
+    );
+
+    const result = mergeDriveSyncEnvelope(remote, local, {
+      sourceDeviceId: 'desktop',
+      lastSyncedAt: 200,
+      now: 400,
+    });
+
+    const conflictIds = Object.keys(result.data.notes_global).filter((id) => id.includes('__conflict__'));
+
+    expect(conflictIds).toHaveLength(1);
+    expect(result.summary.noteConflictsCreated).toBe(1);
+  });
+
   it('deletes a workspace and its notes when a newer workspace tombstone arrives', () => {
     const local = storage({
       workspaces: { w: workspace('w', 100, 'Project') },
@@ -227,4 +285,3 @@ describe('mergeDriveSyncEnvelope', () => {
     expect(result.summary.workspacesDeleted).toBe(1);
   });
 });
-

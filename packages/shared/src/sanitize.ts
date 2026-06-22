@@ -36,7 +36,7 @@ const ALLOWED_ATTR = [
 
 /**
  * CSS properties we permit in inline `style` attributes. The editor uses inline
- * styles for colors, highlight, alignment and font sizing via execCommand.
+ * styles for colors, highlight, alignment and font sizing.
  * Restricting the property set blocks `style="background:url(javascript:...)"`
  * style attacks while keeping legitimate formatting.
  */
