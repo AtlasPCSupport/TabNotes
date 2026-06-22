@@ -13,6 +13,7 @@
 [![Versión](https://img.shields.io/badge/versi%C3%B3n-2.11.0-79a7ff)](./tabnotes-extension.zip)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-ffffff)](LICENSE)
+[![Invítame a un café](https://img.shields.io/badge/PayPal-Inv%C3%ADtame%20a%20un%20caf%C3%A9-ffdd00?logo=paypal&logoColor=111215)](https://www.paypal.me/atlaspcsupport)
 
 **Notas que saben dónde estás.**
 
