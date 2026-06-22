@@ -18,10 +18,12 @@ export default defineConfig({
         sidepanel: resolve(__dirname, 'sidepanel/index.html'),
         offscreen: resolve(__dirname, 'offscreen/index.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
+        webSyncBridge: resolve(__dirname, 'src/contentScript/webSyncBridge.ts'),
       },
       output: {
         entryFileNames: (chunk) => {
           if (chunk.name === 'background') return 'background/index.js';
+          if (chunk.name === 'webSyncBridge') return 'contentScript/webSyncBridge.js';
           return '[name]/index.js';
         },
         chunkFileNames: 'chunks/[name]-[hash].js',

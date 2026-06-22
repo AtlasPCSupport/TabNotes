@@ -3,6 +3,8 @@ import { cleanRuntimeString, getRuntimeConfig } from './runtimeConfig';
 const DEFAULT_EXTENSION_ID = 'pniapenkdphjolncppcichbahomfiffj';
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const MESSAGE_TIMEOUT_MS = 2_000;
+const WEB_SYNC_UPDATED_MESSAGE = 'TABNOTES_WEB_SYNC_UPDATED';
+const WEB_APP_SOURCE = 'tabnotes-web-app';
 
 interface ChromeRuntimeBridge {
   lastError?: { message?: string };
@@ -27,6 +29,24 @@ interface ExtensionBridgeResult {
   error?: string;
 }
 
+function createSyncUpdatedPayload(): Record<string, unknown> {
+  return {
+    source: WEB_APP_SOURCE,
+    type: WEB_SYNC_UPDATED_MESSAGE,
+    version: 1,
+    sentAt: Date.now(),
+  };
+}
+
+function postContentScriptSyncMessage(): boolean {
+  try {
+    window.postMessage(createSyncUpdatedPayload(), window.location.origin);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function cleanExtensionId(value: unknown): string | null {
   const extensionId = cleanRuntimeString(value);
   return extensionId && EXTENSION_ID_PATTERN.test(extensionId) ? extensionId : null;
@@ -45,11 +65,12 @@ async function getConfiguredExtensionId(): Promise<string | null> {
 }
 
 export async function notifyExtensionDriveUpdated(): Promise<ExtensionBridgeResult> {
+  const postedToContentScript = postContentScriptSyncMessage();
   const extensionId = await getConfiguredExtensionId();
   const runtime = window.chrome?.runtime;
 
   if (!extensionId || !runtime?.sendMessage) {
-    return { attempted: false, delivered: false };
+    return { attempted: postedToContentScript, delivered: false };
   }
 
   return new Promise((resolve) => {
@@ -70,28 +91,20 @@ export async function notifyExtensionDriveUpdated(): Promise<ExtensionBridgeResu
     }, MESSAGE_TIMEOUT_MS);
 
     try {
-      runtime.sendMessage(
-        extensionId,
-        {
-          type: 'TABNOTES_WEB_SYNC_UPDATED',
-          version: 1,
-          sentAt: Date.now(),
-        },
-        (response) => {
-          const error = runtime.lastError?.message;
-          if (error) {
-            finish({ attempted: true, delivered: false, error });
-            return;
-          }
-
-          const result = response as { ok?: boolean; error?: string } | undefined;
-          finish({
-            attempted: true,
-            delivered: result?.ok !== false,
-            error: result?.error,
-          });
+      runtime.sendMessage(extensionId, createSyncUpdatedPayload(), (response) => {
+        const error = runtime.lastError?.message;
+        if (error) {
+          finish({ attempted: true, delivered: false, error });
+          return;
         }
-      );
+
+        const result = response as { ok?: boolean; error?: string } | undefined;
+        finish({
+          attempted: true,
+          delivered: result?.ok !== false,
+          error: result?.error,
+        });
+      });
     } catch (error) {
       finish({
         attempted: true,
