@@ -20,9 +20,9 @@ content with the TabNotes developer or any TabNotes server.
 All notes, workspaces, and settings created in TabNotes are stored in your browser's local storage
 (`chrome.storage.local`) on your own device. This data:
 
-- Never leaves your device unless you explicitly enable Google Drive sync
+- Never leaves your device unless you explicitly enable Google Drive sync or submit an optional Groq AI chat request
 - Is never sent to any TabNotes server
-- Is never accessible to the TabNotes developer or any third party
+- Is never accessible to the TabNotes developer
 - Is never used for analytics, advertising, or profiling
 
 ## Optional Google Drive Sync
@@ -38,6 +38,19 @@ When enabled:
 - The sync file is hidden from your normal "My Drive" view by Google Drive
 - TabNotes does not persist your Google access token in extension storage
 - You can disconnect Google Drive from TabNotes at any time
+
+## Optional Groq AI Chat
+
+The **Ask** feature is disabled until you enter your own Groq API key in Settings. When you submit
+an AI chat request, TabNotes sends your question, up to eight recent chat messages, and excerpts
+from up to ten locally selected notes (up to 800 characters per note) directly to Groq's API to
+generate a response. Note ranking happens locally before the request is sent.
+
+- Groq receives this content only when you actively submit a chat request
+- Your Groq API key is stored only in this browser's local extension storage
+- Your key is not included in TabNotes backup exports or Google Drive sync data
+- You can remove the key at any time in Settings
+- Groq's handling of request data is governed by Groq's own privacy terms
 
 ## Permissions Used
 
@@ -66,8 +79,9 @@ passes through a TabNotes server. The Import feature reads a local file from you
 
 ## Third-Party Services
 
-TabNotes does not use any third-party analytics, crash reporting, advertising, or tracking services.
-Google Drive is used only if you opt in to Drive sync.
+TabNotes does not use third-party analytics, crash reporting, advertising, or tracking services.
+Google Drive is used only if you opt in to Drive sync. Groq is contacted only when you opt in by
+adding your own API key and submit an AI chat request.
 
 ## Children's Privacy
 

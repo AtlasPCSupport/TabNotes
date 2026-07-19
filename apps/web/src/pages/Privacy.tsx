@@ -16,11 +16,11 @@ export default function PrivacyPage() {
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
       <div style={{ marginBottom: 'var(--space-12)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--color-accent-subtle)', color: 'var(--color-accent)', borderRadius: 'var(--radius-full)', padding: '4px 14px', fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: 'var(--space-5)' }}>
-          Last updated: January 2025
+          Last updated: June 2026
         </div>
         <h1 style={{ fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: 0, marginBottom: 'var(--space-4)' }}>Privacy Policy</h1>
         <p style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-          TabNotes is built on a simple principle: your notes belong to you, only you, and stay on your device.
+          TabNotes is local-first: your notes stay on your device unless you explicitly enable Google Drive sync or send an optional Groq AI chat request.
         </p>
       </div>
 
@@ -29,10 +29,10 @@ export default function PrivacyPage() {
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             {[
               'We collect zero personal data',
-              'Your notes never leave your browser',
+                            'Notes stay local by default',
               'No account, no tracking, no analytics',
-              'No third-party services receive your data',
-              'No servers. Everything is stored locally',
+              'Google Drive sync and Groq AI are explicit opt-in features',
+              'No TabNotes server stores your notes',
             ].map((item) => (
               <li key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ color: 'var(--color-success)', fontSize: 16, flexShrink: 0 }}>✓</span>
@@ -49,9 +49,18 @@ export default function PrivacyPage() {
         </p>
         <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
           <li><strong style={{ color: 'var(--color-text)' }}>chrome.storage.local</strong> — for the Chrome extension, stored on your device, sandboxed to the extension</li>
-          <li><strong style={{ color: 'var(--color-text)' }}>localStorage</strong> — for the companion web app, stored in your browser for that origin only</li>
+                    <li><strong style={{ color: 'var(--color-text)' }}>IndexedDB</strong> — for the companion web app, stored in your browser for that origin only</li>
         </ul>
-        <p>No data is ever transmitted to any external server. TabNotes works entirely offline.</p>
+        <p>TabNotes works offline by default. It sends data only when you explicitly use Google Drive sync or optional Groq AI chat.</p>
+      </Section>
+
+      <Section title="Optional services">
+        <p style={{ marginBottom: 'var(--space-3)' }}>
+          Google Drive sync transfers your selected sync data directly to your private Google Drive app-data folder. TabNotes does not operate a sync server.
+        </p>
+        <p>
+          The Ask feature requires your own Groq API key. When you submit a question, the question, recent chat messages, and excerpts from locally selected notes are sent directly to Groq to generate a response. Your API key remains in local extension storage and is not included in backups or Drive sync.
+        </p>
       </Section>
 
       <Section title="Permissions used by the extension">
@@ -61,6 +70,8 @@ export default function PrivacyPage() {
             { perm: 'tabs',    why: 'To read the current tab\'s URL so notes can be contextually linked to that page.' },
             { perm: 'activeTab', why: 'To access the URL of the tab you\'re actively viewing, only when the extension is open.' },
             { perm: 'sidePanel', why: 'To display the TabNotes panel alongside your browsing content.' },
+            { perm: 'identity', why: 'For optional Google sign-in used by Google Drive sync.' },
+            { perm: 'alarms and notifications', why: 'To schedule and show user-requested reminders.' },
           ].map(({ perm, why }) => (
             <div key={perm} style={{ padding: 'var(--space-3) var(--space-4)', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontWeight: 600, color: 'var(--color-text)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', marginBottom: 4 }}>{perm}</div>

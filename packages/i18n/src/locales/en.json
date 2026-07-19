@@ -458,6 +458,8 @@
     },
     "aiAssistant": "AI Assistant",
     "groqKeyDesc": "Powers \"Ask your notes\" chat. Free key at",
+    "groqPrivacyNotice": "Optional AI: when you send a question, your question, recent chat messages, and selected note excerpts are sent directly to Groq. Your key stays in this browser and is never included in backups or Drive sync.",
+    "removeKey": "Remove key",
     "show": "Show",
     "hide": "Hide",
     "keySaved": "Key saved",

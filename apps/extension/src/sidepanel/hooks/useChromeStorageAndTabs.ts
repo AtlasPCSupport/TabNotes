@@ -482,19 +482,10 @@ export function useChromeStorageAndTabs({
         const gk = await new Promise<Record<string, unknown>>((res) =>
           cr.storage.local.get('tn_groq_key', res)
         );
-        if (gk['tn_groq_key']) {
-          const key = gk['tn_groq_key'] as string;
+        if (typeof gk['tn_groq_key'] === 'string') {
+          const key = gk['tn_groq_key'];
           setGroqKey(key);
           setGroqKeyInput(key);
-        } else {
-          const envKey =
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (import.meta as any).env?.VITE_GROQ_KEY ?? '';
-          if (envKey) {
-            setGroqKey(envKey);
-            setGroqKeyInput(envKey);
-            cr?.storage?.local?.set({ tn_groq_key: envKey });
-          }
         }
       }
 

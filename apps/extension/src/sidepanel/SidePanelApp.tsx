@@ -8,6 +8,9 @@ import {
   WorkspacesService,
   normalizeDomain,
   stripFormatting,
+  parseChecklistItems,
+  serializeChecklist,
+  checklistItemsToPlainText,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from './store';
 import { ViewHost } from './views/ViewHost';
@@ -188,6 +191,7 @@ export default function SidePanelApp() {
     { id: string; checked: boolean; text: string }[]
   >([]);
   const isUpdatingChecklistRef = useRef(false);
+  const checklistNoteIdRef = useRef<string | null>(null);
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -290,6 +294,11 @@ export default function SidePanelApp() {
       setTags(n.tags.join(', '));
       setSaved(false);
       setPreview(false);
+      // Checklist state belongs to the selected note. Resetting it prevents
+      // edits in one note from appearing in another note's checklist UI.
+      setChecklistMode(false);
+      setChecklistItems([]);
+      checklistNoteIdRef.current = null;
     },
     [setActiveNoteId, setContent, setTitle, setTags, setSaved, setPreview]
   );
@@ -328,6 +337,17 @@ export default function SidePanelApp() {
   useEffect(() => {
     activeNoteIdRef.current = activeNoteId;
   }, [activeNoteId]);
+  useEffect(() => {
+    if (
+      checklistMode &&
+      checklistNoteIdRef.current !== null &&
+      checklistNoteIdRef.current !== activeNoteId
+    ) {
+      setChecklistMode(false);
+      setChecklistItems([]);
+      checklistNoteIdRef.current = null;
+    }
+  }, [activeNoteId, checklistMode]);
   useEffect(() => {
     scopeRef.current = scope;
   }, [scope]);
@@ -645,6 +665,9 @@ export default function SidePanelApp() {
       }
 
       if (saved) {
+        if (checklistMode && checklistNoteIdRef.current === null) {
+          checklistNoteIdRef.current = saved.id;
+        }
         activeNoteIdRef.current = saved.id;
         setActiveNoteId(saved.id);
         // Refresh context notes to reflect updated title in pill
@@ -667,7 +690,15 @@ export default function SidePanelApp() {
       updateStreak();
       setTimeout(() => setSaved(false), 2000);
     },
-    [refreshAllNotes, updateStreak, setContextNotes, setActiveNoteId, setSaved, setPendingSyncIds]
+    [
+      checklistMode,
+      refreshAllNotes,
+      updateStreak,
+      setContextNotes,
+      setActiveNoteId,
+      setSaved,
+      setPendingSyncIds,
+    ]
   );
 
   const moveNote = useCallback(
@@ -741,50 +772,45 @@ export default function SidePanelApp() {
   // ── Checklist mode (Google Keep style) handlers ───────────────────
   const saveChecklist = useCallback(
     (items: { id: string; checked: boolean; text: string }[]) => {
-      const md = items.map((it) => `${it.checked ? '- [x]' : '- [ ]'} ${it.text}`).join('<br>');
+      const markdown = serializeChecklist(items);
       isUpdatingChecklistRef.current = true;
-      setContent(md);
-      schedule(md, title, tags);
+      setContent(markdown);
+      schedule(markdown, title, tags);
     },
     [title, tags, schedule, setContent]
   );
 
   const toggleChecklistMode = () => {
-    const nextMode = !checklistMode;
-    setChecklistMode(nextMode);
-
-    if (nextMode) {
-      // Convert plain text lines to checklist items
-      const temp = document.createElement('div');
-      temp.innerHTML = content;
-      const lines = temp.innerHTML
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<\/div>/gi, '\n')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean);
-
-      const newItems = lines.map((line, idx) => {
-        if (line.startsWith('- [ ]') || line.startsWith('- [x]')) {
-          const checked = line.startsWith('- [x]');
-          const text = line.substring(6);
-          return { id: `item-${idx}-${Date.now()}-${idx}`, checked, text };
-        }
-        if (line.startsWith('- ')) {
-          return {
-            id: `item-${idx}-${Date.now()}-${idx}`,
-            checked: false,
-            text: line.substring(2),
-          };
-        }
-        return { id: `item-${idx}-${Date.now()}-${idx}`, checked: false, text: line };
-      });
-
-      setChecklistItems(newItems);
-      saveChecklist(newItems);
+    if (checklistMode) {
+      // Leaving checklist mode must serialize the current checklist first and
+      // clear its UI state so it cannot be reused by another note.
+      const plainText = checklistItemsToPlainText(checklistItems);
+      isUpdatingChecklistRef.current = false;
+      setChecklistMode(false);
+      setChecklistItems([]);
+      checklistNoteIdRef.current = null;
+      setContent(plainText);
+      schedule(plainText, title, tags);
+      return;
     }
+
+    // Convert editor HTML to plain text before parsing it as checklist items.
+    const temp = document.createElement('div');
+    temp.innerHTML = content;
+    const plainText = temp.innerHTML
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+    const newItems = parseChecklistItems(
+      plainText,
+      (index) => `item-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`
+    );
+
+    checklistNoteIdRef.current = activeNoteIdRef.current;
+    setChecklistItems(newItems);
+    setChecklistMode(true);
+    saveChecklist(newItems);
   };
 
   // ── Screenshot capture ───────────────────────────────────────
@@ -1142,7 +1168,11 @@ export default function SidePanelApp() {
           groqKeyVisible={groqKeyVisible}
           setGroqKeyVisible={setGroqKeyVisible}
           saveGroqKey={(key) => {
-            cr?.storage?.local?.set({ tn_groq_key: key });
+            if (key) {
+              cr?.storage?.local?.set({ tn_groq_key: key });
+            } else {
+              cr?.storage?.local?.remove('tn_groq_key');
+            }
             setGroqKey(key);
           }}
           setTheme={setTheme}

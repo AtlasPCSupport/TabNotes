@@ -55,6 +55,12 @@ export function serializeChecklist(items: ChecklistItem[]): string {
   return items.map((it) => `${it.checked ? '- [x]' : '- [ ]'} ${it.text}`).join('\n');
 }
 
+/** Convert checklist items to editable plain text when checklist mode is disabled. */
+export function checklistItemsToPlainText(items: ChecklistItem[]): string {
+  return items.map((item) => item.text).join('\n');
+}
+
+
 function defaultId(index: number): string {
   return `item-${index}-${Math.random().toString(36).slice(2, 9)}`;
 }
