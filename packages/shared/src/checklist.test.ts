@@ -3,6 +3,7 @@ import {
   isChecklistContent,
   parseChecklistItems,
   serializeChecklist,
+  checklistItemsToPlainText,
   type ChecklistItem,
 } from './checklist';
 
@@ -43,7 +44,18 @@ describe('parseChecklistItems', () => {
   });
 });
 
+describe('checklistItemsToPlainText', () => {
+  it('removes checklist markers while preserving item order', () => {
+    const items: ChecklistItem[] = [
+      { id: '1', checked: false, text: 'one' },
+      { id: '2', checked: true, text: 'two' },
+    ];
+    expect(checklistItemsToPlainText(items)).toBe('one\ntwo');
+  });
+});
+
 describe('serializeChecklist', () => {
+
   it('serializes items back to markdown task lines', () => {
     const items: ChecklistItem[] = [
       { id: '1', checked: false, text: 'a' },

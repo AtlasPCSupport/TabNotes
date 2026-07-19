@@ -458,6 +458,8 @@
     },
     "aiAssistant": "Asistente de IA",
     "groqKeyDesc": "Habilita el chat \"Preguntar a tus notas\". Clave gratuita en",
+    "groqPrivacyNotice": "IA opcional: al enviar una pregunta, la pregunta, los mensajes recientes y fragmentos de notas seleccionadas se envían directamente a Groq. Tu clave permanece en este navegador y nunca se incluye en respaldos ni en la sincronización con Drive.",
+    "removeKey": "Eliminar clave",
     "show": "Mostrar",
     "hide": "Ocultar",
     "keySaved": "Clave guardada",

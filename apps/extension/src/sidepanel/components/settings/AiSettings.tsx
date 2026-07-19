@@ -42,7 +42,11 @@ export function AiSettings({
           </a>
         </div>
       </div>
+            <p className="sp-settings-row-desc" style={{ margin: '0 0 10px' }}>
+        {t('settingsSections.groqPrivacyNotice')}
+      </p>
       <div className="sp-groq-key-row">
+
         <input
           className="sp-groq-key-input"
           type={groqKeyVisible ? 'text' : 'password'}
@@ -68,11 +72,20 @@ export function AiSettings({
           {t('common.save')}
         </button>
       </div>
-      {groqKey && (
+            {groqKey && (
         <div className="sp-groq-key-status">
           <AppIcon name="check" size={13} /> {t('settingsSections.keySaved')} —{' '}
           <button className="sp-groq-open-chat" onClick={onOpenChat}>
             {t('settingsSections.openChat')} →
+          </button>{' '}
+          <button
+            className="sp-groq-open-chat"
+            onClick={() => {
+              setGroqKeyInput('');
+              saveGroqKey('');
+            }}
+          >
+            {t('settingsSections.removeKey')}
           </button>
         </div>
       )}
