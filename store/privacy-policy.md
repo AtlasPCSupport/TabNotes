@@ -47,8 +47,8 @@ kind. Google Drive is contacted only if you enable Drive sync.
 
 ## Open source
 
-Every line of code is public: https://github.com/mikepchelper-spec/TabNotes
+Every line of code is public: https://github.com/AtlasPCSupport/TabNotes
 
 ## Contact
 
-Open an issue at: https://github.com/mikepchelper-spec/TabNotes/issues
+Open an issue at: https://github.com/AtlasPCSupport/TabNotes/issues

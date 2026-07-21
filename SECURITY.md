@@ -12,7 +12,7 @@
 If you discover a security vulnerability in TabNotes, please report it responsibly:
 
 1. **Do NOT open a public issue** — this could expose users before a fix is available.
-2. **Email**: Open a private issue via [GitHub Security Advisories](https://github.com/mikepchelper-spec/TabNotes/security/advisories/new).
+2. **Email**: Open a private issue via [GitHub Security Advisories](https://github.com/AtlasPCSupport/TabNotes/security/advisories/new).
 3. **Include**:
    - A description of the vulnerability
    - Steps to reproduce

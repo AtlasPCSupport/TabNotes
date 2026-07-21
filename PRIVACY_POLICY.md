@@ -79,4 +79,4 @@ extension update notes.
 ## Contact
 
 Questions about this privacy policy? Open an issue at:
-[https://github.com/mikepchelper-spec/TabNotes/issues](https://github.com/mikepchelper-spec/TabNotes/issues)
+[https://github.com/AtlasPCSupport/TabNotes/issues](https://github.com/AtlasPCSupport/TabNotes/issues)
