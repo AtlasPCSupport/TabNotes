@@ -33,6 +33,18 @@ describe('normalizeUrl', () => {
   it('drops hash-only fragments', () => {
     expect(normalizeUrl('https://example.com/a#section')).toBe('https://example.com/a');
   });
+  it('strips sensitive auth and session params', () => {
+    const out = normalizeUrl('https://example.com/login?token=abc123&session=xyz&page=2');
+    expect(out).toBe('https://example.com/login?page=2');
+  });
+  it('strips access_token and code params', () => {
+    const out = normalizeUrl('https://example.com/callback?code=authcode&access_token=secret&state=s1');
+    expect(out).toBe('https://example.com/callback');
+  });
+  it('strips password and api_key params', () => {
+    const out = normalizeUrl('https://example.com/api?api_key=k1&password=pw&q=search');
+    expect(out).toBe('https://example.com/api?q=search');
+  });
 });
 
 describe('getScopeKey', () => {
