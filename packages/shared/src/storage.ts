@@ -2,7 +2,12 @@ import type { Note, NoteVersion, Workspace, StorageData, ExportData, NoteScope }
 import { generateId, getScopeKey } from './utils';
 
 export const STORAGE_VERSION = 3;
-const NOTE_SCOPES = ['url', 'domain', 'workspace', 'global'] as const satisfies readonly NoteScope[];
+const NOTE_SCOPES = [
+  'url',
+  'domain',
+  'workspace',
+  'global',
+] as const satisfies readonly NoteScope[];
 
 export const DEFAULT_STORAGE: StorageData = {
   notes_url: {},
@@ -18,6 +23,12 @@ export const DEFAULT_STORAGE: StorageData = {
   version: STORAGE_VERSION,
 };
 
+export interface RecoverySnapshot {
+  createdAt: number;
+  reason: string;
+  data: StorageData;
+}
+
 export interface StorageAdapter {
   get(): Promise<StorageData>;
   set(data: Partial<StorageData>): Promise<void>;
@@ -28,14 +39,25 @@ export interface StorageAdapter {
    */
   update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData>;
   clear(): Promise<void>;
+  /** Optional durable checkpoint used before a destructive import. */
+  createRecoverySnapshot?(reason: string, now?: number): Promise<RecoverySnapshot>;
+  getRecoverySnapshot?(): Promise<RecoverySnapshot | undefined>;
+  restoreRecoverySnapshot?(): Promise<RecoverySnapshot | undefined>;
+  clearRecoverySnapshot?(): Promise<void>;
 }
 
-export function getScopeCollectionKey(scope: NoteScope): 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global' {
+export function getScopeCollectionKey(
+  scope: NoteScope
+): 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global' {
   switch (scope) {
-    case 'url': return 'notes_url';
-    case 'domain': return 'notes_domain';
-    case 'workspace': return 'notes_workspace';
-    case 'global': return 'notes_global';
+    case 'url':
+      return 'notes_url';
+    case 'domain':
+      return 'notes_domain';
+    case 'workspace':
+      return 'notes_workspace';
+    case 'global':
+      return 'notes_global';
   }
 }
 
@@ -50,7 +72,7 @@ export interface MoveNoteTarget {
 
 function hasOwn<T extends object, K extends PropertyKey>(
   value: T,
-  key: K,
+  key: K
 ): value is T & Record<K, unknown> {
   return Object.prototype.hasOwnProperty.call(value, key);
 }
@@ -128,7 +150,12 @@ export class LocalStorageAdapter implements StorageAdapter {
         localStorage.setItem(this.key, JSON.stringify(storage));
       } else {
         // Ensure note fields are migrated
-        for (const key of ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const) {
+        for (const key of [
+          'notes_url',
+          'notes_domain',
+          'notes_workspace',
+          'notes_global',
+        ] as const) {
           const notes: Record<string, Note> = {};
           for (const [id, note] of Object.entries(storage[key] ?? {})) {
             notes[id] = migrateNote(note as Partial<Note>);
@@ -175,6 +202,14 @@ export class LocalStorageAdapter implements StorageAdapter {
 }
 
 export class ChromeStorageAdapter implements StorageAdapter {
+  private static readonly dataKey = 'tabnotes_data';
+  private static readonly recoverySnapshotKey = 'tabnotes_recovery_snapshot';
+  private static readonly noteCollectionKeys = [
+    'notes_url',
+    'notes_domain',
+    'notes_workspace',
+    'notes_global',
+  ] as const;
   /** Serializes writes so concurrent set() calls cannot clobber each other. */
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -185,39 +220,91 @@ export class ChromeStorageAdapter implements StorageAdapter {
       : null;
   }
 
-  async get(): Promise<StorageData> {
-    const api = this.api;
-    return new Promise((resolve) => {
-      if (!api?.storage) { resolve({ ...DEFAULT_STORAGE }); return; }
-      api.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
-        const parsed = result['tabnotes_data'] as Record<string, unknown> | undefined;
-        const storage = { ...DEFAULT_STORAGE, ...parsed } as StorageData;
+  private runtimeError(): Error | undefined {
+    const message = this.api?.runtime?.lastError?.message;
+    return message ? new Error(message) : undefined;
+  }
 
-        // Perform migration if legacy "notes" exists
-        if (parsed?.notes) {
-          for (const note of Object.values(parsed.notes as Record<string, unknown>)) {
-            const migrated = migrateNote(note as Partial<Note>);
-            const collKey = getScopeCollectionKey(migrated.scope);
-            storage[collKey] = { ...storage[collKey], [migrated.id]: migrated };
-          }
-          delete storage.notes;
-          // Save migrated data immediately
-          api.storage.local.set({ tabnotes_data: storage }, () => {
-            resolve(storage);
-          });
-        } else {
-          // Ensure note fields are migrated
-          for (const key of ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'] as const) {
-            const notes: Record<string, Note> = {};
-            for (const [id, note] of Object.entries(storage[key] ?? {})) {
-              notes[id] = migrateNote(note as Partial<Note>);
-            }
-            storage[key] = notes;
-          }
-          resolve(storage);
-        }
+  private getLocal(key: string): Promise<Record<string, unknown>> {
+    const api = this.api;
+    return new Promise((resolve, reject) => {
+      if (!api?.storage?.local) {
+        resolve({});
+        return;
+      }
+      api.storage.local.get(key, (result: Record<string, unknown>) => {
+        const error = this.runtimeError();
+        if (error) reject(error);
+        else resolve(result);
       });
     });
+  }
+
+  private setLocal(values: Record<string, unknown>): Promise<void> {
+    const api = this.api;
+    return new Promise((resolve, reject) => {
+      if (!api?.storage?.local) {
+        resolve();
+        return;
+      }
+      api.storage.local.set(values, () => {
+        const error = this.runtimeError();
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+
+  private removeLocal(key: string): Promise<void> {
+    const api = this.api;
+    return new Promise((resolve, reject) => {
+      if (!api?.storage?.local) {
+        resolve();
+        return;
+      }
+      api.storage.local.remove(key, () => {
+        const error = this.runtimeError();
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+
+  private normalizeStorage(parsed?: Record<string, unknown>): StorageData {
+    const storage = { ...DEFAULT_STORAGE, ...parsed } as StorageData;
+    if (parsed?.notes) {
+      for (const note of Object.values(parsed.notes as Record<string, unknown>)) {
+        const migrated = migrateNote(note as Partial<Note>);
+        const collectionKey = getScopeCollectionKey(migrated.scope);
+        storage[collectionKey] = { ...storage[collectionKey], [migrated.id]: migrated };
+      }
+      delete storage.notes;
+    }
+
+    for (const collectionKey of ChromeStorageAdapter.noteCollectionKeys) {
+      const notes: Record<string, Note> = {};
+      for (const [id, note] of Object.entries(storage[collectionKey] ?? {})) {
+        const migrated = migrateNote(note as Partial<Note>);
+        const targetKey = getScopeCollectionKey(migrated.scope);
+        if (targetKey === collectionKey) {
+          notes[id] = migrated;
+        } else {
+          storage[targetKey] = { ...storage[targetKey], [migrated.id]: migrated };
+        }
+      }
+      storage[collectionKey] = notes;
+    }
+    return storage;
+  }
+
+  async get(): Promise<StorageData> {
+    const result = await this.getLocal(ChromeStorageAdapter.dataKey);
+    const parsed = result[ChromeStorageAdapter.dataKey] as Record<string, unknown> | undefined;
+    const storage = this.normalizeStorage(parsed);
+    if (parsed && JSON.stringify(parsed) !== JSON.stringify(storage)) {
+      await this.setLocal({ [ChromeStorageAdapter.dataKey]: storage });
+    }
+    return storage;
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
@@ -225,12 +312,7 @@ export class ChromeStorageAdapter implements StorageAdapter {
     // atomic relative to other writes (prevents last-write-wins clobbering).
     const run = this.writeChain.then(async () => {
       const current = await this.get();
-      const updated = { ...current, ...data };
-      const api = this.api;
-      await new Promise<void>((resolve) => {
-        if (!api?.storage) { resolve(); return; }
-        api.storage.local.set({ tabnotes_data: updated }, () => resolve());
-      });
+      await this.setLocal({ [ChromeStorageAdapter.dataKey]: { ...current, ...data } });
     });
     this.writeChain = run.catch(() => undefined);
     return run;
@@ -240,25 +322,63 @@ export class ChromeStorageAdapter implements StorageAdapter {
     const run = this.writeChain.then(async () => {
       const current = await this.get();
       const next = { ...current, ...mutator(current) };
-      const api = this.api;
-      await new Promise<void>((resolve) => {
-        if (!api?.storage) { resolve(); return; }
-        api.storage.local.set({ tabnotes_data: next }, () => resolve());
-      });
+      await this.setLocal({ [ChromeStorageAdapter.dataKey]: next });
       return next;
     });
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
 
-  async clear(): Promise<void> {
+  async createRecoverySnapshot(reason: string, now = Date.now()): Promise<RecoverySnapshot> {
     const run = this.writeChain.then(async () => {
-      const api = this.api;
-      await new Promise<void>((resolve) => {
-        if (!api?.storage) { resolve(); return; }
-        api.storage.local.remove('tabnotes_data', () => resolve());
-      });
+      const snapshot: RecoverySnapshot = {
+        createdAt: now,
+        reason,
+        data: await this.get(),
+      };
+      await this.setLocal({ [ChromeStorageAdapter.recoverySnapshotKey]: snapshot });
+      return snapshot;
     });
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
+  }
+
+  async getRecoverySnapshot(): Promise<RecoverySnapshot | undefined> {
+    const result = await this.getLocal(ChromeStorageAdapter.recoverySnapshotKey);
+    const snapshot = result[ChromeStorageAdapter.recoverySnapshotKey] as RecoverySnapshot | undefined;
+    if (
+      !snapshot ||
+      typeof snapshot.createdAt !== 'number' ||
+      typeof snapshot.reason !== 'string' ||
+      !snapshot.data
+    ) {
+      return undefined;
+    }
+    return {
+      ...snapshot,
+      data: this.normalizeStorage(snapshot.data as unknown as Record<string, unknown>),
+    };
+  }
+
+  async restoreRecoverySnapshot(): Promise<RecoverySnapshot | undefined> {
+    const run = this.writeChain.then(async () => {
+      const snapshot = await this.getRecoverySnapshot();
+      if (!snapshot) return undefined;
+      await this.setLocal({ [ChromeStorageAdapter.dataKey]: snapshot.data });
+      return snapshot;
+    });
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
+  }
+
+  async clearRecoverySnapshot(): Promise<void> {
+    const run = this.writeChain.then(() => this.removeLocal(ChromeStorageAdapter.recoverySnapshotKey));
+    this.writeChain = run.catch(() => undefined);
+    return run;
+  }
+
+  async clear(): Promise<void> {
+    const run = this.writeChain.then(() => this.removeLocal(ChromeStorageAdapter.dataKey));
     this.writeChain = run.catch(() => undefined);
     return run;
   }
@@ -278,23 +398,39 @@ export class NotesService {
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  async getNoteByScope(scope: NoteScope, url: string, workspaceId?: string | null): Promise<Note | null> {
+  async getNoteByScope(
+    scope: NoteScope,
+    url: string,
+    workspaceId?: string | null
+  ): Promise<Note | null> {
     const notes = await this.getNotesByScope(scope, url, workspaceId);
     return notes[0] ?? null;
   }
 
-  async getNotesByScope(scope: NoteScope, url: string, workspaceId?: string | null): Promise<Note[]> {
+  async getNotesByScope(
+    scope: NoteScope,
+    url: string,
+    workspaceId?: string | null
+  ): Promise<Note[]> {
     const data = await this.adapter.get();
     const collKey = getScopeCollectionKey(scope);
     const scopeKey = getScopeKey(scope, url, workspaceId);
     return Object.values(data[collKey] ?? {})
-      .filter((n) => n.scope === scope && n.scopeKey === scopeKey && n.workspaceId === (workspaceId ?? null))
+      .filter(
+        (n) =>
+          n.scope === scope && n.scopeKey === scopeKey && n.workspaceId === (workspaceId ?? null)
+      )
       .sort((a, b) => a.createdAt - b.createdAt);
   }
 
   async createNote(params: {
-    scope: NoteScope; url: string;
-    workspaceId?: string | null; content?: string; title?: string; tags?: string[]; folder?: string;
+    scope: NoteScope;
+    url: string;
+    workspaceId?: string | null;
+    content?: string;
+    title?: string;
+    tags?: string[];
+    folder?: string;
     id?: string;
   }): Promise<Note> {
     const now = Date.now();
@@ -320,7 +456,12 @@ export class NotesService {
 
   async updateNote(
     id: string,
-    updates: Partial<Pick<Note, 'content' | 'title' | 'tags' | 'folder' | 'reminderAt' | 'encrypted' | 'encryptedData'>>,
+    updates: Partial<
+      Pick<
+        Note,
+        'content' | 'title' | 'tags' | 'folder' | 'reminderAt' | 'encrypted' | 'encryptedData'
+      >
+    >
   ): Promise<Note | null> {
     let result: Note | null = null;
     await this.adapter.update((data) => {
@@ -369,8 +510,8 @@ export class NotesService {
 
       const targetScope = target.scope ?? note.scope;
       const targetWorkspaceId = hasOwn(target, 'workspaceId')
-        ? target.workspaceId ?? null
-        : note.workspaceId ?? null;
+        ? (target.workspaceId ?? null)
+        : (note.workspaceId ?? null);
 
       if (targetWorkspaceId && !data.workspaces[targetWorkspaceId]) {
         throw new Error('Cannot move note to a workspace that does not exist.');
@@ -429,9 +570,15 @@ export class NotesService {
     });
   }
 
-  async getOrCreateNote(params: { scope: NoteScope; url: string; workspaceId?: string | null }): Promise<Note> {
-    return (await this.getNoteByScope(params.scope, params.url, params.workspaceId))
-      ?? this.createNote(params);
+  async getOrCreateNote(params: {
+    scope: NoteScope;
+    url: string;
+    workspaceId?: string | null;
+  }): Promise<Note> {
+    return (
+      (await this.getNoteByScope(params.scope, params.url, params.workspaceId)) ??
+      this.createNote(params)
+    );
   }
 }
 
@@ -452,7 +599,10 @@ export class WorkspacesService {
     return workspace;
   }
 
-  async update(id: string, updates: Partial<Pick<Workspace, 'name' | 'color'>>): Promise<Workspace | null> {
+  async update(
+    id: string,
+    updates: Partial<Pick<Workspace, 'name' | 'color'>>
+  ): Promise<Workspace | null> {
     let result: Workspace | null = null;
     await this.adapter.update((data) => {
       const ws = data.workspaces[id];
@@ -470,10 +620,9 @@ export class WorkspacesService {
       delete workspaces[id];
 
       // Cascading delete notes belonging to this workspace, regardless of scope.
-      const noteUpdates: Partial<Pick<
-        StorageData,
-        'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global'
-      >> = {};
+      const noteUpdates: Partial<
+        Pick<StorageData, 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global'>
+      > = {};
       for (const scope of NOTE_SCOPES) {
         const collKey = getScopeCollectionKey(scope);
         const collection = { ...(data[collKey] ?? {}) };
@@ -519,19 +668,19 @@ export function exportData(data: StorageData, exportedAt = Date.now()): ExportDa
 
 export function importData(exported: ExportData, current: StorageData): StorageData {
   const next = { ...current };
-  
+
   next.notes_url = { ...current.notes_url };
   next.notes_domain = { ...current.notes_domain };
   next.notes_workspace = { ...current.notes_workspace };
   next.notes_global = { ...current.notes_global };
-  
+
   for (const n of exported.notes) {
     const collKey = getScopeCollectionKey(n.scope);
     next[collKey] = { ...next[collKey], [n.id]: n };
   }
-  
+
   const workspaces = { ...current.workspaces };
   for (const ws of exported.workspaces) workspaces[ws.id] = ws;
-  
+
   return { ...next, workspaces };
 }

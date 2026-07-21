@@ -34,6 +34,26 @@ describe('encryptText / decryptText', () => {
     const enc = await encryptText('', 'pw');
     expect(await decryptText(enc, 'pw')).toBe('');
   });
+
+  it('rejects truncated or malformed encrypted payloads', async () => {
+    const enc = await encryptText('top secret', 'pw');
+    await expect(decryptText(enc.slice(0, 12), 'pw')).rejects.toBeDefined();
+    await expect(decryptText('not valid base64!', 'pw')).rejects.toBeDefined();
+  });
+
+  it('preserves unicode text and a long plaintext payload', async () => {
+    const secret = `${'📝 café — '.repeat(5_000)}end`;
+    const enc = await encryptText(secret, 'pw');
+    expect(await decryptText(enc, 'pw')).toBe(secret);
+  });
+
+  it('encrypts backup-sized payloads without exceeding browser argument limits', async () => {
+    // btoa needs a binary string. This is larger than the argument limit of
+    // String.fromCharCode(...bytes) in Chromium, which encrypted exports use.
+    const secret = 'backup-data-'.repeat(50_000);
+    const enc = await encryptText(secret, 'pw');
+    expect(await decryptText(enc, 'pw')).toBe(secret);
+  });
 });
 
 describe('hashPin / verifyPin', () => {

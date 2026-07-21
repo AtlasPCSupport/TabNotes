@@ -5,6 +5,7 @@ import {
   exportData,
   importData,
   DEFAULT_STORAGE,
+  ChromeStorageAdapter,
   type StorageAdapter,
 } from './storage';
 import type { StorageData } from './types';
@@ -37,7 +38,11 @@ describe('NotesService', () => {
   });
 
   it('creates a note in the correct scope collection', async () => {
-    const note = await svc.createNote({ scope: 'domain', url: 'https://example.com', content: 'hi' });
+    const note = await svc.createNote({
+      scope: 'domain',
+      url: 'https://example.com',
+      content: 'hi',
+    });
     expect(note.scope).toBe('domain');
     expect(note.scopeKey).toBe('example.com');
     const all = await svc.getAllNotes();
@@ -174,9 +179,7 @@ describe('NotesService', () => {
   it('rejects invalid URL-scope moves without mutating storage', async () => {
     const note = await svc.createNote({ scope: 'global', url: '', content: 'safe' });
 
-    await expect(svc.moveNote(note.id, { scope: 'url' })).rejects.toThrow(
-      /without a source URL/i,
-    );
+    await expect(svc.moveNote(note.id, { scope: 'url' })).rejects.toThrow(/without a source URL/i);
 
     const data = await adapter.get();
     expect(data.notes_global[note.id]).toMatchObject({ scope: 'global', content: 'safe' });
@@ -190,7 +193,12 @@ describe('WorkspacesService', () => {
     const wsSvc = new WorkspacesService(adapter);
     const notesSvc = new NotesService(adapter);
     const ws = await wsSvc.create('Project X', '#fff');
-    await notesSvc.createNote({ scope: 'workspace', url: '', workspaceId: ws.id, content: 'ws note' });
+    await notesSvc.createNote({
+      scope: 'workspace',
+      url: '',
+      workspaceId: ws.id,
+      content: 'ws note',
+    });
     await wsSvc.setActive(ws.id);
 
     await wsSvc.delete(ws.id);
@@ -299,5 +307,99 @@ describe('LocalStorageAdapter write serialization', () => {
 
     const all = await svc.getAllNotes();
     expect(all).toHaveLength(3);
+  });
+});
+
+describe('ChromeStorageAdapter recovery snapshots', () => {
+  const dataKey = 'tabnotes_data';
+  const recoveryKey = 'tabnotes_recovery_snapshot';
+  let values: Record<string, unknown>;
+
+  beforeEach(() => {
+    values = {};
+    (globalThis as typeof globalThis & { chrome?: unknown }).chrome = {
+      runtime: {},
+      storage: {
+        local: {
+          get: (key: string, callback: (result: Record<string, unknown>) => void) => {
+            callback({ [key]: values[key] });
+          },
+          set: (patch: Record<string, unknown>, callback: () => void) => {
+            Object.assign(values, structuredClone(patch));
+            callback();
+          },
+          remove: (key: string, callback: () => void) => {
+            delete values[key];
+            callback();
+          },
+        },
+      },
+    };
+  });
+
+  it('creates, restores, and clears a pre-import snapshot', async () => {
+    const adapter = new ChromeStorageAdapter();
+    await adapter.set({ theme: 'dark' });
+    await adapter.createRecoverySnapshot('before-import', 123);
+    await adapter.set({ theme: 'light' });
+
+    await expect(adapter.getRecoverySnapshot()).resolves.toMatchObject({
+      createdAt: 123,
+      reason: 'before-import',
+      data: { theme: 'dark' },
+    });
+    await expect(adapter.restoreRecoverySnapshot()).resolves.toMatchObject({
+      data: { theme: 'dark' },
+    });
+    await expect(adapter.get()).resolves.toMatchObject({ theme: 'dark' });
+    await adapter.clearRecoverySnapshot();
+    await expect(adapter.getRecoverySnapshot()).resolves.toBeUndefined();
+    expect(values[dataKey]).toBeDefined();
+    expect(values[recoveryKey]).toBeUndefined();
+  });
+
+  it('normalizes notes into their declared scope collection', async () => {
+    values[dataKey] = {
+      ...structuredClone(DEFAULT_STORAGE),
+      notes_url: {
+        misplaced: {
+          id: 'misplaced',
+          scope: 'global',
+          scopeKey: '',
+          workspaceId: null,
+          content: 'Move me',
+          tags: [],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    };
+
+    const data = await new ChromeStorageAdapter().get();
+
+    expect(data.notes_url.misplaced).toBeUndefined();
+    expect(data.notes_global.misplaced).toMatchObject({ scope: 'global', content: 'Move me' });
+    expect((values[dataKey] as StorageData).notes_global.misplaced).toBeDefined();
+  });
+
+  it('rejects failed Chrome storage writes instead of reporting a successful import checkpoint', async () => {
+    const chrome = globalThis as typeof globalThis & {
+      chrome: { runtime: { lastError?: { message: string } } };
+    };
+    const local = (chrome.chrome as unknown as {
+      storage: { local: { set: (patch: Record<string, unknown>, callback: () => void) => void } };
+    }).storage.local;
+    const originalSet = local.set;
+    local.set = (_patch, callback) => {
+      chrome.chrome.runtime.lastError = { message: 'QUOTA_BYTES exceeded' };
+      callback();
+      delete chrome.chrome.runtime.lastError;
+    };
+
+    await expect(new ChromeStorageAdapter().createRecoverySnapshot('before-import')).rejects.toThrow(
+      'QUOTA_BYTES exceeded'
+    );
+
+    local.set = originalSet;
   });
 });

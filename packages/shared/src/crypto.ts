@@ -15,12 +15,49 @@ const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const HEADER_BYTES = SALT_BYTES + IV_BYTES; // 28
 
+function getCrypto(): Crypto {
+  if (typeof globalThis.crypto === 'undefined' || !globalThis.crypto.subtle) {
+    throw new Error('Web Crypto API is unavailable in this environment.');
+  }
+  return globalThis.crypto;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof btoa === 'function') {
+    // Avoid spreading large backups into String.fromCharCode: browser engines
+    // impose an argument-count limit long before the supported backup limit.
+    const chunkSize = 0x8000;
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+  }
+  const BufferCtor = (
+    globalThis as { Buffer?: { from(data: Uint8Array): { toString(format: string): string } } }
+  ).Buffer;
+  if (BufferCtor) return BufferCtor.from(bytes).toString('base64');
+  throw new Error('No base64 encoder is available in this environment.');
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  if (typeof atob === 'function') return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+  const BufferCtor = (
+    globalThis as {
+      Buffer?: { from(data: string, format: string): { length: number; [index: number]: number } };
+    }
+  ).Buffer;
+  if (BufferCtor) return Uint8Array.from(BufferCtor.from(value, 'base64'));
+  throw new Error('No base64 decoder is available in this environment.');
+}
+
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+  const cryptoApi = getCrypto();
+  const baseKey = await cryptoApi.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
     'deriveKey',
   ]);
-  return crypto.subtle.deriveKey(
+  return cryptoApi.subtle.deriveKey(
     { name: 'PBKDF2', salt: new Uint8Array(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
@@ -31,10 +68,11 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
 
 /** Encrypt `text` with `password`, returning a base64 string. */
 export async function encryptText(text: string, password: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const cryptoApi = getCrypto();
+  const salt = cryptoApi.getRandomValues(new Uint8Array(SALT_BYTES));
+  const iv = cryptoApi.getRandomValues(new Uint8Array(IV_BYTES));
   const key = await deriveKey(password, salt);
-  const cipher = await crypto.subtle.encrypt(
+  const cipher = await cryptoApi.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
     new TextEncoder().encode(text)
@@ -43,7 +81,7 @@ export async function encryptText(text: string, password: string): Promise<strin
   buf.set(salt, 0);
   buf.set(iv, SALT_BYTES);
   buf.set(new Uint8Array(cipher), HEADER_BYTES);
-  return btoa(String.fromCharCode(...buf));
+  return bytesToBase64(buf);
 }
 
 /**
@@ -51,9 +89,10 @@ export async function encryptText(text: string, password: string): Promise<strin
  * Throws if the password is wrong or the data is corrupt (GCM auth failure).
  */
 export async function decryptText(data: string, password: string): Promise<string> {
-  const buf = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  const buf = base64ToBytes(data);
+  if (buf.length <= HEADER_BYTES) throw new Error('Encrypted data is incomplete or invalid.');
   const key = await deriveKey(password, buf.slice(0, SALT_BYTES));
-  const plain = await crypto.subtle.decrypt(
+  const plain = await getCrypto().subtle.decrypt(
     { name: 'AES-GCM', iv: buf.slice(SALT_BYTES, HEADER_BYTES) },
     key,
     buf.slice(HEADER_BYTES)
@@ -80,19 +119,20 @@ export interface PinHash {
 }
 
 function toBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
+  return bytesToBase64(bytes);
 }
 
 function fromBase64(b64: string): Uint8Array {
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  return base64ToBytes(b64);
 }
 
 async function deriveBits(pin: string, salt: Uint8Array): Promise<Uint8Array> {
   const enc = new TextEncoder();
-  const baseKey = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, [
+  const cryptoApi = getCrypto();
+  const baseKey = await cryptoApi.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, [
     'deriveBits',
   ]);
-  const bits = await crypto.subtle.deriveBits(
+  const bits = await cryptoApi.subtle.deriveBits(
     { name: 'PBKDF2', salt: new Uint8Array(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     baseKey,
     PIN_HASH_BYTES * 8
@@ -102,7 +142,7 @@ async function deriveBits(pin: string, salt: Uint8Array): Promise<Uint8Array> {
 
 /** Hash a PIN with a fresh random salt. Returns a persistable {salt, hash}. */
 export async function hashPin(pin: string): Promise<PinHash> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const salt = getCrypto().getRandomValues(new Uint8Array(SALT_BYTES));
   const derived = await deriveBits(pin, salt);
   return { salt: toBase64(salt), hash: toBase64(derived) };
 }
