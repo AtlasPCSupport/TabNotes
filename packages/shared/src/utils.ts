@@ -9,6 +9,13 @@ const TRACKING_PARAMS = new Set([
   '_ga','_gl','igshid',
 ]);
 
+// Sensitive params that may contain PII, auth tokens, or session data
+const SENSITIVE_PARAMS = new Set([
+  'token','access_token','auth_token','auth','code','session','sessionid',
+  'sid','key','api_key','apikey','secret','password','passwd','pwd',
+  'otp','nonce','state','redirect_uri','return_url','callback',
+]);
+
 export function normalizeDomain(url: string): string {
   try {
     const u = new URL(url);
@@ -23,6 +30,7 @@ export function normalizeUrl(url: string): string {
     const u = new URL(url);
     u.hash = '';
     for (const p of TRACKING_PARAMS) u.searchParams.delete(p);
+    for (const p of SENSITIVE_PARAMS) u.searchParams.delete(p);
     const search = u.searchParams.toString();
     let normalized = `${u.origin}${u.pathname}`.replace(/\/$/, '');
     if (search) normalized += `?${search}`;
