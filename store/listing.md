@@ -2,13 +2,13 @@
 
 ## Current public package
 
-- Version: `2.11.1`
+- Version: `2.11.4`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: GitHub Release asset `tabnotes-extension-v2.11.1.zip`
+- ZIP: GitHub Release asset `tabnotes-extension-v2.11.4.zip`
 
 ## Name
 
@@ -40,7 +40,7 @@ Key features:
 
 Privacy:
 
-TabNotes does not collect, sell, track, or analyze your personal data. Notes are stored locally by default. Google Drive sync is optional and only runs when you choose to enable it.
+TabNotes does not collect, sell, track, or analyze your personal data. Notes are stored locally by default. Google Drive sync runs only when you choose to enable it. Password-protected backup exports are encrypted; local browser storage and optional Google Drive sync are not encrypted by TabNotes.
 
 TabNotes is designed for researchers, students, developers, support technicians, writers, and anyone who needs notes that stay connected to their browsing context.
 

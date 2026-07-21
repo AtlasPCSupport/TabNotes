@@ -17,7 +17,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md}\" --ignore-path .prettierignore",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md}\" --ignore-path .prettierignore"
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md}\" --ignore-path .prettierignore",
+    "check:release-metadata": "node scripts/check-release-metadata.mjs"
   },
   "workspaces": [
     "apps/*",

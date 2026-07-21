@@ -3,13 +3,30 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
+  verify-tag:
+    name: Verify release version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.5.3
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/check-release-metadata.mjs --tag "$GITHUB_REF_NAME"
+
   build-extension:
+    name: Build extension artifact
+    needs: verify-tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,8 +39,24 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node scripts/build-extension-release.mjs "${GITHUB_REF_NAME#v}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: tabnotes-extension-${{ github.ref_name }}
+          path: store/tabnotes-extension-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub release
+    needs: build-extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: tabnotes-extension-${{ github.ref_name }}
+          path: release-assets
       - uses: softprops/action-gh-release@v2
         with:
-          files: store/tabnotes-extension-${{ github.ref_name }}.zip
+          files: release-assets/tabnotes-extension-${{ github.ref_name }}.zip
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
