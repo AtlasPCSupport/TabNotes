@@ -41,6 +41,17 @@ describe('encryptText / decryptText', () => {
     await expect(decryptText('not valid base64!', 'pw')).rejects.toBeDefined();
   });
 
+  it('produces tnenc:v2: prefixed payloads', async () => {
+    const enc = await encryptText('hello', 'pw');
+    expect(enc.startsWith('tnenc:v2:')).toBe(true);
+  });
+
+  it('rejects unsupported encryption versions', async () => {
+    await expect(decryptText('tnenc:v99:invalid', 'pw')).rejects.toThrow(
+      'Unsupported encryption version.'
+    );
+  });
+
   it('preserves unicode text and a long plaintext payload', async () => {
     const secret = `${'📝 café — '.repeat(5_000)}end`;
     const enc = await encryptText(secret, 'pw');

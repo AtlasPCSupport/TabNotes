@@ -27,6 +27,7 @@ export interface RecoverySnapshot {
   createdAt: number;
   reason: string;
   data: StorageData;
+  prefs?: Record<string, unknown>;
 }
 
 export interface StorageAdapter {
@@ -329,12 +330,17 @@ export class ChromeStorageAdapter implements StorageAdapter {
     return run;
   }
 
-  async createRecoverySnapshot(reason: string, now = Date.now()): Promise<RecoverySnapshot> {
+  async createRecoverySnapshot(
+    reason: string,
+    now = Date.now(),
+    prefs?: Record<string, unknown>
+  ): Promise<RecoverySnapshot> {
     const run = this.writeChain.then(async () => {
       const snapshot: RecoverySnapshot = {
         createdAt: now,
         reason,
         data: await this.get(),
+        prefs,
       };
       await this.setLocal({ [ChromeStorageAdapter.recoverySnapshotKey]: snapshot });
       return snapshot;

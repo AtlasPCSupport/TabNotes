@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { hashPin, verifyPin } from '@tabnotes/shared';
+import { hashPin, verifyPin, PBKDF2_V2_ITERATIONS } from '@tabnotes/shared';
 import { useTranslation } from '@tabnotes/i18n';
 import type { PinHash } from '@tabnotes/shared';
 
@@ -74,6 +74,11 @@ export function usePinLock() {
     }
     const ok = await verifyPin(pinEntry, pinHash);
     if (ok) {
+      if (pinHash.iterations !== PBKDF2_V2_ITERATIONS || pinHash.version !== 2) {
+        const migrated = await hashPin(pinEntry);
+        setPinHash(migrated);
+        cr?.storage?.local?.set({ tn_pin: migrated });
+      }
       setPinLocked(false);
       setPinEntry('');
       setPinError('');

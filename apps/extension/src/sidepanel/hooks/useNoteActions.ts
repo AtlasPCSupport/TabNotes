@@ -225,19 +225,7 @@ ${renderMarkdown(content)}
     if (!id || !password || !note?.encryptedData) return false;
     try {
       const decrypted = await decryptText(note.encryptedData, password);
-      await noteSvc.current.updateNote(id, {
-        content: decrypted,
-        encrypted: false,
-        encryptedData: undefined,
-      });
       setContent(decrypted);
-      const notes = await noteSvc.current.getNotesByScope(
-        scopeRef.current,
-        currentUrlRef.current,
-        wsIdRef.current
-      );
-      setContextNotes(notes);
-      await refreshAllNotes();
       return true;
     } catch {
       return false;
@@ -330,10 +318,23 @@ ${renderMarkdown(content)}
       const parsed = result.value;
 
       const current = await adapter.current.get();
-      // Validate and build the entire result before replacing the previous
-      // checkpoint, leaving it usable when this import cannot be applied.
+      const currentPrefs: Record<string, unknown> = {};
+      const localPrefKeys = ['tn_colors', 'tn_folder_colors', 'tn_pins', 'tn_fontsize', 'tn_align', 'tn_features'];
+      for (const k of localPrefKeys) {
+        const val = localStorage.getItem(k);
+        if (val !== null) currentPrefs[k] = val;
+      }
+      await new Promise<void>((resolve) => {
+        cr?.storage?.local?.get(['tn_digest', 'tn_streak', 'tn_backup_remind'], (res: Record<string, unknown>) => {
+          if (res?.tn_digest !== undefined) currentPrefs.tn_digest = res.tn_digest;
+          if (res?.tn_streak !== undefined) currentPrefs.tn_streak = res.tn_streak;
+          if (res?.tn_backup_remind !== undefined) currentPrefs.tn_backup_remind = res.tn_backup_remind;
+          resolve();
+        });
+      });
+
       const restored = applyBackupImport(parsed, current);
-      await adapter.current.createRecoverySnapshot('before-import');
+      await adapter.current.createRecoverySnapshot('before-import', Date.now(), currentPrefs);
       setCanRestoreImport(true);
       await adapter.current.set(restored.data);
       const reminderAlarms = await restoreReminderAlarms();
@@ -450,6 +451,25 @@ ${renderMarkdown(content)}
         setCanRestoreImport(false);
         showFeedback('error', t('backup.recoveryUnavailable'));
         return;
+      }
+
+      if (snapshot.prefs) {
+        const localKeys = ['tn_colors', 'tn_folder_colors', 'tn_pins', 'tn_fontsize', 'tn_align', 'tn_features'];
+        for (const k of localKeys) {
+          if (snapshot.prefs[k] !== undefined) {
+            localStorage.setItem(k, String(snapshot.prefs[k]));
+          } else {
+            localStorage.removeItem(k);
+          }
+        }
+        const chromeKeys = ['tn_digest', 'tn_streak', 'tn_backup_remind'];
+        for (const k of chromeKeys) {
+          if (snapshot.prefs[k] !== undefined) {
+            cr?.storage?.local?.set({ [k]: snapshot.prefs[k] });
+          } else {
+            cr?.storage?.local?.remove(k);
+          }
+        }
       }
 
       await restoreReminderAlarms();
