@@ -30,6 +30,38 @@ const DRIVE_AUTO_SYNC_ALARM = 'tn_drive_auto_sync';
 const DRIVE_PERIODIC_SYNC_ALARM = 'tn_drive_periodic_sync';
 const SYNC_DEBOUNCE_MS = 3_000;
 const PERIODIC_SYNC_MINUTES = 5;
+const TRANSIENT_RETRY_DELAYS_MS = [250, 1_000] as const;
+export const MAX_RETRY_DELAY_MS = 30_000;
+
+type DriveBackupSkipReason = 'cancelled' | 'disabled' | 'up-to-date';
+
+type DriveBackupOutcome =
+  | { state: DriveSyncState; error?: undefined; skipped?: DriveBackupSkipReason }
+  | { state: DriveSyncState; error: unknown; skipped?: DriveBackupSkipReason };
+
+interface DriveBackupInFlight {
+  generation: number;
+  promise: Promise<DriveBackupOutcome>;
+}
+
+class DriveBackupCancelledError extends Error {
+  constructor() {
+    super('Drive backup was cancelled because Drive Sync was disconnected.');
+  }
+}
+
+let driveBackupInFlight: DriveBackupInFlight | null = null;
+let driveOperationQueue: Promise<void> = Promise.resolve();
+let driveSyncGeneration = 0;
+
+function enqueueDriveOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const queued = driveOperationQueue.then(operation, operation);
+  driveOperationQueue = queued.then(
+    () => undefined,
+    () => undefined
+  );
+  return queued;
+}
 
 type DriveSyncStatus =
   | 'idle'
@@ -245,23 +277,90 @@ export function driveErrorMessage(error: unknown): string {
   return String(error);
 }
 
-async function loadBackupFileRecoveringFromStaleId(
+export function isTransientDriveError(error: unknown): error is DriveApiError {
+  return (
+    error instanceof DriveApiError &&
+    (error.status === 408 ||
+      error.status === 429 ||
+      error.status >= 500 ||
+      (error.status === 403 &&
+        (error.reason === 'rateLimitExceeded' || error.reason === 'userRateLimitExceeded')))
+  );
+}
+
+export function retryDelayFor(error: DriveApiError, attempt: number): number {
+  if (error.retryAfterMs !== undefined) return Math.min(error.retryAfterMs, MAX_RETRY_DELAY_MS);
+  const baseDelay = TRANSIENT_RETRY_DELAYS_MS[attempt] ?? MAX_RETRY_DELAY_MS;
+  const jitter = Math.round(baseDelay * 0.2 * Math.random());
+  return Math.min(baseDelay + jitter, MAX_RETRY_DELAY_MS);
+}
+
+function waitForRetry(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+/** Retries only idempotent Drive reads after transient failures. */
+export async function retryTransientDriveRead<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientDriveError(error) || attempt === TRANSIENT_RETRY_DELAYS_MS.length) {
+        throw error;
+      }
+      await waitForRetry(retryDelayFor(error, attempt));
+    }
+  }
+  throw lastError;
+}
+
+async function getBackupFileAfterStaleIdRecovery(
   token: string,
   fileId?: string
-): Promise<unknown | null> {
+): Promise<{ payload: unknown | null; resolvedFileId?: string }> {
+  const loadFile = async (resolvedFileId: string) => ({
+    payload: await retryTransientDriveRead(() => loadBackupFile(token, resolvedFileId)),
+    resolvedFileId,
+  });
+  const findAndLoadCurrentFile = async () => {
+    const fallbackFile = await retryTransientDriveRead(() => findBackupFile(token));
+    return fallbackFile ? loadFile(fallbackFile.id) : { payload: null };
+  };
+
+  if (!fileId) return findAndLoadCurrentFile();
+
   try {
-    return await loadBackupFile(token, fileId);
+    return await loadFile(fileId);
   } catch (error) {
-    if (!(error instanceof DriveApiError) || error.status !== 404 || !fileId) throw error;
-    return loadBackupFile(token);
+    if (!(error instanceof DriveApiError) || error.status !== 404) throw error;
+    return findAndLoadCurrentFile();
   }
 }
 
-async function saveCurrentBackupWithToken(token: string): Promise<DriveSyncState> {
+function assertDriveBackupCurrent(generation: number): void {
+  if (generation !== driveSyncGeneration) throw new DriveBackupCancelledError();
+}
+
+async function saveCurrentBackupWithToken(
+  token: string,
+  generation: number
+): Promise<DriveSyncState> {
+  assertDriveBackupCurrent(generation);
   const latestState = await getDriveState();
-  const rawBackup = await loadBackupFileRecoveringFromStaleId(token, latestState.fileId);
-  const remoteEnvelope = rawBackup ? parseAnyDriveSyncEnvelope(rawBackup) : null;
-  if (rawBackup && !remoteEnvelope) {
+  const { token: activeToken, remoteBackup } = await withFreshGoogleToken(
+    token,
+    async (candidateToken) => ({
+      token: candidateToken,
+      remoteBackup: await getBackupFileAfterStaleIdRecovery(candidateToken, latestState.fileId),
+    })
+  );
+  assertDriveBackupCurrent(generation);
+  const remoteEnvelope = remoteBackup.payload
+    ? parseAnyDriveSyncEnvelope(remoteBackup.payload)
+    : null;
+  if (remoteBackup.payload && !remoteEnvelope) {
     throw new Error('Drive backup is missing or uses an unsupported format.');
   }
   const deviceId = await ensureDeviceId();
@@ -293,7 +392,11 @@ async function saveCurrentBackupWithToken(token: string): Promise<DriveSyncState
     prefs,
     now: now + 1,
   });
-  const file = await saveBackupFile(token, envelope, latestState.fileId);
+  // A timed-out or throttled write has an unknown remote outcome. Surface the
+  // error instead of replaying it and potentially overwriting a newer backup.
+  assertDriveBackupCurrent(generation);
+  const file = await saveBackupFile(activeToken, envelope, remoteBackup.resolvedFileId);
+  assertDriveBackupCurrent(generation);
 
   return setDriveState({
     enabled: true,
@@ -311,9 +414,25 @@ async function shouldSkipAutomaticSync(token: string, state: DriveSyncState): Pr
   const local = await getCurrentStorage();
   if (hasLocalChangesSinceLastSync(local, state)) return false;
 
-  const remoteFile = await findBackupFile(token);
+  const remoteFile = await retryTransientDriveRead(() => findBackupFile(token));
   if (!remoteFile) return false;
   return Boolean(state.remoteModifiedTime && state.remoteModifiedTime === remoteFile.modifiedTime);
+}
+
+/**
+ * Retry a read/preparation operation once with a refreshed token after 401.
+ * This must not wrap a Drive write: its remote outcome can be ambiguous.
+ */
+async function withFreshGoogleToken<T>(
+  token: string,
+  operation: (token: string) => Promise<T>
+): Promise<T> {
+  try {
+    return await operation(token);
+  } catch (error) {
+    if (!(error instanceof DriveApiError) || error.status !== 401) throw error;
+    return operation(await refreshGoogleAuthToken(token));
+  }
 }
 
 async function failDriveSync(error: unknown, shouldThrow: boolean): Promise<DriveSyncState> {
@@ -364,111 +483,212 @@ export async function getDriveSyncStatus() {
   };
 }
 
-export async function connectDriveSync() {
-  await assertDriveFeatureAllowed();
-  await assertOAuthConfigured();
+export function connectDriveSync() {
+  return enqueueDriveOperation(async () => {
+    await assertDriveFeatureAllowed();
+    await assertOAuthConfigured();
 
-  const token = await getGoogleAuthToken(true);
-  const backupFile = await findBackupFile(token);
+    const token = await getGoogleAuthToken(true);
+    const backupFile = await withFreshGoogleToken(token, (activeToken) =>
+      retryTransientDriveRead(() => findBackupFile(activeToken))
+    );
 
-  await setDriveState({
-    enabled: true,
-    status: backupFile ? 'idle' : 'syncing',
-    fileId: backupFile?.id,
-    remoteModifiedTime: backupFile?.modifiedTime,
-    lastError: undefined,
+    await setDriveState({
+      enabled: true,
+      status: backupFile ? 'idle' : 'syncing',
+      fileId: backupFile?.id,
+      remoteModifiedTime: backupFile?.modifiedTime,
+      lastError: undefined,
+    });
+
+    if (!backupFile) {
+      const outcome = await performDriveBackupOnce(
+        'connect',
+        token,
+        driveSyncGeneration,
+        await getDriveState()
+      );
+      await adaptDriveBackupOutcome(outcome, 'connect');
+    }
+
+    await scheduleDrivePeriodicSync();
+
+    return {
+      ...(await getDriveSyncStatus()),
+      hasBackup: Boolean(backupFile),
+    };
   });
+}
 
-  if (!backupFile) {
-    await performDriveBackup('connect', token);
+function throwsDriveBackupFailure(source: DriveSyncSource): boolean {
+  return source === 'manual' || source === 'connect';
+}
+
+async function adaptDriveBackupOutcome(
+  outcome: DriveBackupOutcome,
+  source: DriveSyncSource
+): Promise<DriveSyncState> {
+  if (outcome.error) {
+    if (throwsDriveBackupFailure(source)) throw new Error(driveErrorMessage(outcome.error));
+    return outcome.state;
   }
 
-  await scheduleDrivePeriodicSync();
+  return outcome.state;
+}
 
-  return {
-    ...(await getDriveSyncStatus()),
-    hasBackup: Boolean(backupFile),
-  };
+function mustRetrySkippedBackup(source: DriveSyncSource, skipped?: DriveBackupSkipReason): boolean {
+  if (skipped === 'disabled') return source === 'manual' || source === 'connect';
+  return skipped === 'up-to-date' && source !== 'auto';
+}
+
+function sourceRequiresEnabledDriveSync(source: DriveSyncSource): boolean {
+  return source === 'auto' || source === 'external';
+}
+
+function startDriveBackup(source: DriveSyncSource, existingToken?: string): Promise<DriveBackupOutcome> {
+  const inFlight = driveBackupInFlight;
+  // Disconnect advances the generation before its state change is serialized.
+  // Calls that arrive afterward must queue behind that disconnect rather than
+  // inherit the cancelled operation's pre-disconnect state.
+  if (inFlight?.generation === driveSyncGeneration) return inFlight.promise;
+
+  const nextInFlight = { generation: driveSyncGeneration } as DriveBackupInFlight;
+  nextInFlight.promise = enqueueDriveOperation(async () => {
+    const state = await getDriveState();
+    if (!state.enabled && sourceRequiresEnabledDriveSync(source)) {
+      return { state, skipped: 'disabled' as const };
+    }
+    return performDriveBackupOnce(source, existingToken, nextInFlight.generation, state);
+  }).then(
+    (outcome) => {
+      if (driveBackupInFlight === nextInFlight) driveBackupInFlight = null;
+      return outcome;
+    },
+    (error) => {
+      if (driveBackupInFlight === nextInFlight) driveBackupInFlight = null;
+      throw error;
+    }
+  );
+  driveBackupInFlight = nextInFlight;
+  return nextInFlight.promise;
 }
 
 export async function performDriveBackup(
   source: DriveSyncSource = 'manual',
   existingToken?: string
-) {
-  const currentState = await getDriveState();
-  if (!currentState.enabled && (source === 'auto' || source === 'external')) return currentState;
+): Promise<DriveSyncState> {
+  const outcome = await startDriveBackup(source, existingToken);
+  if (mustRetrySkippedBackup(source, outcome.skipped)) {
+    return performDriveBackup(source, existingToken);
+  }
+  return adaptDriveBackupOutcome(outcome, source);
+}
 
-  await assertDriveFeatureAllowed();
-  await assertOAuthConfigured();
-
-  await setDriveState({ status: 'syncing', lastError: undefined });
-
-  let token = existingToken;
+async function backupFailureOutcome(
+  error: unknown,
+  preserveCurrentState = false
+): Promise<DriveBackupOutcome> {
   try {
-    token = token ?? (await getGoogleAuthToken(false));
-    if (source === 'auto' && (await shouldSkipAutomaticSync(token, currentState))) {
-      return setDriveState({
-        status: currentState.enabled ? 'ok' : currentState.status,
-        lastError: undefined,
-      });
-    }
-    const state = await saveCurrentBackupWithToken(token);
-    await scheduleDrivePeriodicSync();
-    return state;
-  } catch (error) {
-    if (error instanceof DriveApiError && error.status === 401 && token) {
-      try {
-        const freshToken = await refreshGoogleAuthToken(token);
-        const state = await saveCurrentBackupWithToken(freshToken);
-        await scheduleDrivePeriodicSync();
-        return state;
-      } catch (retryError) {
-        return failDriveSync(retryError, source !== 'auto' && source !== 'external');
-      }
-    }
-
-    return failDriveSync(error, source !== 'auto' && source !== 'external');
+    return {
+      state: preserveCurrentState ? await getDriveState() : await failDriveSync(error, false),
+      error,
+    };
+  } catch {
+    return {
+      state: {
+        ...DEFAULT_DRIVE_STATE,
+        status: 'error',
+        lastError: driveErrorMessage(error),
+      },
+      error,
+    };
   }
 }
 
-export async function restoreDriveBackup() {
-  await assertDriveFeatureAllowed();
-  await assertOAuthConfigured();
+async function performDriveBackupOnce(
+  source: DriveSyncSource,
+  existingToken: string | undefined,
+  generation: number,
+  currentState: DriveSyncState
+): Promise<DriveBackupOutcome> {
+  try {
+    await assertDriveFeatureAllowed();
+    await assertOAuthConfigured();
+  } catch (error) {
+    return backupFailureOutcome(error, true);
+  }
 
-  const state = await getDriveState();
-  const token = await getGoogleAuthToken(false);
-  const rawBackup = await loadBackupFileRecoveringFromStaleId(token, state.fileId);
-  const envelope = parseAnyDriveSyncEnvelope(rawBackup);
-  if (!envelope) throw new Error('Drive backup is missing or uses an unsupported format.');
+  try {
+    const token = existingToken ?? (await getGoogleAuthToken(false));
+    if (source === 'auto') {
+      const shouldSkip = await withFreshGoogleToken(token, (activeToken) =>
+        shouldSkipAutomaticSync(activeToken, currentState)
+      );
+      if (shouldSkip) {
+        assertDriveBackupCurrent(generation);
+        return {
+          state: await setDriveState({
+            status: currentState.enabled ? 'ok' : currentState.status,
+            lastError: undefined,
+          }),
+          skipped: 'up-to-date' as const,
+        };
+      }
+    }
+    const outcome = { state: await saveCurrentBackupWithToken(token, generation) };
+    await scheduleDrivePeriodicSync();
+    return outcome;
+  } catch (error) {
+    if (error instanceof DriveBackupCancelledError) {
+      return { state: await getDriveState(), skipped: 'cancelled' };
+    }
+    return backupFailureOutcome(error);
+  }
+}
 
-  const current = await getCurrentStorage();
-  const merged = mergeDriveSyncEnvelope(envelope, current, {
-    sourceDeviceId: await ensureDeviceId(),
-    localTombstones: state.tombstones ?? [],
-    lastSyncedAt: state.lastSyncedAt,
-  });
-  await chromeSet({
-    tabnotes_data: merged.data,
-    [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: Date.now(), source: 'drive-restore' },
-  });
-  await applyBackupPrefs(envelope.data.prefs);
-  const nextState = await setDriveState({
-    enabled: true,
-    status: 'ok',
-    lastRestoreAt: new Date().toISOString(),
-    lastSyncAt: new Date().toISOString(),
-    lastSyncedAt: Date.now(),
-    tombstones: merged.tombstones,
-    lastError: undefined,
-  });
-  await scheduleDrivePeriodicSync();
+export function restoreDriveBackup() {
+  return enqueueDriveOperation(async () => {
+    await assertDriveFeatureAllowed();
+    await assertOAuthConfigured();
 
-  return {
-    ...nextState,
-    ...(await getDriveSyncStatus()),
-    restoredAt: envelope.syncedAt,
-    summary: merged.summary,
-  };
+    const state = await getDriveState();
+    const token = await getGoogleAuthToken(false);
+    const remoteBackup = await withFreshGoogleToken(token, (activeToken) =>
+      getBackupFileAfterStaleIdRecovery(activeToken, state.fileId)
+    );
+    const envelope = parseAnyDriveSyncEnvelope(remoteBackup.payload);
+    if (!envelope) throw new Error('Drive backup is missing or uses an unsupported format.');
+
+    const current = await getCurrentStorage();
+    const merged = mergeDriveSyncEnvelope(envelope, current, {
+      sourceDeviceId: await ensureDeviceId(),
+      localTombstones: state.tombstones ?? [],
+      lastSyncedAt: state.lastSyncedAt,
+    });
+    await chromeSet({
+      tabnotes_data: merged.data,
+      [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: Date.now(), source: 'drive-restore' },
+    });
+    await applyBackupPrefs(envelope.data.prefs);
+    const nextState = await setDriveState({
+      enabled: true,
+      status: 'ok',
+      fileId: remoteBackup.resolvedFileId,
+      lastRestoreAt: new Date().toISOString(),
+      lastSyncAt: new Date().toISOString(),
+      lastSyncedAt: Date.now(),
+      tombstones: merged.tombstones,
+      lastError: undefined,
+    });
+    await scheduleDrivePeriodicSync();
+
+    return {
+      ...nextState,
+      ...(await getDriveSyncStatus()),
+      restoredAt: envelope.syncedAt,
+      summary: merged.summary,
+    };
+  });
 }
 
 export async function recordDriveDeletionTombstones(
@@ -510,14 +730,17 @@ export async function recordDriveDeletionTombstones(
   return removedWorkspaces.length + removedNotes.length;
 }
 
-export async function disconnectDriveSync() {
-  await disconnectGoogle();
-  await chromeAlarmClear(DRIVE_AUTO_SYNC_ALARM);
-  await chromeAlarmClear(DRIVE_PERIODIC_SYNC_ALARM);
-  return setDriveState({
-    enabled: false,
-    status: 'disconnected',
-    lastError: undefined,
+export function disconnectDriveSync(): Promise<DriveSyncState> {
+  driveSyncGeneration += 1;
+  return enqueueDriveOperation(async () => {
+    await disconnectGoogle();
+    await chromeAlarmClear(DRIVE_AUTO_SYNC_ALARM);
+    await chromeAlarmClear(DRIVE_PERIODIC_SYNC_ALARM);
+    return setDriveState({
+      enabled: false,
+      status: 'disconnected',
+      lastError: undefined,
+    });
   });
 }
 

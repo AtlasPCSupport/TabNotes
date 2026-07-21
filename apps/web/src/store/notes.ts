@@ -1,16 +1,20 @@
 import { create } from 'zustand';
 import {
   TOMBSTONE_RETENTION_MS,
+  applyBackupImport,
   createDeleteTombstone,
   createDriveSyncEnvelope,
-  importData as mergeImport,
   IndexedDbStorageAdapter,
+  decryptEncryptedManualBackupEnvelope,
+  isBackupImportTextWithinLimit,
+  isEncryptedManualBackupEnvelope,
+  isEncryptedManualBackupTextWithinLimit,
   mergeDriveSyncEnvelope,
   NotesService,
   parseAnyDriveSyncEnvelope,
+  parseBackupImportResult,
   WorkspacesService,
   type DriveSyncEnvelope,
-  type ExportData,
   type Note,
   type NoteScope,
   type StorageData,
@@ -96,7 +100,9 @@ interface NotesStore {
   setDefaultScope: (scope: NoteScope) => Promise<void>;
   setMarkdownEnabled: (enabled: boolean) => Promise<void>;
   exportData: () => Promise<StorageData>;
-  importData: (data: string) => Promise<void>;
+  importData: (data: string, password?: string) => Promise<void>;
+  hasRecoverySnapshot: () => Promise<boolean>;
+  restorePreImportSnapshot: () => Promise<boolean>;
   syncWithDrive: (interactive?: boolean) => Promise<void>;
   disconnectDrive: () => Promise<void>;
 }
@@ -106,6 +112,8 @@ const notesService = new NotesService(adapter);
 const workspacesService = new WorkspacesService(adapter);
 let inMemoryToken: string | null = null;
 let autoSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let webSyncInFlight: Promise<void> | null = null;
+const TRANSIENT_RETRY_DELAYS_MS = [250, 1_000] as const;
 
 function createDeviceId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -116,6 +124,32 @@ function syncErrorMessage(error: unknown): string {
   if (error instanceof WebDriveApiError) return `${error.status}: ${error.reason ?? error.message}`;
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function isTransientWebDriveError(error: unknown): boolean {
+  return (
+    error instanceof WebDriveApiError &&
+    (error.status === 408 || error.status === 429 || error.status >= 500)
+  );
+}
+
+function waitForRetry(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function retryTransientDriveOperation<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientWebDriveError(error) || attempt === TRANSIENT_RETRY_DELAYS_MS.length)
+        throw error;
+      await waitForRetry(TRANSIENT_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+  throw lastError;
 }
 
 function resolveLoadedSyncStatus(sync: SyncState, configured: boolean): SyncStatus {
@@ -228,6 +262,93 @@ function pruneTombstones(tombstones: SyncTombstone[], now = Date.now()): SyncTom
   }
 
   return [...byEntity.values()].sort((a, b) => b.deletedAt - a.deletedAt);
+}
+
+async function syncWebDriveOnce(
+  interactive: boolean,
+  set: (partial: Partial<NotesStore> | ((state: NotesStore) => Partial<NotesStore>)) => void,
+  get: () => NotesStore
+): Promise<void> {
+  if (!(await hasConfiguredGoogleClientId())) {
+    set({
+      sync: {
+        ...get().sync,
+        configured: false,
+        status: 'setup_required',
+        lastError: MISSING_CLIENT_ID_ERROR,
+      },
+    });
+    return;
+  }
+
+  set({ sync: { ...get().sync, status: 'syncing', lastError: undefined } });
+
+  try {
+    const token = await getToken(interactive);
+    const meta = await getSyncMeta();
+    const remoteFile = await retryTransientDriveOperation(() => findWebBackupFile(token));
+    const rawRemote = remoteFile
+      ? await retryTransientDriveOperation(() => loadWebBackupFile(token, remoteFile.id))
+      : null;
+    const remoteEnvelope = rawRemote ? parseAnyDriveSyncEnvelope(rawRemote) : null;
+    if (rawRemote && !remoteEnvelope) {
+      throw new Error('Drive backup is missing or uses an unsupported format.');
+    }
+    let local = await adapter.get();
+    let tombstones = meta.tombstones;
+    const previous: DriveSyncEnvelope | null = remoteEnvelope;
+    const now = Date.now();
+
+    if (remoteEnvelope) {
+      const merged = mergeDriveSyncEnvelope(remoteEnvelope, local, {
+        sourceDeviceId: meta.deviceId,
+        localTombstones: meta.tombstones,
+        lastSyncedAt: meta.lastSyncAt,
+        now,
+      });
+      local = merged.data;
+      tombstones = merged.tombstones;
+      await adapter.set(local);
+    }
+
+    const envelope = createDriveSyncEnvelope(local, {
+      sourceDeviceId: meta.deviceId,
+      previous,
+      tombstones,
+      now: now + 1,
+    });
+    const file = await retryTransientDriveOperation(() =>
+      saveWebBackupFile(token, envelope, remoteFile?.id ?? meta.fileId)
+    );
+    const nextMeta = await setSyncMeta({
+      fileId: file.id,
+      remoteModifiedTime: file.modifiedTime,
+      lastSyncAt: now + 1,
+      lastSyncIso: new Date(now + 1).toISOString(),
+      tombstones,
+    });
+
+    await get().load();
+    set({
+      sync: {
+        status: 'ok',
+        configured: true,
+        lastSyncIso: nextMeta.lastSyncIso,
+        remoteModifiedTime: nextMeta.remoteModifiedTime,
+        pendingTombstones: nextMeta.tombstones.length,
+      },
+    });
+    void notifyExtensionDriveUpdated();
+  } catch (error) {
+    set({
+      sync: {
+        ...get().sync,
+        status: 'error',
+        configured: hasGoogleClientId(),
+        lastError: syncErrorMessage(error),
+      },
+    });
+  }
 }
 
 export const useNotesStore = create<NotesStore>((set, get) => ({
@@ -354,102 +475,78 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   setDefaultScope: async (scope) => {
     await adapter.set({ defaultScope: scope });
-    set({ defaultScope: scope });
+    set({ defaultScope: scope, sync: markLocalChanges(get().sync) });
+    scheduleAutoSync(() => get().syncWithDrive(false));
   },
 
   setMarkdownEnabled: async (enabled) => {
     await adapter.set({ markdownEnabled: enabled });
-    set({ markdownEnabled: enabled });
+    set({ markdownEnabled: enabled, sync: markLocalChanges(get().sync) });
+    scheduleAutoSync(() => get().syncWithDrive(false));
   },
 
   exportData: () => adapter.get(),
 
-  importData: async (jsonStr) => {
-    const parsed = JSON.parse(jsonStr) as ExportData;
+  importData: async (jsonStr, password) => {
+    let rawBackup: unknown;
+    try {
+      rawBackup = JSON.parse(jsonStr);
+    } catch {
+      throw new Error('The selected file is not valid JSON.');
+    }
+
+    const encrypted = isEncryptedManualBackupEnvelope(rawBackup);
+    if (
+      !(encrypted
+        ? isEncryptedManualBackupTextWithinLimit(jsonStr)
+        : isBackupImportTextWithinLimit(jsonStr))
+    ) {
+      throw new Error('The selected file is too large.');
+    }
+    if (encrypted && !password) {
+      throw new Error('A password is required for this encrypted backup.');
+    }
+    const decrypted = encrypted
+      ? await decryptEncryptedManualBackupEnvelope(rawBackup, password!)
+      : rawBackup;
+    const result = decrypted ? parseBackupImportResult(decrypted) : null;
+    if (!result?.ok) {
+      throw new Error('The selected file is not a supported TabNotes backup.');
+    }
+    const backup = result.value;
+
     const current = await adapter.get();
-    const merged = mergeImport(parsed, current);
-    await adapter.set(merged);
+    // Finish all deterministic processing before taking the checkpoint, so a
+    // rejected backup never changes the available recovery snapshot.
+    const restored = applyBackupImport(backup, current);
+    await adapter.createRecoverySnapshot?.('before-backup-import');
+    await adapter.set(restored.data);
     await get().load();
     set({ sync: markLocalChanges(get().sync) });
     scheduleAutoSync(() => get().syncWithDrive(false));
   },
 
+  hasRecoverySnapshot: async () => Boolean(await adapter.getRecoverySnapshot?.()),
+
+  restorePreImportSnapshot: async () => {
+    const snapshot = await adapter.restoreRecoverySnapshot?.();
+    if (!snapshot) return false;
+    await adapter.clearRecoverySnapshot?.();
+    await get().load();
+    set({ sync: markLocalChanges(get().sync) });
+    scheduleAutoSync(() => get().syncWithDrive(false));
+    return true;
+  },
+
   syncWithDrive: async (interactive = true) => {
-    if (!(await hasConfiguredGoogleClientId())) {
-      set({
-        sync: {
-          ...get().sync,
-          configured: false,
-          status: 'setup_required',
-          lastError: MISSING_CLIENT_ID_ERROR,
-        },
-      });
-      return;
-    }
+    if (webSyncInFlight) return webSyncInFlight;
 
-    set({ sync: { ...get().sync, status: 'syncing', lastError: undefined } });
-
+    const sync = syncWebDriveOnce(interactive, set, get);
+    webSyncInFlight = sync;
     try {
-      const token = await getToken(interactive);
-      const meta = await getSyncMeta();
-      const remoteFile = await findWebBackupFile(token);
-      const rawRemote = remoteFile ? await loadWebBackupFile(token, remoteFile.id) : null;
-      const remoteEnvelope = rawRemote ? parseAnyDriveSyncEnvelope(rawRemote) : null;
-      if (rawRemote && !remoteEnvelope) {
-        throw new Error('Drive backup is missing or uses an unsupported format.');
-      }
-      let local = await adapter.get();
-      let tombstones = meta.tombstones;
-      const previous: DriveSyncEnvelope | null = remoteEnvelope;
-      const now = Date.now();
-
-      if (remoteEnvelope) {
-        const merged = mergeDriveSyncEnvelope(remoteEnvelope, local, {
-          sourceDeviceId: meta.deviceId,
-          localTombstones: meta.tombstones,
-          lastSyncedAt: meta.lastSyncAt,
-          now,
-        });
-        local = merged.data;
-        tombstones = merged.tombstones;
-        await adapter.set(local);
-      }
-
-      const envelope = createDriveSyncEnvelope(local, {
-        sourceDeviceId: meta.deviceId,
-        previous,
-        tombstones,
-        now: now + 1,
-      });
-      const file = await saveWebBackupFile(token, envelope, remoteFile?.id ?? meta.fileId);
-      const nextMeta = await setSyncMeta({
-        fileId: file.id,
-        remoteModifiedTime: file.modifiedTime,
-        lastSyncAt: now + 1,
-        lastSyncIso: new Date(now + 1).toISOString(),
-        tombstones,
-      });
-
-      await get().load();
-      set({
-        sync: {
-          status: 'ok',
-          configured: true,
-          lastSyncIso: nextMeta.lastSyncIso,
-          remoteModifiedTime: nextMeta.remoteModifiedTime,
-          pendingTombstones: nextMeta.tombstones.length,
-        },
-      });
-      void notifyExtensionDriveUpdated();
-    } catch (error) {
-      set({
-        sync: {
-          ...get().sync,
-          status: 'error',
-          configured: hasGoogleClientId(),
-          lastError: syncErrorMessage(error),
-        },
-      });
+      await sync;
+    } finally {
+      if (webSyncInFlight === sync) webSyncInFlight = null;
     }
   },
 

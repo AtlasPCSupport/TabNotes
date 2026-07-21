@@ -10,6 +10,7 @@ export class DriveApiError extends Error {
     readonly status: number,
     message: string,
     readonly reason?: string,
+    readonly retryAfterMs?: number
   ) {
     super(message);
     this.name = 'DriveApiError';
@@ -25,16 +26,31 @@ function escapeDriveQueryString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-async function parseErrorResponse(response: Response): Promise<{ message: string; reason?: string }> {
+export function parseRetryAfterMs(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  const milliseconds = Math.round(seconds * 1_000);
+  if (Number.isFinite(milliseconds) && milliseconds >= 0) return milliseconds;
+  if (/^-/.test(value.trim())) return undefined;
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - now) : undefined;
+}
+
+async function parseErrorResponse(response: Response): Promise<{
+  message: string;
+  reason?: string;
+  retryAfterMs?: number;
+}> {
+  const retryAfterMs = parseRetryAfterMs(response.headers.get('Retry-After'));
   try {
     const body = (await response.json()) as {
       error?: { message?: string; errors?: Array<{ reason?: string; message?: string }> };
     };
     const reason = body.error?.errors?.[0]?.reason;
     const message = body.error?.message ?? body.error?.errors?.[0]?.message ?? response.statusText;
-    return { message, reason };
+    return { message, reason, retryAfterMs };
   } catch {
-    return { message: response.statusText };
+    return { message: response.statusText, retryAfterMs };
   }
 }
 
@@ -45,7 +61,7 @@ async function driveFetch<T>(token: string, url: string, init: RequestInit = {})
   const response = await fetch(url, { ...init, headers });
   if (!response.ok) {
     const parsed = await parseErrorResponse(response);
-    throw new DriveApiError(response.status, parsed.message, parsed.reason);
+    throw new DriveApiError(response.status, parsed.message, parsed.reason, parsed.retryAfterMs);
   }
 
   if (response.status === 204) return undefined as T;
@@ -72,7 +88,11 @@ export async function createBackupFile(token: string, payload: unknown): Promise
   };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file', new Blob([JSON.stringify(payload)], { type: 'application/json' }), BACKUP_FILENAME);
+  form.append(
+    'file',
+    new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+    BACKUP_FILENAME
+  );
 
   const params = new URLSearchParams({
     uploadType: 'multipart',
@@ -84,7 +104,11 @@ export async function createBackupFile(token: string, payload: unknown): Promise
   });
 }
 
-export async function updateBackupFile(token: string, fileId: string, payload: unknown): Promise<DriveFile> {
+export async function updateBackupFile(
+  token: string,
+  fileId: string,
+  payload: unknown
+): Promise<DriveFile> {
   const params = new URLSearchParams({
     uploadType: 'media',
     fields: DRIVE_FILE_FIELDS,
@@ -96,7 +120,11 @@ export async function updateBackupFile(token: string, fileId: string, payload: u
   });
 }
 
-export async function saveBackupFile(token: string, payload: unknown, knownFileId?: string): Promise<DriveFile> {
+export async function saveBackupFile(
+  token: string,
+  payload: unknown,
+  knownFileId?: string
+): Promise<DriveFile> {
   if (knownFileId) {
     try {
       return await updateBackupFile(token, knownFileId, payload);
@@ -111,7 +139,9 @@ export async function saveBackupFile(token: string, payload: unknown, knownFileI
 }
 
 export async function loadBackupFile(token: string, fileId?: string): Promise<unknown | null> {
-  const file = fileId ? ({ id: fileId, name: BACKUP_FILENAME } as DriveFile) : await findBackupFile(token);
+  const file = fileId
+    ? ({ id: fileId, name: BACKUP_FILENAME } as DriveFile)
+    : await findBackupFile(token);
   if (!file) return null;
 
   const response = await fetch(`${DRIVE_API}/files/${file.id}?alt=media`, {
@@ -120,7 +150,7 @@ export async function loadBackupFile(token: string, fileId?: string): Promise<un
 
   if (!response.ok) {
     const parsed = await parseErrorResponse(response);
-    throw new DriveApiError(response.status, parsed.message, parsed.reason);
+    throw new DriveApiError(response.status, parsed.message, parsed.reason, parsed.retryAfterMs);
   }
 
   return response.json();
