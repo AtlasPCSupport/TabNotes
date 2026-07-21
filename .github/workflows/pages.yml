@@ -1,0 +1,38 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 11.5.3
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:release-metadata
+      - run: pnpm build:gh-pages
+      - name: Preserve the custom domain
+        run: printf '%s\n' 'tabnotes.atlaspcsupport.com' > dist-gh-pages/CNAME
+      - name: Publish GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist-gh-pages
+          force_orphan: true
