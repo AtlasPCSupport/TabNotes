@@ -48,7 +48,6 @@ const FEATURES = [
     color: '#8b5cf6',
     items: [
       { name: 'Smart Suggestions', desc: 'As you write, TabNotes silently analyses your content and surfaces the most relevant other notes in a Related panel.' },
-      { name: 'AI Chat (Ask)', desc: 'Ask questions about your notes in plain language. Powered by Groq — bring your own API key, keep your privacy.' },
       { name: 'Note Graph', desc: 'A live visual graph of all your notes, connected by wiki links and shared tags. See the big picture at a glance.' },
     ],
   },
@@ -70,7 +69,7 @@ const FEATURES = [
 const STATS = [
   { value: '4', label: 'note scopes' },
   { value: '6', label: 'editor features' },
-  { value: '3', label: 'AI capabilities' },
+  { value: '6', label: 'privacy features' },
   { value: '100%', label: 'local-first' },
 ];
 
