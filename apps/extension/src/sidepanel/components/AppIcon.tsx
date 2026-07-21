@@ -32,10 +32,8 @@ import {
   LayoutTemplate,
   Link2,
   List,
-  ListChecks,
   Lock,
   LockOpen,
-  MessageCircle,
   Moon,
   MoreHorizontal,
   Network,
@@ -45,7 +43,6 @@ import {
   Plus,
   Printer,
   Search,
-  SendHorizontal,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -59,7 +56,6 @@ import {
 export type AppIconName =
   | 'calendar'
   | 'camera'
-  | 'chat'
   | 'check'
   | 'checkCircle'
   | 'chevronDown'
@@ -84,7 +80,6 @@ export type AppIconName =
   | 'info'
   | 'key'
   | 'list'
-  | 'checklist'
   | 'lock'
   | 'markdown'
   | 'more'
@@ -96,7 +91,6 @@ export type AppIconName =
   | 'search'
   | 'settings'
   | 'shield'
-  | 'send'
   | 'spark'
   | 'template'
   | 'trash'
@@ -115,7 +109,6 @@ export type AppIconName =
 const ICON_MAP: Record<AppIconName, LucideIcon> = {
   calendar: CalendarDays,
   camera: Camera,
-  chat: MessageCircle,
   check: Check,
   checkCircle: CircleCheck,
   chevronDown: ChevronDown,
@@ -140,7 +133,6 @@ const ICON_MAP: Record<AppIconName, LucideIcon> = {
   info: Info,
   key: KeyRound,
   list: List,
-  checklist: ListChecks,
   lock: Lock,
   markdown: FileText,
   more: MoreHorizontal,
@@ -152,7 +144,6 @@ const ICON_MAP: Record<AppIconName, LucideIcon> = {
   search: Search,
   settings: Settings,
   shield: ShieldCheck,
-  send: SendHorizontal,
   spark: Sparkles,
   template: LayoutTemplate,
   trash: Trash2,

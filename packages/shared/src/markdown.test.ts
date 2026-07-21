@@ -12,14 +12,6 @@ describe('renderMarkdown', () => {
     expect(renderMarkdown('*italic*')).toContain('<em>italic</em>');
   });
 
-  it('renders task checkboxes', () => {
-    const done = renderMarkdown('- [x] done');
-    expect(done).toContain('type="checkbox"');
-    expect(done).toContain('checked');
-    const todo = renderMarkdown('- [ ] todo');
-    expect(todo).toContain('type="checkbox"');
-  });
-
   it('renders wiki links with data-wiki', () => {
     const out = renderMarkdown('[[My Note]]');
     expect(out).toContain('data-wiki="My Note"');

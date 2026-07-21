@@ -1,13 +1,19 @@
 import React from 'react';
 import { ErrorBoundary } from '@tabnotes/ui';
 import { useSidePanelStore } from '../store';
-import { Note, NoteScope, PinHash, searchNotes, type MoveNoteTarget } from '@tabnotes/shared';
+import {
+  type ChecklistItem,
+  Note,
+  NoteScope,
+  PinHash,
+  searchNotes,
+  type MoveNoteTarget,
+} from '@tabnotes/shared';
 import type { Features, Theme, Align } from '../store/types';
 import { ScopeOption } from './AllNotesView';
 
 import EditorView from './EditorView';
 import AllNotesView from './AllNotesView';
-import ChatView from './ChatView';
 import GraphView from './GraphView';
 import SettingsView from './SettingsView';
 import AboutView from './AboutView';
@@ -26,12 +32,14 @@ export interface ViewHostProps {
   isRestrictedUrl: boolean;
   selectNote: (n: Note) => void;
 
-  // EditorView props
+  // Checklist props
   checklistMode: boolean;
-  checklistItems: { id: string; checked: boolean; text: string }[];
-  setChecklistItems: React.Dispatch<React.SetStateAction<{ id: string; checked: boolean; text: string }[]>>;
+  checklistItems: ChecklistItem[];
+  setChecklistItems: (items: ChecklistItem[]) => void;
   toggleChecklistMode: () => void;
-  saveChecklist: (items: { id: string; checked: boolean; text: string }[]) => void;
+  saveChecklist: (items: ChecklistItem[]) => void;
+
+  // EditorView props
   editorRef: React.RefObject<HTMLDivElement>;
   onSetReminder: (ts: number) => Promise<void>;
   onClearReminder: () => Promise<void>;
@@ -76,7 +84,6 @@ export interface ViewHostProps {
   togglePin: (id: string) => void;
 
   // Additional EditorView props passed from monolith
-  isUpdatingChecklistRef: React.MutableRefObject<boolean>;
   schedule: (c: string, t: string, tg: string) => void;
   showMovePicker: boolean;
   setShowMovePicker: (v: boolean) => void;
@@ -92,16 +99,8 @@ export interface ViewHostProps {
   exportToPDF: () => void;
   captureScreenshot: () => void;
 
-  // ChatView props
-  groqKey: string;
-
   // SettingsView props
   toggleFeature: (key: keyof Features) => void;
-  groqKeyInput: string;
-  setGroqKeyInput: (val: string) => void;
-  groqKeyVisible: boolean;
-  setGroqKeyVisible: (updater: (v: boolean) => boolean) => void;
-  saveGroqKey: (key: string) => void;
   setTheme: (theme: Theme) => Promise<void>;
   pinHash: PinHash | null;
   pinSetInput: string;
@@ -137,6 +136,8 @@ export interface ViewHostProps {
   handleImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   importInputRef: React.RefObject<HTMLInputElement>;
   dataFeedback: { type: 'success' | 'error'; msg: string } | null;
+  canRestoreImport: boolean;
+  restorePreImportSnapshot: () => Promise<void>;
   backupRemindDays: number;
   setBackupRemind: (days: number) => void;
   language: 'en' | 'es';
@@ -190,7 +191,6 @@ export function ViewHost({
   bulkDeleteNotes,
   addNoteToContext,
   togglePin,
-  isUpdatingChecklistRef,
   schedule,
   showMovePicker,
   setShowMovePicker,
@@ -205,13 +205,7 @@ export function ViewHost({
   exportCurrentNote,
   exportToPDF,
   captureScreenshot,
-  groqKey,
   toggleFeature,
-  groqKeyInput,
-  setGroqKeyInput,
-  groqKeyVisible,
-  setGroqKeyVisible,
-  saveGroqKey,
   setTheme,
   pinHash,
   pinSetInput,
@@ -247,6 +241,8 @@ export function ViewHost({
   handleImport,
   importInputRef,
   dataFeedback,
+  canRestoreImport,
+  restorePreImportSnapshot,
   backupRemindDays,
   setBackupRemind,
   language,
@@ -291,9 +287,8 @@ export function ViewHost({
             checklistMode={checklistMode}
             checklistItems={checklistItems}
             setChecklistItems={setChecklistItems}
-            saveChecklist={saveChecklist}
-            isUpdatingChecklistRef={isUpdatingChecklistRef}
             toggleChecklistMode={toggleChecklistMode}
+            saveChecklist={saveChecklist}
             editorRef={editorRef}
             schedule={schedule}
             togglePin={togglePin}
@@ -381,13 +376,6 @@ export function ViewHost({
         </ErrorBoundary>
       )}
 
-      {/* Chat */}
-      {view === 'chat' && (
-        <ErrorBoundary label="chat view">
-          <ChatView groqKey={groqKey} />
-        </ErrorBoundary>
-      )}
-
       {/* Graph view */}
       {view === 'graph' && (
         <ErrorBoundary label="graph view">
@@ -400,13 +388,6 @@ export function ViewHost({
         <ErrorBoundary label="settings view">
           <SettingsView
             toggleFeature={toggleFeature}
-            groqKey={groqKey}
-            groqKeyInput={groqKeyInput}
-            setGroqKeyInput={setGroqKeyInput}
-            groqKeyVisible={groqKeyVisible}
-            setGroqKeyVisible={setGroqKeyVisible}
-            saveGroqKey={saveGroqKey}
-            onOpenChat={() => setView('chat')}
             setTheme={setTheme}
             pinHash={pinHash}
             pinSetInput={pinSetInput}
@@ -442,6 +423,8 @@ export function ViewHost({
             handleImport={handleImport}
             importInputRef={importInputRef}
             dataFeedback={dataFeedback}
+            canRestoreImport={canRestoreImport}
+            restorePreImportSnapshot={restorePreImportSnapshot}
             backupRemindDays={backupRemindDays}
             setBackupRemind={setBackupRemind}
             language={language}

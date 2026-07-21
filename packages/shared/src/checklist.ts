@@ -7,6 +7,22 @@
  * Keeping this DOM-free makes it unit-testable.
  */
 
+/**
+ * Convert editor HTML into checklist-safe, newline-separated plain text.
+ * Block closing tags and line breaks become newlines before remaining markup
+ * is stripped, preserving the visual rows a user entered.
+ */
+export function editorHtmlToPlainText(content: string): string {
+  return content
+    .replace(/<\/(?:p|div|li|h[1-6])\s*>/gi, '\n')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
 export interface ChecklistItem {
   id: string;
   checked: boolean;
@@ -16,7 +32,7 @@ export interface ChecklistItem {
 /** True when the content looks like a markdown checklist (starts with a task line). */
 export function isChecklistContent(content: string): boolean {
   const t = content.trim();
-  return t.startsWith('- [ ]') || t.startsWith('- [x]') || t.startsWith('- [X]');
+  return /^- \[(?: |x|X)\](?:\s|$)/.test(t);
 }
 
 /**

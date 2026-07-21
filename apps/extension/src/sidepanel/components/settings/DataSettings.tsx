@@ -13,6 +13,8 @@ export function DataSettings({
   handleImport,
   importInputRef,
   dataFeedback,
+  canRestoreImport,
+  restorePreImportSnapshot,
   backupRemindDays,
   setBackupRemind,
 }: {
@@ -20,6 +22,8 @@ export function DataSettings({
   handleImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   importInputRef: React.RefObject<HTMLInputElement>;
   dataFeedback: { type: 'success' | 'error'; msg: string } | null;
+  canRestoreImport: boolean;
+  restorePreImportSnapshot: () => Promise<void>;
   backupRemindDays: number;
   setBackupRemind: (days: number) => void;
 }) {
@@ -55,6 +59,21 @@ export function DataSettings({
           onChange={handleImport}
         />
       </div>
+      {canRestoreImport && (
+        <button
+          className="sp-data-btn"
+          onClick={async () => {
+            if (!window.confirm(t('backup.recoveryConfirm'))) return;
+            await restorePreImportSnapshot();
+          }}
+        >
+          <span className="sp-data-btn-icon">↶</span>
+          <div className="sp-data-btn-info">
+            <div className="sp-data-btn-title">{t('backup.recoveryRestore')}</div>
+            <div className="sp-data-btn-desc">{t('backup.recoveryRestoreDesc')}</div>
+          </div>
+        </button>
+      )}
       {dataFeedback && (
         <div className={`sp-data-feedback ${dataFeedback.type}`}>
           <AppIcon name={dataFeedback.type === 'success' ? 'check' : 'close'} size={13} />{' '}
@@ -78,7 +97,9 @@ export function DataSettings({
         }}
       >
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600 }}>{t('settingsSections.backupReminder')}</div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>
+            {t('settingsSections.backupReminder')}
+          </div>
           <div style={{ fontSize: 10, color: 'var(--text-subtle)', marginTop: 1 }}>
             {t('settingsSections.backupReminderDesc')}
           </div>

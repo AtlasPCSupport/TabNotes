@@ -56,7 +56,6 @@ export function AboutView() {
       color: 'var(--accent)',
       itemKeys: [
         'about.categories.intelligence.suggestions',
-        'about.categories.intelligence.chat',
         'about.categories.intelligence.graph',
       ],
     },

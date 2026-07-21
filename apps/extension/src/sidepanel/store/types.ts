@@ -1,11 +1,10 @@
-import type { Note, NoteScope, Workspace } from '@tabnotes/shared';
+import type { ChecklistItem, Note, NoteScope, Workspace } from '@tabnotes/shared';
 import type { Language } from '@tabnotes/i18n';
 
 /** The side panel's top-level views, mirrored from the existing `view` state. */
-export type View = 'note' | 'all' | 'settings' | 'graph' | 'chat' | 'about';
+export type View = 'note' | 'all' | 'settings' | 'graph' | 'about';
 export type SettingsTarget =
   | 'features'
-  | 'ai'
   | 'appearance'
   | 'language'
   | 'pin'
@@ -27,7 +26,6 @@ export interface Features {
   writingStreak: boolean;
   wikiLinks: boolean;
   cmdPalette: boolean;
-  chatView: boolean;
   noteGraph: boolean;
 }
 
@@ -37,7 +35,6 @@ export const DEFAULT_FEATURES: Features = {
   writingStreak: true,
   wikiLinks: true,
   cmdPalette: true,
-  chatView: true,
   noteGraph: true,
 };
 
@@ -131,7 +128,23 @@ export interface EditorSlice {
 }
 
 /**
+ * Checklist slice — reactive checklist mode and rows. Checklist serialization
+ * belongs to SidePanelApp because it coordinates editor content and autosave.
+ */
+export interface ChecklistSlice {
+  checklistMode: boolean;
+  checklistItems: ChecklistItem[];
+
+  setChecklistMode: (v: Updater<boolean>) => void;
+  setChecklistItems: (v: Updater<ChecklistItem[]>) => void;
+}
+
+/**
  * The composed side panel store state. As each slice is extracted it is added
  * to this intersection type.
  */
-export type SidePanelState = ContextSlice & SettingsSlice & NoteListSlice & EditorSlice;
+export type SidePanelState = ContextSlice &
+  SettingsSlice &
+  NoteListSlice &
+  EditorSlice &
+  ChecklistSlice;

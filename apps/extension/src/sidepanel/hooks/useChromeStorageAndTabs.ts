@@ -8,6 +8,9 @@ import {
   StorageData,
   normalizeDomain,
   stripFormatting,
+  editorHtmlToPlainText,
+  isChecklistContent,
+  parseChecklistItems,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import i18n, { resolveLanguage } from '@tabnotes/i18n';
@@ -88,11 +91,6 @@ export function useChromeStorageAndTabs({
   const [digestTime, setDigestTime] = useState('09:00');
   const [backupRemindDays, setBackupRemindDays] = useState<number>(7);
 
-  // Groq / AI states
-  const [groqKey, setGroqKey] = useState('');
-  const [groqKeyInput, setGroqKeyInput] = useState('');
-  const [groqKeyVisible, setGroqKeyVisible] = useState(false);
-
   // Offline / sync status
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [pendingSyncIds, setPendingSyncIds] = useState<Set<string>>(new Set());
@@ -120,6 +118,8 @@ export function useChromeStorageAndTabs({
   const setTitle = useSidePanelStore((s) => s.setTitle);
   const setTags = useSidePanelStore((s) => s.setTags);
   const setSaved = useSidePanelStore((s) => s.setSaved);
+  const setChecklistMode = useSidePanelStore((s) => s.setChecklistMode);
+  const setChecklistItems = useSidePanelStore((s) => s.setChecklistItems);
 
   const applyCleanNoteToEditor = useCallback(
     (note: Note | null) => {
@@ -130,6 +130,10 @@ export function useChromeStorageAndTabs({
       setContent(nextContent);
       setTitle(stripFormatting(note?.title ?? ''));
       setTags(note?.tags.join(', ') ?? '');
+      const plainContent = editorHtmlToPlainText(nextContent);
+      const isChecklist = isChecklistContent(plainContent);
+      setChecklistMode(isChecklist);
+      setChecklistItems(isChecklist ? parseChecklistItems(plainContent) : []);
       setSaved(false);
       setPreview(false);
     },
@@ -140,6 +144,8 @@ export function useChromeStorageAndTabs({
       setContent,
       setPreview,
       setSaved,
+      setChecklistItems,
+      setChecklistMode,
       setTags,
       setTitle,
     ]
@@ -390,10 +396,15 @@ export function useChromeStorageAndTabs({
             activeNoteIdRef.current = nextNote?.id ?? null;
             setActiveNoteId(nextNote?.id ?? null);
             contentSavedRef.current = nextNote?.content ?? '';
+            const nextContent = nextNote?.content ?? '';
+            const plainContent = editorHtmlToPlainText(nextContent);
+            const isChecklist = isChecklistContent(plainContent);
             setTitle(stripFormatting(nextNote?.title ?? ''));
             setTags(nextNote?.tags.join(', ') ?? '');
+            setChecklistMode(isChecklist);
+            setChecklistItems(isChecklist ? parseChecklistItems(plainContent) : []);
             setSaved(false);
-            return nextNote?.content ?? '';
+            return nextContent;
           });
         }
       }, 250);
@@ -426,6 +437,8 @@ export function useChromeStorageAndTabs({
     setSaved,
     setTitle,
     setTags,
+    setChecklistItems,
+    setChecklistMode,
     adapter,
     setLanguageState,
     setThemeState,
@@ -474,18 +487,6 @@ export function useChromeStorageAndTabs({
         if (d) {
           setDigestEnabled(d.enabled ?? false);
           setDigestTime(d.time ?? '09:00');
-        }
-      }
-
-      // Load Groq API key
-      if (cr?.storage?.local?.get) {
-        const gk = await new Promise<Record<string, unknown>>((res) =>
-          cr.storage.local.get('tn_groq_key', res)
-        );
-        if (typeof gk['tn_groq_key'] === 'string') {
-          const key = gk['tn_groq_key'];
-          setGroqKey(key);
-          setGroqKeyInput(key);
         }
       }
 
@@ -615,12 +616,6 @@ export function useChromeStorageAndTabs({
     setDigestTime,
     backupRemindDays,
     setBackupRemindDays,
-    groqKey,
-    setGroqKey,
-    groqKeyInput,
-    setGroqKeyInput,
-    groqKeyVisible,
-    setGroqKeyVisible,
     isOnline,
     pendingSyncIds,
     setPendingSyncIds,

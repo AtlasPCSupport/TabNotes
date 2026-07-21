@@ -3,21 +3,12 @@ import { useSidePanelStore } from '../store';
 import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon } from './AppIcon';
 
-/**
- * Persistent bottom navigation. Reads view + chat feature flag from the store;
- * note count and groq-key indicator are passed in (still owned by the monolith
- * during the migration). Extracted verbatim (Task 3.2) — no behavior change.
- */
-export function BottomNav({
-  groqKey,
-}: {
-  groqKey: string;
-}) {
+/** Persistent bottom navigation for notes, all notes, and settings. */
+export function BottomNav() {
   const { t } = useTranslation();
   const view = useSidePanelStore((s) => s.view);
   const setView = useSidePanelStore((s) => s.setView);
   const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
-  const chatEnabled = useSidePanelStore((s) => s.features.chatView);
   const allNotes = useSidePanelStore((s) => s.allNotes);
   const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
   const workspaceNotesCount = React.useMemo(
@@ -62,16 +53,6 @@ export function BottomNav({
           </span>
         )}
       </button>
-      {chatEnabled && (
-        <button
-          className={`sp-nav-btn${view === 'chat' ? ' active' : ''}`}
-          onClick={() => setView('chat')}
-        >
-          <span className="sp-nav-icon"><AppIcon name="chat" size={18} /></span>
-          <span className="sp-nav-label">{t('nav.ask')}</span>
-          {groqKey && <span className="sp-nav-ai-dot" />}
-        </button>
-      )}
       <button
         className={`sp-nav-btn${view === 'settings' ? ' active' : ''}`}
         onClick={() => {

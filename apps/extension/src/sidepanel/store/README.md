@@ -9,8 +9,8 @@ shared UI and domain state. It replaces the flat `useState`/`useRef` surface of 
 - `index.ts` — `create()`s the store by spreading all slice creators; exports `useSidePanelStore`.
 - `types.ts` — `View`, each slice interface, and the composed `SidePanelState` intersection.
 - `runtime.ts` — **non-reactive** registry for timers, timestamps, and the editor DOM node.
-- `*Slice.ts` — one slice creator per concern (context, editor, noteList, commandPalette, chat,
-  settings). Added incrementally as the monolith is decomposed.
+- `*Slice.ts` — one slice creator per concern (context, editor, noteList, commandPalette,
+  settings, checklist). Added incrementally as the monolith is decomposed.
 
 ## Two hard rules
 

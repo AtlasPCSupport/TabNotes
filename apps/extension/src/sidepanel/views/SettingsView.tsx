@@ -6,7 +6,6 @@ import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
 
 import { FeatureToggles } from '../components/settings/FeatureToggles';
-import { AiSettings } from '../components/settings/AiSettings';
 import { PinSettings } from '../components/settings/PinSettings';
 import { EditorSettings } from '../components/settings/EditorSettings';
 import { ScopeDigestSettings } from '../components/settings/ScopeDigestSettings';
@@ -39,15 +38,6 @@ const SETTINGS_HIGHLIGHT_MS = 1400;
 export interface SettingsViewProps {
   // Feature Toggles
   toggleFeature: (key: keyof Features) => void;
-
-  // AI settings
-  groqKey: string;
-  groqKeyInput: string;
-  setGroqKeyInput: (val: string) => void;
-  groqKeyVisible: boolean;
-  setGroqKeyVisible: (updater: (v: boolean) => boolean) => void;
-  saveGroqKey: (key: string) => void;
-  onOpenChat: () => void;
 
   // Theme
   setTheme: (theme: Theme) => Promise<void>;
@@ -95,6 +85,8 @@ export interface SettingsViewProps {
   handleImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   importInputRef: React.RefObject<HTMLInputElement>;
   dataFeedback: { type: 'success' | 'error'; msg: string } | null;
+  canRestoreImport: boolean;
+  restorePreImportSnapshot: () => Promise<void>;
   backupRemindDays: number;
   setBackupRemind: (days: number) => void;
   language: 'en' | 'es';
@@ -103,13 +95,6 @@ export interface SettingsViewProps {
 
 export function SettingsView({
   toggleFeature,
-  groqKey,
-  groqKeyInput,
-  setGroqKeyInput,
-  groqKeyVisible,
-  setGroqKeyVisible,
-  saveGroqKey,
-  onOpenChat,
   setTheme,
   pinHash,
   pinSetInput,
@@ -145,6 +130,8 @@ export function SettingsView({
   handleImport,
   importInputRef,
   dataFeedback,
+  canRestoreImport,
+  restorePreImportSnapshot,
   backupRemindDays,
   setBackupRemind,
   language,
@@ -205,23 +192,6 @@ export function SettingsView({
         tabIndex={-1}
       >
         <FeatureToggles features={features} toggleFeature={toggleFeature} />
-      </div>
-
-      <div
-        ref={registerSection('ai')}
-        className={sectionClassName('ai')}
-        data-settings-section="ai"
-        tabIndex={-1}
-      >
-        <AiSettings
-          groqKey={groqKey}
-          groqKeyInput={groqKeyInput}
-          setGroqKeyInput={setGroqKeyInput}
-          groqKeyVisible={groqKeyVisible}
-          setGroqKeyVisible={setGroqKeyVisible}
-          saveGroqKey={saveGroqKey}
-          onOpenChat={onOpenChat}
-        />
       </div>
 
       <div
@@ -361,6 +331,8 @@ export function SettingsView({
           handleImport={handleImport}
           importInputRef={importInputRef}
           dataFeedback={dataFeedback}
+          canRestoreImport={canRestoreImport}
+          restorePreImportSnapshot={restorePreImportSnapshot}
           backupRemindDays={backupRemindDays}
           setBackupRemind={setBackupRemind}
         />

@@ -3345,358 +3345,6 @@ select:focus-visible,
   color: var(--text);
 }
 
-/* ─── Chat / RAG view ───────────────────────────────────────── */
-.sp-chat-view {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-.sp-chat-topbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg-subtle);
-}
-.sp-chat-scope-toggle {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-}
-.sp-chat-scope-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border: 1.5px solid var(--border);
-  border-radius: 99px;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-family: var(--font);
-  font-size: 10.5px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 100ms;
-}
-.sp-chat-scope-btn.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.sp-chat-ctx-count {
-  font-size: 10px;
-  color: var(--text-subtle);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.sp-chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.sp-chat-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.sp-chat-no-key {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-  padding: 24px 16px;
-}
-.sp-chat-no-key-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.sp-chat-no-key p {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  margin: 0;
-}
-.sp-chat-goto-settings {
-  padding: 6px 16px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: none;
-  border-radius: 99px;
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.sp-chat-goto-settings:hover {
-  opacity: 0.9;
-}
-.sp-chat-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  padding: 20px 16px;
-}
-.sp-chat-hint-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.sp-chat-hint p {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.5;
-}
-.sp-chat-examples {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-  max-width: 220px;
-  margin-top: 4px;
-}
-.sp-chat-example {
-  padding: 6px 12px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  font-family: var(--font);
-  font-size: 11px;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 100ms,
-    color 100ms;
-}
-.sp-chat-example:hover {
-  background: var(--accent-soft, #352b12);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.sp-chat-msg {
-  display: flex;
-}
-.sp-chat-msg-user {
-  justify-content: flex-end;
-}
-.sp-chat-msg-assistant {
-  justify-content: flex-start;
-}
-.sp-chat-bubble {
-  max-width: 88%;
-  padding: 8px 11px;
-  border-radius: 12px;
-  font-size: 12px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.sp-chat-msg-user .sp-chat-bubble {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-bottom-right-radius: 4px;
-}
-.sp-chat-msg-assistant .sp-chat-bubble {
-  background: var(--bg-subtle);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-bottom-left-radius: 4px;
-}
-.sp-chat-typing {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 16px;
-}
-.sp-chat-typing span {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  background: var(--text-subtle);
-  border-radius: 50%;
-  animation: chatDot 1.2s infinite ease-in-out;
-}
-.sp-chat-typing span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.sp-chat-typing span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes chatDot {
-  0%,
-  80%,
-  100% {
-    transform: scale(0.6);
-    opacity: 0.4;
-  }
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-.sp-chat-input-row {
-  display: flex;
-  gap: 6px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg-card);
-}
-.sp-chat-input {
-  flex: 1;
-  padding: 7px 10px;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--r-md);
-  background: var(--bg-subtle);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 12.5px;
-  outline: none;
-  transition: border-color 150ms;
-}
-.sp-chat-input:focus {
-  border-color: var(--accent);
-  background: var(--bg-card);
-}
-.sp-chat-input:disabled {
-  opacity: 0.5;
-}
-.sp-chat-send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: none;
-  border-radius: var(--r-md);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity 150ms;
-  flex-shrink: 0;
-}
-.sp-chat-send:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.sp-chat-send:not(:disabled):hover {
-  opacity: 0.85;
-}
-.sp-chat-clear {
-  background: none;
-  border: none;
-  font-family: var(--font);
-  font-size: 10px;
-  color: var(--text-subtle);
-  cursor: pointer;
-  padding: 3px 10px 6px;
-  text-align: center;
-  width: 100%;
-  flex-shrink: 0;
-  transition: color 100ms;
-}
-.sp-chat-clear:hover {
-  color: var(--text);
-}
-
-/* ─── Groq key settings ──────────────────────────────────────── */
-.sp-groq-key-row {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-.sp-groq-key-input {
-  flex: 1;
-  padding: 6px 9px;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--r-sm, 6px);
-  background: var(--bg-subtle);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 11.5px;
-  outline: none;
-  transition: border-color 150ms;
-  min-width: 0;
-}
-.sp-groq-key-input:focus {
-  border-color: var(--accent);
-}
-.sp-groq-key-eye {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 7px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm, 6px);
-  cursor: pointer;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.sp-groq-key-save {
-  padding: 5px 10px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  border: none;
-  border-radius: var(--r-sm, 6px);
-  font-family: var(--font);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: opacity 150ms;
-}
-.sp-groq-key-save:hover {
-  opacity: 0.85;
-}
-.sp-groq-key-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.sp-groq-open-chat {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-family: var(--font);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 0;
-  font-weight: 600;
-}
-.sp-groq-open-chat:hover {
-  text-decoration: underline;
-}
-
-/* ─── Nav AI dot ─────────────────────────────────────────────── */
-.sp-nav-ai-dot {
-  position: absolute;
-  top: 7px;
-  right: calc(50% - 16px);
-  width: 5px;
-  height: 5px;
-  background: #22c55e;
-  border-radius: 50%;
-  border: 1px solid var(--bg-card);
-}
-
 /* ─── Pin badge on All Notes cards ──────────────────────────── */
 .sp-card-pin {
   display: inline-flex;
@@ -4965,178 +4613,6 @@ select:focus-visible,
   pointer-events: none;
 }
 
-/* ─── Google Keep-style Checklist Editor ────────────────────────── */
-.sp-checklist-container {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  padding: 8px 0;
-}
-
-.sp-checklist-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: var(--r-sm);
-  background: transparent;
-  transition: background 0.1s ease;
-}
-
-.sp-checklist-row:hover {
-  background: var(--bg-card);
-}
-
-.sp-checklist-drag-handle {
-  cursor: grab;
-  color: var(--text-muted);
-  opacity: 0.2;
-  user-select: none;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-}
-
-.sp-checklist-row:hover .sp-checklist-drag-handle {
-  opacity: 0.7;
-}
-
-.sp-checklist-checkbox {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.sp-checklist-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font-size: var(--font-size, 13px);
-  font-family: inherit;
-  padding: 2px 0;
-}
-
-.sp-checklist-input.checked {
-  text-decoration: line-through;
-  color: var(--text-subtle);
-  opacity: 0.6;
-}
-
-.sp-checklist-delete {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.1s ease;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-}
-
-.sp-checklist-row:hover .sp-checklist-delete {
-  opacity: 0.6;
-}
-
-.sp-checklist-delete:hover {
-  opacity: 1 !important;
-  color: #ef4444;
-}
-
-.sp-checklist-add-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  color: var(--text-muted);
-}
-
-.sp-checklist-add-icon {
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  margin-left: 22px; /* aligns with checkbox, past drag handle */
-  color: var(--text-muted);
-  opacity: 0.7;
-}
-
-.sp-checklist-add-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font-size: var(--font-size, 13px);
-  font-family: inherit;
-  padding: 2px 0;
-}
-
-.sp-checklist-add-input::placeholder {
-  color: var(--text-subtle);
-  opacity: 0.7;
-}
-
-.sp-checklist-completed-section {
-  margin-top: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-}
-
-.sp-checklist-completed-header {
-  background: transparent;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.sp-checklist-completed-header:hover {
-  color: var(--text);
-}
-
-.sp-checklist-completed-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease;
-}
-
-.sp-checklist-completed-arrow.open {
-  transform: rotate(90deg);
-}
-
-.sp-checklist-completed-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-}
-
 /* ─── PIN lock screen ────────────────────────────────────────── */
 .sp-pin-lock {
   display: flex;
@@ -5329,5 +4805,188 @@ select:focus-visible,
   box-shadow: var(--shadow-xs);
   cursor: default;
   transform: none;
+}
+
+/* ─── Keep-style checklist editor ─────────────────────────────── */
+.sp-checklist-container {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.sp-checklist-list,
+.sp-checklist-completed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sp-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  transition: background 100ms var(--ease);
+}
+
+.sp-checklist-row:hover {
+  background: var(--bg-card);
+}
+
+.sp-checklist-drag-handle {
+  display: flex;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0.25;
+  user-select: none;
+}
+
+.sp-checklist-row:hover .sp-checklist-drag-handle {
+  opacity: 0.7;
+}
+
+.sp-checklist-row:has(.sp-checklist-input:focus-visible) .sp-checklist-drag-handle {
+  opacity: 0.7;
+}
+
+.sp-checklist-checkbox {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.sp-checklist-input,
+.sp-checklist-add-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--font-size, 13px);
+}
+
+.sp-checklist-input::placeholder,
+.sp-checklist-add-input::placeholder {
+  color: var(--text-subtle);
+  opacity: 0.7;
+}
+
+.sp-checklist-input.checked {
+  color: var(--text-subtle);
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.sp-checklist-input:disabled,
+.sp-checklist-add-input:disabled,
+.sp-checklist-checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.sp-checklist-delete {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: color 100ms var(--ease), opacity 100ms var(--ease);
+}
+
+.sp-checklist-row:hover .sp-checklist-delete,
+.sp-checklist-row:focus-within .sp-checklist-delete {
+  opacity: 0.6;
+}
+
+.sp-checklist-delete:hover:not(:disabled),
+.sp-checklist-delete:focus-visible:not(:disabled) {
+  color: var(--danger);
+  opacity: 1;
+}
+
+.sp-checklist-delete:disabled {
+  cursor: not-allowed;
+}
+
+.sp-checklist-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  color: var(--text-muted);
+}
+
+.sp-checklist-add-icon {
+  display: flex;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 22px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.sp-checklist-completed-section {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.sp-checklist-completed-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.sp-checklist-completed-header:hover,
+.sp-checklist-completed-header:focus-visible {
+  color: var(--text);
+}
+
+.sp-checklist-completed-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 150ms var(--ease);
+}
+
+.sp-checklist-completed-arrow.open {
+  transform: rotate(90deg);
 }
 

@@ -117,7 +117,7 @@ export function AllNotesView(props: {
             setDeleteCardConfirmId(null);
           }}
         >
-          {selectMode ? t('common.cancel') : <AppIcon name="checklist" size={15} />}
+          {selectMode ? t('common.cancel') : <AppIcon name="check" size={15} />}
         </button>
       </div>
 

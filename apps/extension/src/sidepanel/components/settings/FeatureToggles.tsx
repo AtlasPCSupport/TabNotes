@@ -16,7 +16,6 @@ const FEATURE_ROWS: { key: keyof Features; label: string; desc: string }[] = [
   { key: 'writingStreak', label: 'Writing Streak', desc: 'Day-streak badge in the header' },
   { key: 'wikiLinks', label: 'Wiki Links', desc: '[[Note name]] autocomplete' },
   { key: 'cmdPalette', label: 'Command Palette', desc: 'Ctrl+K quick actions' },
-  { key: 'chatView', label: 'Ask Your Notes', desc: 'AI chat tab powered by Groq' },
   { key: 'noteGraph', label: 'Note Graph', desc: 'Visual relationship graph' },
 ];
 
@@ -39,8 +38,12 @@ export function FeatureToggles({
       {FEATURE_ROWS.map((f) => (
         <div key={f.key} className="sp-settings-row" style={{ marginTop: 8 }}>
           <div className="sp-settings-row-info">
-            <div className="sp-settings-row-title">{t(`settingsSections.features.${f.key}` as TranslationKey, f.label)}</div>
-            <div className="sp-settings-row-desc">{t(`settingsSections.features.${f.key}Desc` as TranslationKey, f.desc)}</div>
+            <div className="sp-settings-row-title">
+              {t(`settingsSections.features.${f.key}` as TranslationKey, f.label)}
+            </div>
+            <div className="sp-settings-row-desc">
+              {t(`settingsSections.features.${f.key}Desc` as TranslationKey, f.desc)}
+            </div>
           </div>
           <button
             className={`sp-toggle ${features[f.key] ? 'on' : 'off'}`}

@@ -31,7 +31,6 @@
   "nav": {
     "note": "Note",
     "allNotes": "All Notes",
-    "ask": "Ask",
     "settings": "Settings"
   },
   "reminders": {
@@ -54,6 +53,14 @@
     "domainDesc": "Entire site",
     "workspaceDesc": "Your project",
     "globalDesc": "Everywhere"
+  },
+  "checklist": {
+    "itemPlaceholder": "List item",
+    "addItem": "Add list item",
+    "deleteItem": "Delete list item",
+    "markComplete": "Mark item complete",
+    "markIncomplete": "Mark item incomplete",
+    "completed": "Completed ({{count}})"
   },
   "editor": {
     "placeholder": "Note for this {{scope}}…",
@@ -83,8 +90,6 @@
     "actionHistory": "History",
     "actionReminder": "Reminder",
     "actionReminderSet": "Reminder set",
-    "actionChecklist": "Checklist",
-    "actionPlainText": "Text",
     "actionPreview": "Preview",
     "actionEdit": "Edit",
     "folderTooltip": "Move note",
@@ -106,8 +111,6 @@
     "historyTooltip": "Version history",
     "reminderTooltip": "Set reminder",
     "reminderSuccessTooltip": "Reminder set!",
-    "checklistTooltip": "Checklist mode",
-    "checklistExitTooltip": "Plain text mode",
     "markdownTooltip": "Markdown preview",
     "previewTitle": "Nothing to preview yet.",
     "related": "Related",
@@ -131,7 +134,12 @@
     "moveUsesCurrentUrl": "Uses the current tab URL.",
     "moveUsesCurrentDomain": "Uses the current tab domain ({{domain}}).",
     "moveNeedsUrl": "Open a normal web page to move notes to URL or Domain scope.",
-    "moveFailed": "Couldn't move the note. Try again."
+    "moveFailed": "Couldn't move the note. Try again.",
+    "actionChecklist": "Checklist",
+    "actionPlainText": "Plain text",
+    "checklistTooltip": "Switch to checklist",
+    "checklistExitTooltip": "Switch to plain text",
+    "checklistItemPlaceholder": "List item"
   },
   "noteList": {
     "searchPlaceholder": "Search notes, titles, tags…",
@@ -178,9 +186,6 @@
     "backupRemindDesc": "Remind me to backup my notes.",
     "backupRemindDays": "Every {{days}} days",
     "backupRemindOff": "Off",
-    "groqKey": "Groq AI API Key",
-    "groqKeyDesc": "Enter your key to enable the 'Ask' chat view. Key is saved locally.",
-    "groqKeyPlaceholder": "gsk_...",
     "stats": "Statistics",
     "totalNotes": "Total Notes",
     "totalWords": "Total Words",
@@ -212,33 +217,6 @@
     "mismatch": "PINs do not match",
     "saved": "PIN saved",
     "removed": "PIN removed"
-  },
-  "chat": {
-    "placeholder": "Ask anything about your notes…",
-    "send": "Send",
-    "sendTitle": "Send (Enter)",
-    "clear": "Clear Conversation",
-    "clearChat": "Clear chat",
-    "emptyState": "Ask AI about your notes. (Requires a Groq API Key in Settings).",
-    "missingKeyMessage": "Add your Groq API key in Settings first.",
-    "missingKeyBody": "Add your Groq API key in Settings to start chatting with your notes.",
-    "openSettings": "Open Settings →",
-    "hint": "Ask anything about your notes.",
-    "domainTitle": "Ask about notes from this domain",
-    "allTitle": "Ask about all your notes",
-    "domainFallback": "Domain",
-    "allNotes": "All notes",
-    "contextCount_one": "{{count}} note in context",
-    "contextCount_other": "{{count}} notes in context",
-    "exampleIdeas": "What ideas did I note here?",
-    "exampleSummary": "Summarize my notes",
-    "exampleFollowUp": "What should I follow up on?",
-    "scopeDomain": "domain: {{domain}}",
-    "scopeCurrentSite": "domain: current site",
-    "scopeAll": "all notes",
-    "untitled": "Untitled",
-    "noNotesFound": "(no notes found)",
-    "systemPrompt": "You are a personal knowledge assistant. Answer ONLY based on the user's notes below. If the answer isn't there, say so clearly. Be direct and concise.\n\nNotes from {{scope}}:\n---\n{{context}}\n---"
   },
   "formatting": {
     "toolbar": "Formatting toolbar",
@@ -322,13 +300,12 @@
     "noNoteSelected": "No note selected",
     "withWikiLinks": "{{count}} with wiki links"
   },
-  "checklist": {
-    "itemPlaceholder": "List item",
-    "completed": "Completed items ({{count}})"
-  },
   "backup": {
     "exported": "Exported {{count}} notes",
     "exportFailed": "Export failed",
+    "passwordPrompt": "Optional password to encrypt this backup (leave blank for an unencrypted backup):",
+    "encryptedPasswordPrompt": "Enter the password for this encrypted backup:",
+    "encryptedPasswordRequired": "A password is required to import this encrypted backup.",
     "invalidFormat": "Invalid format",
     "invalidFile": "Invalid backup file",
     "restoreSummary": "Restored {{notes}}, {{workspaces}}, {{preferences}}; {{reminders}}",
@@ -348,7 +325,12 @@
     "reminder_one": "reminder",
     "reminder_other": "reminders",
     "dueReminder_one": "due reminder",
-    "dueReminder_other": "due reminders"
+    "dueReminder_other": "due reminders",
+    "recoveryRestore": "Restore pre-import backup",
+    "recoveryRestoreDesc": "Undo your most recent import",
+    "recoveryConfirm": "Restore the data saved immediately before your last import?",
+    "recoveryRestored": "Pre-import data restored.",
+    "recoveryUnavailable": "No pre-import backup is available."
   },
   "about": {
     "title": "About TabNotes",
@@ -383,7 +365,6 @@
       "intelligence": {
         "title": "Intelligence",
         "suggestions": "Smart suggestions while you write",
-        "chat": "AI Chat powered by Groq",
         "graph": "Note graph visualization"
       },
       "privacy": {
@@ -451,19 +432,9 @@
       "wikiLinksDesc": "[[Note name]] autocomplete",
       "cmdPalette": "Command Palette",
       "cmdPaletteDesc": "Ctrl+K quick actions",
-      "chatView": "Ask Your Notes",
-      "chatViewDesc": "AI chat tab powered by Groq",
       "noteGraph": "Note Graph",
       "noteGraphDesc": "Visual relationship graph"
     },
-    "aiAssistant": "AI Assistant",
-    "groqKeyDesc": "Powers \"Ask your notes\" chat. Free key at",
-    "groqPrivacyNotice": "Optional AI: when you send a question, your question, recent chat messages, and selected note excerpts are sent directly to Groq. Your key stays in this browser and is never included in backups or Drive sync.",
-    "removeKey": "Remove key",
-    "show": "Show",
-    "hide": "Hide",
-    "keySaved": "Key saved",
-    "openChat": "Open chat",
     "data": "Data",
     "exportBackup": "Export backup",
     "exportBackupDesc": "Download all notes as JSON",

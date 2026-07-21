@@ -3,6 +3,7 @@ import { createContextSlice } from './contextSlice';
 import { createSettingsSlice } from './settingsSlice';
 import { createNoteListSlice } from './noteListSlice';
 import { createEditorSlice } from './editorSlice';
+import { createChecklistSlice } from './checklistSlice';
 import type { SidePanelState } from './types';
 
 /**
@@ -20,6 +21,7 @@ export const useSidePanelStore = create<SidePanelState>()((...a) => ({
   ...createSettingsSlice(...a),
   ...createNoteListSlice(...a),
   ...createEditorSlice(...a),
+  ...createChecklistSlice(...a),
 }));
 
 export type { SidePanelState, View } from './types';

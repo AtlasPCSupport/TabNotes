@@ -126,6 +126,109 @@ test.describe('TabNotes side panel — baseline', () => {
     await expect(page.locator('.sp-bottom-nav')).toBeVisible();
   });
 
+  test('checklist mode supports item editing, completion, and persisted restore', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const editor = panel.locator('.sp-rich-editor');
+    const metaActions = panel.locator('.sp-note-meta-actions');
+    const checklistToggle = metaActions.getByTitle('Switch to checklist');
+
+    await expect(editor).toBeVisible();
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'First task\nDone task';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await panel.waitForTimeout(700);
+
+    await metaActions.hover();
+    await checklistToggle.click();
+    const rows = panel.locator('.sp-checklist-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('.sp-checklist-input')).toHaveValue('First task');
+    await expect(rows.nth(1).locator('.sp-checklist-input')).toHaveValue('Done task');
+
+    await rows.nth(0).locator('.sp-checklist-input').fill('Edited task');
+    await rows.nth(0).locator('.sp-checklist-input').press('Enter');
+    await expect(rows).toHaveCount(3);
+    await rows.nth(1).locator('.sp-checklist-input').fill('Inserted task');
+
+    await rows.nth(2).locator('.sp-checklist-checkbox').check();
+    const completedHeader = panel.locator('.sp-checklist-completed-header');
+    await expect(completedHeader).toContainText('Completed (1)');
+    await expect(panel.locator('.sp-checklist-completed-list .sp-checklist-input')).toHaveValue(
+      'Done task'
+    );
+
+    await panel.waitForTimeout(1300);
+    const saved = await panel.evaluate<Promise<{ id: string; content: string }>>(() => {
+      return new Promise((resolve, reject) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        chromeApi.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
+          const data = result.tabnotes_data as Record<
+            string,
+            Record<string, { id?: string; content?: string }>
+          >;
+          const note = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
+            .flatMap((key) => Object.values(data?.[key] ?? {}))
+            .find((candidate) => candidate.content?.includes('Edited task'));
+          if (!note?.id || !note.content) {
+            reject(new Error('Persisted checklist note not found'));
+            return;
+          }
+          resolve({ id: note.id, content: note.content });
+        });
+      });
+    });
+
+    expect(saved.content).toBe('- [ ] Edited task\n- [ ] Inserted task\n- [x] Done task');
+
+    await panel.reload();
+    const realTab = context
+      .pages()
+      .find((page) => page !== panel && page.url().startsWith('data:text/html'));
+    if (!realTab) throw new Error('Real tab for restored checklist note not found');
+    await realTab.bringToFront();
+    await panel.waitForTimeout(600);
+    await expect(panel.locator('.sp-checklist-row')).toHaveCount(3);
+    await expect(panel.locator('.sp-checklist-completed-header')).toContainText('Completed (1)');
+    await expect(panel.locator('.sp-checklist-completed-list .sp-checklist-input')).toHaveValue(
+      'Done task'
+    );
+
+    await metaActions.hover();
+    await metaActions.getByTitle('Switch to plain text').click();
+    await expect(panel.locator('.sp-rich-editor')).toContainText(
+      'Edited task\nInserted task\nDone task'
+    );
+    await panel.waitForTimeout(1300);
+
+    const plainTextContent = await panel.evaluate<Promise<string>, string>((noteId) => {
+      return new Promise((resolve, reject) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        chromeApi.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
+          const data = result.tabnotes_data as Record<
+            string,
+            Record<string, { id?: string; content?: string }>
+          >;
+          const note = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']
+            .flatMap((key) => Object.values(data?.[key] ?? {}))
+            .find((candidate) => candidate.id === noteId);
+          if (!note?.content) {
+            reject(new Error('Plain-text checklist note not found'));
+            return;
+          }
+          resolve(note.content);
+        });
+      });
+    }, saved.id);
+
+    expect(plainTextContent).toBe('Edited task\nInserted task\nDone task');
+  });
+
   test('bottom nav switches to the All Notes view', async ({ context, sidePanelUrl }) => {
     const page = await context.newPage();
     await page.goto(sidePanelUrl);
@@ -263,9 +366,13 @@ test.describe('TabNotes side panel — baseline', () => {
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     await expect(panel.locator('.sp-data-btn.export')).toBeVisible();
-    const downloadPromise = panel.waitForEvent('download');
-    await panel.locator('.sp-data-btn.export').click();
-    const download = await downloadPromise;
+    panel.once('dialog', (dialog) => {
+      void dialog.accept('');
+    });
+    const [download] = await Promise.all([
+      panel.waitForEvent('download'),
+      panel.locator('.sp-data-btn.export').click(),
+    ]);
     const backupPath = await download.path();
     expect(backupPath).toBeTruthy();
     const exported = JSON.parse(await readFile(backupPath!, 'utf8')) as {
@@ -434,34 +541,40 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await expect(editor).toContainText(clipText);
     await expect(editor).toContainText('Example article');
 
-    const stored = await panel.evaluate<
-      Promise<{
-        hasClip: boolean;
-        pendingClipExists: boolean;
-      }>,
-      string
-    >((text) => {
-      return new Promise((resolve) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const chromeApi = (globalThis as any).chrome;
-        chromeApi.storage.local.get(
-          ['tabnotes_data', 'tn_pending_clip'],
-          (r: Record<string, unknown>) => {
-            const data = r['tabnotes_data'] as Record<string, Record<string, { content?: string }>>;
-            const notes = ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'].flatMap(
-              (key) => Object.values(data?.[key] ?? {})
-            );
-            resolve({
-              hasClip: notes.some((note) => note.content?.includes(text)),
-              pendingClipExists: Boolean(r['tn_pending_clip']),
-            });
-          }
-        );
-      });
-    }, clipText);
-
-    expect(stored.hasClip).toBe(true);
-    expect(stored.pendingClipExists).toBe(false);
+    await expect
+      .poll(
+        () =>
+          panel.evaluate<Promise<{ hasClip: boolean; pendingClipExists: boolean }>, string>(
+            (text) => {
+              return new Promise((resolve) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const chromeApi = (globalThis as any).chrome;
+                chromeApi.storage.local.get(
+                  ['tabnotes_data', 'tn_pending_clip'],
+                  (r: Record<string, unknown>) => {
+                    const data = r['tabnotes_data'] as Record<
+                      string,
+                      Record<string, { content?: string }>
+                    >;
+                    const notes = [
+                      'notes_url',
+                      'notes_domain',
+                      'notes_workspace',
+                      'notes_global',
+                    ].flatMap((key) => Object.values(data?.[key] ?? {}));
+                    resolve({
+                      hasClip: notes.some((note) => note.content?.includes(text)),
+                      pendingClipExists: Boolean(r['tn_pending_clip']),
+                    });
+                  }
+                );
+              });
+            },
+            clipText
+          ),
+        { timeout: 5000 }
+      )
+      .toEqual({ hasClip: true, pendingClipExists: false });
   });
 
   test('Spanish language switch translates the main visible surfaces', async ({
@@ -479,13 +592,6 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
     await expect(panel.getByPlaceholder('Buscar notas, títulos, etiquetas…')).toBeVisible();
-
-    const askButton = panel.locator('.sp-bottom-nav .sp-nav-btn', { hasText: 'Preguntar' });
-    if ((await askButton.count()) > 0) {
-      await askButton.click();
-      await expect(panel.locator('.sp-chat-view')).toContainText('Todas las notas');
-      await expect(panel.locator('.sp-chat-view')).toContainText('Añade tu clave API de Groq');
-    }
 
     await panel.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     const dataSection = panel.locator('[data-settings-section="data"]');
@@ -619,25 +725,6 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
     await expect(panel.locator('.sp-bottom-nav')).toBeVisible();
     const overflow = await editor.evaluate((el) => el.scrollHeight > el.clientHeight);
     expect(overflow).toBe(true);
-  });
-
-  test('checklist mode toggles into interactive items', async ({ context, sidePanelUrl }) => {
-    const panel = await openPanelWithRealTab(context, sidePanelUrl);
-    const editor = panel.locator('.sp-rich-editor');
-    await editor.click();
-    await editor.evaluate((el) => {
-      (el as HTMLElement).innerText = '- [ ] first task\n- [x] done task';
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await panel.waitForTimeout(1300);
-
-    await panel.locator('.sp-note-meta-actions').hover();
-    const checklistToggle = panel.locator('.sp-note-meta-action-panel .sp-meta-toggle', {
-      hasText: /Checklist|Lista/,
-    });
-    await expect(checklistToggle).toBeVisible();
-    await checklistToggle.click();
-    await expect(panel.locator('.sp-checklist-container')).toBeVisible();
   });
 
   test('reminder schedules a future chrome alarm and persists on the note', async ({
@@ -1053,7 +1140,6 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
       /Copy|Copiar/,
       /History|Historial/,
       /Reminder|Recordar/,
-      /Checklist|Lista/,
     ]) {
       await expect(actionPanel.getByRole('button', { name: label })).toBeVisible();
     }
@@ -1063,7 +1149,6 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
       actionPanel.getByRole('button', { name: /Move note|Mover nota|Folder|Carpeta/ })
     ).toBeDisabled();
     await expect(actionPanel.getByRole('button', { name: /Export|Exportar/ })).toBeDisabled();
-    await expect(actionPanel.getByRole('button', { name: /Checklist|Lista/ })).toBeEnabled();
   });
 
   test('bottom meta popovers stay within a narrow panel', async ({ context, sidePanelUrl }) => {

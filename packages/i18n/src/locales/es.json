@@ -31,7 +31,6 @@
   "nav": {
     "note": "Nota",
     "allNotes": "Notas",
-    "ask": "Preguntar",
     "settings": "Ajustes"
   },
   "reminders": {
@@ -54,6 +53,14 @@
     "domainDesc": "Sitio completo",
     "workspaceDesc": "Tu proyecto",
     "globalDesc": "En todos lados"
+  },
+  "checklist": {
+    "itemPlaceholder": "Elemento de lista",
+    "addItem": "Añadir elemento de lista",
+    "deleteItem": "Eliminar elemento de lista",
+    "markComplete": "Marcar elemento como completado",
+    "markIncomplete": "Marcar elemento como no completado",
+    "completed": "Completados ({{count}})"
   },
   "editor": {
     "placeholder": "Nota para este {{scope}}…",
@@ -83,8 +90,6 @@
     "actionHistory": "Historial",
     "actionReminder": "Recordar",
     "actionReminderSet": "Recordando",
-    "actionChecklist": "Lista",
-    "actionPlainText": "Texto",
     "actionPreview": "Vista MD",
     "actionEdit": "Editar",
     "folderTooltip": "Mover nota",
@@ -106,8 +111,6 @@
     "historyTooltip": "Historial de versiones",
     "reminderTooltip": "Establecer recordatorio",
     "reminderSuccessTooltip": "¡Recordatorio establecido!",
-    "checklistTooltip": "Modo lista de tareas",
-    "checklistExitTooltip": "Modo texto plano",
     "markdownTooltip": "Vista previa Markdown",
     "previewTitle": "Nada que previsualizar todavía.",
     "related": "Relacionado",
@@ -131,7 +134,12 @@
     "moveUsesCurrentUrl": "Usa la URL actual de la pestaña.",
     "moveUsesCurrentDomain": "Usa el dominio actual de la pestaña ({{domain}}).",
     "moveNeedsUrl": "Abre una página web normal para mover notas a URL o Dominio.",
-    "moveFailed": "No se pudo mover la nota. Inténtalo otra vez."
+    "moveFailed": "No se pudo mover la nota. Inténtalo otra vez.",
+    "actionChecklist": "Lista",
+    "actionPlainText": "Texto plano",
+    "checklistTooltip": "Cambiar a lista",
+    "checklistExitTooltip": "Cambiar a texto plano",
+    "checklistItemPlaceholder": "Elemento de la lista"
   },
   "noteList": {
     "searchPlaceholder": "Buscar notas, títulos, etiquetas…",
@@ -178,9 +186,6 @@
     "backupRemindDesc": "Recordarme respaldar mis notas.",
     "backupRemindDays": "Cada {{days}} días",
     "backupRemindOff": "Apagado",
-    "groqKey": "Clave API de Groq AI",
-    "groqKeyDesc": "Ingresa tu clave para habilitar la vista de chat 'Preguntar'. La clave se guarda localmente.",
-    "groqKeyPlaceholder": "gsk_...",
     "stats": "Estadísticas",
     "totalNotes": "Total de notas",
     "totalWords": "Total de palabras",
@@ -212,33 +217,6 @@
     "mismatch": "Los PIN no coinciden",
     "saved": "PIN guardado",
     "removed": "PIN eliminado"
-  },
-  "chat": {
-    "placeholder": "Pregunta algo sobre tus notas…",
-    "send": "Enviar",
-    "sendTitle": "Enviar (Enter)",
-    "clear": "Limpiar conversación",
-    "clearChat": "Limpiar chat",
-    "emptyState": "Pregúntale a la IA sobre tus notas. (Requiere una clave API de Groq en los Ajustes).",
-    "missingKeyMessage": "Añade tu clave API de Groq en Ajustes primero.",
-    "missingKeyBody": "Añade tu clave API de Groq en Ajustes para empezar a conversar con tus notas.",
-    "openSettings": "Abrir Ajustes →",
-    "hint": "Pregunta cualquier cosa sobre tus notas.",
-    "domainTitle": "Preguntar sobre notas de este dominio",
-    "allTitle": "Preguntar sobre todas tus notas",
-    "domainFallback": "Dominio",
-    "allNotes": "Todas las notas",
-    "contextCount_one": "{{count}} nota en contexto",
-    "contextCount_other": "{{count}} notas en contexto",
-    "exampleIdeas": "¿Qué ideas anoté aquí?",
-    "exampleSummary": "Resume mis notas",
-    "exampleFollowUp": "¿A qué debo dar seguimiento?",
-    "scopeDomain": "dominio: {{domain}}",
-    "scopeCurrentSite": "dominio: sitio actual",
-    "scopeAll": "todas las notas",
-    "untitled": "Sin título",
-    "noNotesFound": "(no se encontraron notas)",
-    "systemPrompt": "Eres un asistente de conocimiento personal. Responde SOLO con base en las notas del usuario incluidas abajo. Si la respuesta no está ahí, dilo claramente. Sé directo y conciso.\n\nNotas de {{scope}}:\n---\n{{context}}\n---"
   },
   "formatting": {
     "toolbar": "Barra de formato",
@@ -322,13 +300,12 @@
     "noNoteSelected": "No hay nota seleccionada",
     "withWikiLinks": "{{count}} con enlaces wiki"
   },
-  "checklist": {
-    "itemPlaceholder": "Elemento de la lista",
-    "completed": "Elementos completados ({{count}})"
-  },
   "backup": {
     "exported": "{{count}} notas exportadas",
     "exportFailed": "No se pudo exportar",
+    "passwordPrompt": "Contraseña opcional para encriptar esta copia de seguridad (déjala en blanco para una copia sin encriptar):",
+    "encryptedPasswordPrompt": "Ingresa la contraseña de esta copia de seguridad encriptada:",
+    "encryptedPasswordRequired": "Se necesita una contraseña para importar esta copia de seguridad encriptada.",
     "invalidFormat": "Formato inválido",
     "invalidFile": "Archivo de respaldo inválido",
     "restoreSummary": "Restaurado: {{notes}}, {{workspaces}}, {{preferences}}; {{reminders}}",
@@ -348,7 +325,12 @@
     "reminder_one": "recordatorio",
     "reminder_other": "recordatorios",
     "dueReminder_one": "recordatorio vencido",
-    "dueReminder_other": "recordatorios vencidos"
+    "dueReminder_other": "recordatorios vencidos",
+    "recoveryRestore": "Restaurar copia previa a la importación",
+    "recoveryRestoreDesc": "Deshacer la importación más reciente",
+    "recoveryConfirm": "¿Restaurar los datos guardados inmediatamente antes de la última importación?",
+    "recoveryRestored": "Se restauraron los datos previos a la importación.",
+    "recoveryUnavailable": "No hay una copia previa a la importación disponible."
   },
   "about": {
     "title": "Acerca de TabNotes",
@@ -383,7 +365,6 @@
       "intelligence": {
         "title": "Inteligencia",
         "suggestions": "Sugerencias inteligentes mientras escribes",
-        "chat": "Chat IA con Groq",
         "graph": "Visualización del gráfico de notas"
       },
       "privacy": {
@@ -451,19 +432,9 @@
       "wikiLinksDesc": "Autocompletado de [[Nombre de nota]]",
       "cmdPalette": "Paleta de comandos",
       "cmdPaletteDesc": "Acciones rápidas con Ctrl+K",
-      "chatView": "Preguntar a tus notas",
-      "chatViewDesc": "Pestaña de chat con IA mediante Groq",
       "noteGraph": "Gráfico de notas",
       "noteGraphDesc": "Gráfico visual de relaciones"
     },
-    "aiAssistant": "Asistente de IA",
-    "groqKeyDesc": "Habilita el chat \"Preguntar a tus notas\". Clave gratuita en",
-    "groqPrivacyNotice": "IA opcional: al enviar una pregunta, la pregunta, los mensajes recientes y fragmentos de notas seleccionadas se envían directamente a Groq. Tu clave permanece en este navegador y nunca se incluye en respaldos ni en la sincronización con Drive.",
-    "removeKey": "Eliminar clave",
-    "show": "Mostrar",
-    "hide": "Ocultar",
-    "keySaved": "Clave guardada",
-    "openChat": "Abrir chat",
     "data": "Datos",
     "exportBackup": "Exportar copia de seguridad",
     "exportBackupDesc": "Descargar todas las notas como JSON",

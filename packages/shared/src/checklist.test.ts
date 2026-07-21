@@ -4,6 +4,7 @@ import {
   parseChecklistItems,
   serializeChecklist,
   checklistItemsToPlainText,
+  editorHtmlToPlainText,
   type ChecklistItem,
 } from './checklist';
 
@@ -18,6 +19,20 @@ describe('isChecklistContent', () => {
   it('rejects non-checklist content', () => {
     expect(isChecklistContent('# heading')).toBe(false);
     expect(isChecklistContent('plain text')).toBe(false);
+  });
+  it('detects a task after leading editor whitespace', () => {
+    expect(isChecklistContent('\n  - [ ] todo')).toBe(true);
+  });
+  it('rejects malformed task-like prefixes', () => {
+    expect(isChecklistContent('- [ ]not a task')).toBe(false);
+    expect(isChecklistContent('- [x]done')).toBe(false);
+  });
+});
+
+describe('editorHtmlToPlainText', () => {
+  it('preserves editor block boundaries and decodes common entities', () => {
+    expect(editorHtmlToPlainText('<div>first</div><p>second&nbsp;&amp; third</p><ul><li>fourth</li></ul>'))
+      .toBe('first\nsecond & third\nfourth\n');
   });
 });
 

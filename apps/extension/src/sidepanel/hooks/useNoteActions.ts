@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Note,
   NoteScope,
@@ -6,10 +6,16 @@ import {
   NotesService,
   WorkspacesService,
   applyBackupImport,
+  createEncryptedManualBackupEnvelope,
   createManualBackupEnvelope,
-  encryptText,
+  decryptEncryptedManualBackupEnvelope,
   decryptText,
-  parseBackupImport,
+  encryptText,
+  isBackupImportTextWithinLimit,
+  isEncryptedManualBackupEnvelope,
+  isEncryptedManualBackupTextWithinLimit,
+  MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES,
+  parseBackupImportResult,
   renderMarkdown,
 } from '@tabnotes/shared';
 import type { ExportPrefs } from '@tabnotes/shared';
@@ -35,16 +41,16 @@ function restoreReminderAlarms(): Promise<ReminderAlarmRestoreResult | null> {
       return;
     }
 
-    cr.runtime.sendMessage({ type: 'RESTORE_REMINDER_ALARMS' }, (response?: {
-      ok?: boolean;
-      result?: ReminderAlarmRestoreResult;
-    }) => {
-      if (cr.runtime.lastError || !response?.ok) {
-        resolve(null);
-        return;
+    cr.runtime.sendMessage(
+      { type: 'RESTORE_REMINDER_ALARMS' },
+      (response?: { ok?: boolean; result?: ReminderAlarmRestoreResult }) => {
+        if (cr.runtime.lastError || !response?.ok) {
+          resolve(null);
+          return;
+        }
+        resolve(response.result ?? null);
       }
-      resolve(response.result ?? null);
-    });
+    );
   });
 }
 
@@ -96,6 +102,22 @@ export function useNoteActions({
     type: 'success' | 'error';
     msg: string;
   } | null>(null);
+  const [canRestoreImport, setCanRestoreImport] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void adapter.current
+      .getRecoverySnapshot()
+      .then((snapshot) => {
+        if (active) setCanRestoreImport(Boolean(snapshot));
+      })
+      .catch(() => {
+        if (active) setCanRestoreImport(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [adapter]);
 
   const title = useSidePanelStore((s) => s.title);
   const content = useSidePanelStore((s) => s.content);
@@ -121,7 +143,6 @@ export function useNoteActions({
   const setTags = useSidePanelStore((s) => s.setTags);
   const setSaved = useSidePanelStore((s) => s.setSaved);
   const currentDomain = useSidePanelStore((s) => s.currentDomain);
-
   const showFeedback = (type: 'success' | 'error', msg: string) => {
     setDataFeedback({ type, msg });
     setTimeout(() => setDataFeedback(null), 3500);
@@ -253,7 +274,12 @@ ${renderMarkdown(content)}
         );
       });
 
-      const payload = createManualBackupEnvelope(data, prefs);
+      const backup = createManualBackupEnvelope(data, prefs);
+      const password = window.prompt(t('backup.passwordPrompt'));
+      if (password === null) return;
+      const payload = password
+        ? await createEncryptedManualBackupEnvelope(backup, password)
+        : backup;
       cr?.storage?.local?.set({ tn_last_export: Date.now() });
 
       const json = JSON.stringify(payload, null, 2);
@@ -265,7 +291,7 @@ ${renderMarkdown(content)}
       a.download = `tabnotes-backup-${date}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showFeedback('success', t('backup.exported', { count: payload.data.notes.length }));
+      showFeedback('success', t('backup.exported', { count: backup.data.notes.length }));
     } catch {
       showFeedback('error', t('backup.exportFailed'));
     }
@@ -275,12 +301,40 @@ ${renderMarkdown(content)}
     const file = e.target.files?.[0];
     if (!file) return;
     try {
+      if (file.size > MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES) {
+        throw new Error(t('backup.invalidFormat'));
+      }
       const text = await file.text();
-      const parsed = parseBackupImport(JSON.parse(text));
-      if (!parsed) throw new Error(t('backup.invalidFormat'));
+      let rawBackup: unknown;
+      try {
+        rawBackup = JSON.parse(text);
+      } catch {
+        throw new Error(t('backup.invalidFormat'));
+      }
+      const encrypted = isEncryptedManualBackupEnvelope(rawBackup);
+      if (
+        !(encrypted
+          ? isEncryptedManualBackupTextWithinLimit(text)
+          : isBackupImportTextWithinLimit(text))
+      ) {
+        throw new Error(t('backup.invalidFormat'));
+      }
+      let parsedInput: unknown = rawBackup;
+      if (encrypted) {
+        const password = window.prompt(t('backup.encryptedPasswordPrompt'));
+        if (!password) throw new Error(t('backup.encryptedPasswordRequired'));
+        parsedInput = await decryptEncryptedManualBackupEnvelope(rawBackup, password);
+      }
+      const result = parsedInput ? parseBackupImportResult(parsedInput) : null;
+      if (!result?.ok) throw new Error(t('backup.invalidFormat'));
+      const parsed = result.value;
 
       const current = await adapter.current.get();
+      // Validate and build the entire result before replacing the previous
+      // checkpoint, leaving it usable when this import cannot be applied.
       const restored = applyBackupImport(parsed, current);
+      await adapter.current.createRecoverySnapshot('before-import');
+      setCanRestoreImport(true);
       await adapter.current.set(restored.data);
       const reminderAlarms = await restoreReminderAlarms();
 
@@ -351,9 +405,7 @@ ${renderMarkdown(content)}
       );
       setContextNotes(contextNotes);
       const active =
-        contextNotes.find((note) => note.id === activeNoteIdRef.current) ??
-        contextNotes[0] ??
-        null;
+        contextNotes.find((note) => note.id === activeNoteIdRef.current) ?? contextNotes[0] ?? null;
       activeNoteIdRef.current = active?.id ?? null;
       setActiveNoteId(active?.id ?? null);
       setContent(active?.content ?? '');
@@ -391,8 +443,58 @@ ${renderMarkdown(content)}
     }
   };
 
+  const restorePreImportSnapshot = async () => {
+    try {
+      const snapshot = await adapter.current.restoreRecoverySnapshot();
+      if (!snapshot) {
+        setCanRestoreImport(false);
+        showFeedback('error', t('backup.recoveryUnavailable'));
+        return;
+      }
+
+      await restoreReminderAlarms();
+      await refreshAllNotes();
+      const [current, wsList] = await Promise.all([adapter.current.get(), wsSvc.current.getAll()]);
+      setWorkspaces(wsList);
+      scopeRef.current = current.defaultScope;
+      wsIdRef.current = current.activeWorkspaceId;
+      setDefaultScopeState(current.defaultScope);
+      setScope(current.defaultScope);
+      setActiveWorkspaceId(current.activeWorkspaceId);
+      setThemeState(current.theme);
+      setMdState(current.markdownEnabled);
+      const nextLanguage = resolveLanguage(
+        current.language ?? i18n.resolvedLanguage ?? i18n.language
+      );
+      setLanguageState(nextLanguage);
+      await i18n.changeLanguage(nextLanguage);
+
+      const contextNotes = await noteSvc.current.getNotesByScope(
+        current.defaultScope,
+        currentUrlRef.current,
+        current.activeWorkspaceId
+      );
+      setContextNotes(contextNotes);
+      const active =
+        contextNotes.find((note) => note.id === activeNoteIdRef.current) ?? contextNotes[0] ?? null;
+      activeNoteIdRef.current = active?.id ?? null;
+      setActiveNoteId(active?.id ?? null);
+      setContent(active?.content ?? '');
+      setTitle(active?.title ?? '');
+      setTags(active?.tags.join(', ') ?? '');
+      setSaved(false);
+      await adapter.current.clearRecoverySnapshot();
+      setCanRestoreImport(false);
+      showFeedback('success', t('backup.recoveryRestored'));
+    } catch {
+      showFeedback('error', t('backup.recoveryUnavailable'));
+    }
+  };
+
   return {
     dataFeedback,
+    canRestoreImport,
+    restorePreImportSnapshot,
     exportCurrentNote,
     exportToPDF,
     handleLockNote,

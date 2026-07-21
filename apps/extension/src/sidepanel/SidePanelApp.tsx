@@ -8,9 +8,12 @@ import {
   WorkspacesService,
   normalizeDomain,
   stripFormatting,
+  editorHtmlToPlainText,
   parseChecklistItems,
   serializeChecklist,
   checklistItemsToPlainText,
+  isChecklistContent,
+  type ChecklistItem,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from './store';
 import { ViewHost } from './views/ViewHost';
@@ -83,8 +86,6 @@ function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeRe
 
 // ── Feature flags type now lives in store/types (DEFAULT_FEATURES imported) ──
 
-// ── Chat types now imported from views/ChatView ──────────────
-
 export default function SidePanelApp() {
   const { t, i18n } = useTranslation();
 
@@ -127,6 +128,10 @@ export default function SidePanelApp() {
   const tags = useSidePanelStore((s) => s.tags);
   const setTags = useSidePanelStore((s) => s.setTags);
   const setSaved = useSidePanelStore((s) => s.setSaved);
+  const checklistMode = useSidePanelStore((s) => s.checklistMode);
+  const setChecklistMode = useSidePanelStore((s) => s.setChecklistMode);
+  const checklistItems = useSidePanelStore((s) => s.checklistItems);
+  const setChecklistItems = useSidePanelStore((s) => s.setChecklistItems);
 
   const noteColors = useSidePanelStore((s) => s.noteColors);
   const setNoteColors = useSidePanelStore((s) => s.setNoteColors);
@@ -156,12 +161,6 @@ export default function SidePanelApp() {
     setDigestTime,
     backupRemindDays,
     setBackupRemindDays,
-    groqKey,
-    setGroqKey,
-    groqKeyInput,
-    setGroqKeyInput,
-    groqKeyVisible,
-    setGroqKeyVisible,
     isOnline,
     pendingSyncIds,
     setPendingSyncIds,
@@ -186,18 +185,14 @@ export default function SidePanelApp() {
   });
 
   // Local UI / Interactive States
-  const [checklistMode, setChecklistMode] = useState(false);
-  const [checklistItems, setChecklistItems] = useState<
-    { id: string; checked: boolean; text: string }[]
-  >([]);
-  const isUpdatingChecklistRef = useRef(false);
-  const checklistNoteIdRef = useRef<string | null>(null);
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // Invoke Note Actions hook (Import / Export / PDF / Encryption)
   const {
     dataFeedback,
+    canRestoreImport,
+    restorePreImportSnapshot,
     exportCurrentNote,
     exportToPDF,
     handleLockNote,
@@ -283,24 +278,38 @@ export default function SidePanelApp() {
   } = usePinLock();
 
   // ── Note Selection Callback ──
+  const hydrateChecklistForContent = useCallback(
+    (noteContent: string) => {
+      const plainContent = editorHtmlToPlainText(noteContent);
+      const isChecklist = isChecklistContent(plainContent);
+      setChecklistMode(isChecklist);
+      setChecklistItems(isChecklist ? parseChecklistItems(plainContent) : []);
+    },
+    [setChecklistItems, setChecklistMode]
+  );
+
   const selectNote = useCallback(
     (n: Note) => {
       clearTimeout(saveTimer.current);
       setActiveNoteId(n.id);
       activeNoteIdRef.current = n.id;
       contentSavedRef.current = n.content;
+      hydrateChecklistForContent(n.content);
       setContent(n.content);
       setTitle(stripFormatting(n.title ?? ''));
       setTags(n.tags.join(', '));
       setSaved(false);
       setPreview(false);
-      // Checklist state belongs to the selected note. Resetting it prevents
-      // edits in one note from appearing in another note's checklist UI.
-      setChecklistMode(false);
-      setChecklistItems([]);
-      checklistNoteIdRef.current = null;
     },
-    [setActiveNoteId, setContent, setTitle, setTags, setSaved, setPreview]
+    [
+      hydrateChecklistForContent,
+      setActiveNoteId,
+      setContent,
+      setTitle,
+      setTags,
+      setSaved,
+      setPreview,
+    ]
   );
 
   // Invoke Folder Manager hook
@@ -337,17 +346,6 @@ export default function SidePanelApp() {
   useEffect(() => {
     activeNoteIdRef.current = activeNoteId;
   }, [activeNoteId]);
-  useEffect(() => {
-    if (
-      checklistMode &&
-      checklistNoteIdRef.current !== null &&
-      checklistNoteIdRef.current !== activeNoteId
-    ) {
-      setChecklistMode(false);
-      setChecklistItems([]);
-      checklistNoteIdRef.current = null;
-    }
-  }, [activeNoteId, checklistMode]);
   useEffect(() => {
     scopeRef.current = scope;
   }, [scope]);
@@ -665,9 +663,6 @@ export default function SidePanelApp() {
       }
 
       if (saved) {
-        if (checklistMode && checklistNoteIdRef.current === null) {
-          checklistNoteIdRef.current = saved.id;
-        }
         activeNoteIdRef.current = saved.id;
         setActiveNoteId(saved.id);
         // Refresh context notes to reflect updated title in pill
@@ -690,15 +685,7 @@ export default function SidePanelApp() {
       updateStreak();
       setTimeout(() => setSaved(false), 2000);
     },
-    [
-      checklistMode,
-      refreshAllNotes,
-      updateStreak,
-      setContextNotes,
-      setActiveNoteId,
-      setSaved,
-      setPendingSyncIds,
-    ]
+    [refreshAllNotes, updateStreak, setContextNotes, setActiveNoteId, setSaved, setPendingSyncIds]
   );
 
   const moveNote = useCallback(
@@ -769,49 +756,42 @@ export default function SidePanelApp() {
     [saveNote, setSaved]
   );
 
-  // ── Checklist mode (Google Keep style) handlers ───────────────────
+  // ── Checklist mode (Google Keep style) ─────────────────────────
   const saveChecklist = useCallback(
-    (items: { id: string; checked: boolean; text: string }[]) => {
-      const markdown = serializeChecklist(items);
-      isUpdatingChecklistRef.current = true;
-      setContent(markdown);
-      schedule(markdown, title, tags);
+    (items: ChecklistItem[]) => {
+      const nextContent = serializeChecklist(items);
+      setContent(nextContent);
+      schedule(nextContent, title, tags);
     },
-    [title, tags, schedule, setContent]
+    [schedule, setContent, tags, title]
   );
 
-  const toggleChecklistMode = () => {
+  const toggleChecklistMode = useCallback(() => {
     if (checklistMode) {
-      // Leaving checklist mode must serialize the current checklist first and
-      // clear its UI state so it cannot be reused by another note.
-      const plainText = checklistItemsToPlainText(checklistItems);
-      isUpdatingChecklistRef.current = false;
+      const nextContent = checklistItemsToPlainText(checklistItems);
       setChecklistMode(false);
       setChecklistItems([]);
-      checklistNoteIdRef.current = null;
-      setContent(plainText);
-      schedule(plainText, title, tags);
+      setContent(nextContent);
+      schedule(nextContent, title, tags);
       return;
     }
 
-    // Convert editor HTML to plain text before parsing it as checklist items.
-    const temp = document.createElement('div');
-    temp.innerHTML = content;
-    const plainText = temp.innerHTML
-      .replace(/<\/p>/gi, '\n')
-      .replace(/<\/div>/gi, '\n')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '');
-    const newItems = parseChecklistItems(
-      plainText,
-      (index) => `item-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 9)}`
-    );
-
-    checklistNoteIdRef.current = activeNoteIdRef.current;
-    setChecklistItems(newItems);
+    const items = parseChecklistItems(editorHtmlToPlainText(content));
     setChecklistMode(true);
-    saveChecklist(newItems);
-  };
+    setChecklistItems(items);
+    saveChecklist(items);
+  }, [
+    checklistItems,
+    checklistMode,
+    content,
+    saveChecklist,
+    schedule,
+    setChecklistItems,
+    setChecklistMode,
+    setContent,
+    tags,
+    title,
+  ]);
 
   // ── Screenshot capture ───────────────────────────────────────
   const captureScreenshot = () => {
@@ -854,6 +834,7 @@ export default function SidePanelApp() {
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
       setTags(next?.tags.join(', ') ?? '');
+      hydrateChecklistForContent(next?.content ?? '');
       setSaved(false);
     }
     await refreshAllNotes();
@@ -876,6 +857,7 @@ export default function SidePanelApp() {
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
       setTags(next?.tags.join(', ') ?? '');
+      hydrateChecklistForContent(next?.content ?? '');
       setSaved(false);
     }
     await refreshAllNotes();
@@ -898,6 +880,7 @@ export default function SidePanelApp() {
       setContent(next?.content ?? '');
       setTitle(next?.title ?? '');
       setTags(next?.tags.join(', ') ?? '');
+      hydrateChecklistForContent(next?.content ?? '');
       setSaved(false);
     }
     await refreshAllNotes();
@@ -1124,7 +1107,6 @@ export default function SidePanelApp() {
           colorPickerNoteId={colorPickerNoteId}
           setColorPickerNoteId={setColorPickerNoteId}
           onSetNoteColor={setNoteColor}
-          isUpdatingChecklistRef={isUpdatingChecklistRef}
           schedule={schedule}
           showMovePicker={showMovePicker}
           setShowMovePicker={setShowMovePicker}
@@ -1161,20 +1143,7 @@ export default function SidePanelApp() {
           bulkDeleteNotes={bulkDeleteNotes}
           addNoteToContext={addNoteToContext}
           togglePin={togglePin}
-          groqKey={groqKey}
           toggleFeature={toggleFeature}
-          groqKeyInput={groqKeyInput}
-          setGroqKeyInput={setGroqKeyInput}
-          groqKeyVisible={groqKeyVisible}
-          setGroqKeyVisible={setGroqKeyVisible}
-          saveGroqKey={(key) => {
-            if (key) {
-              cr?.storage?.local?.set({ tn_groq_key: key });
-            } else {
-              cr?.storage?.local?.remove('tn_groq_key');
-            }
-            setGroqKey(key);
-          }}
           setTheme={setTheme}
           pinHash={pinHash}
           pinSetInput={pinSetInput}
@@ -1210,6 +1179,8 @@ export default function SidePanelApp() {
           handleImport={handleImport}
           importInputRef={importInputRef}
           dataFeedback={dataFeedback}
+          canRestoreImport={canRestoreImport}
+          restorePreImportSnapshot={restorePreImportSnapshot}
           backupRemindDays={backupRemindDays}
           setBackupRemind={(days) => {
             setBackupRemindDays(days);
@@ -1242,7 +1213,7 @@ export default function SidePanelApp() {
       />
 
       {/* ── Bottom nav ── */}
-      <BottomNav groqKey={groqKey} />
+      <BottomNav />
     </div>
   );
 }

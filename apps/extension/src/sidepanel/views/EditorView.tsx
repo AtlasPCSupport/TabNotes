@@ -13,6 +13,7 @@ import {
 } from '@tabnotes/shared';
 import { FormattingToolbar } from '../components/FormattingToolbar';
 import { ChecklistEditor } from '../components/ChecklistEditor';
+import type { ChecklistItem } from '@tabnotes/shared';
 import { WikiAutocomplete } from '../components/WikiAutocomplete';
 import { AppIcon } from '../components/AppIcon';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
@@ -21,13 +22,13 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ListChecks,
   Copy as CopyIcon,
   Download,
   Eye,
   Folder as FolderIcon,
   Focus as FocusIcon,
   History,
-  ListChecks,
   Lock,
   LockOpen,
   Palette,
@@ -57,12 +58,11 @@ export interface EditorViewProps {
   // Loading states
   tabLoading: boolean;
 
-  // Checklist states & handlers
+  // Checklist presentation and persistence
   checklistMode: boolean;
-  checklistItems: { id: string; checked: boolean; text: string }[];
-  setChecklistItems: (items: { id: string; checked: boolean; text: string }[]) => void;
-  saveChecklist: (items: { id: string; checked: boolean; text: string }[]) => void;
-  isUpdatingChecklistRef: React.MutableRefObject<boolean>;
+  checklistItems: ChecklistItem[];
+  setChecklistItems: (items: ChecklistItem[]) => void;
+  saveChecklist: (items: ChecklistItem[]) => void;
   toggleChecklistMode: () => void;
 
   // Editor ref (so SidePanelApp can access the DOM node)
@@ -141,7 +141,6 @@ export function EditorView({
   checklistItems,
   setChecklistItems,
   saveChecklist,
-  isUpdatingChecklistRef,
   toggleChecklistMode,
   editorRef,
   schedule,
@@ -217,9 +216,7 @@ export function EditorView({
   const parsedReminderAt = parseDateTimeLocalInput(reminderInput);
   const canSetReminder = isSchedulableReminderTimestamp(parsedReminderAt, reminderNow);
   const showReminderValidation = Boolean(reminderInput) && !canSetReminder;
-  const metaIcon = (Icon: LucideIcon) => (
-    <Icon aria-hidden="true" size={14} strokeWidth={2.35} />
-  );
+  const metaIcon = (Icon: LucideIcon) => <Icon aria-hidden="true" size={14} strokeWidth={2.35} />;
   const metaAction = (icon: React.ReactNode, label: React.ReactNode) => (
     <>
       <span className="sp-meta-toggle-icon" aria-hidden="true">
@@ -309,7 +306,9 @@ export function EditorView({
     setMoveError(null);
     const trimmedFolder = moveFolderInput.trim();
     const normalizedFolder = trimmedFolder
-      ? (trimmedFolder.startsWith('/') ? trimmedFolder : `/${trimmedFolder}`)
+      ? trimmedFolder.startsWith('/')
+        ? trimmedFolder
+        : `/${trimmedFolder}`
       : null;
 
     const target: MoveNoteTarget = {
@@ -537,7 +536,14 @@ export function EditorView({
             />
           )}
 
-          {preview && markdownEnabled ? (
+          {checklistMode ? (
+            <ChecklistEditor
+              checklistItems={checklistItems}
+              setChecklistItems={setChecklistItems}
+              saveChecklist={saveChecklist}
+              disabled={tabLoading}
+            />
+          ) : preview && markdownEnabled ? (
             <div
               className="sp-markdown-preview"
               style={
@@ -567,24 +573,7 @@ export function EditorView({
                   }
                   return;
                 }
-                // Checkbox toggle
-                if (t.tagName !== 'INPUT' || t.getAttribute('data-task') !== 'true') return;
-                const span = t.nextElementSibling;
-                const taskText = span?.textContent?.trim() ?? '';
-                const checked = (t as HTMLInputElement).checked;
-                const from = checked ? `- [ ] ${taskText}` : `- [x] ${taskText}`;
-                const to = checked ? `- [x] ${taskText}` : `- [ ] ${taskText}`;
-                const next = content.replace(from, to);
-                setContent(next);
-                schedule(next, title, tags);
               }}
-            />
-          ) : checklistMode ? (
-            <ChecklistEditor
-              checklistItems={checklistItems}
-              setChecklistItems={setChecklistItems}
-              saveChecklist={saveChecklist}
-              isUpdatingChecklistRef={isUpdatingChecklistRef}
             />
           ) : (
             <div className="sp-editor-scroll-shell">
@@ -881,41 +870,41 @@ export function EditorView({
                   )}
                 </div>
 
-              {/* Insert date */}
-              <button
-                className="sp-meta-toggle"
-                onClick={insertDatetime}
-                title={t('editor.datetimeTooltip') + ' (Ctrl+D)'}
-              >
-                {metaAction(metaIcon(CalendarDays), t('editor.actionDate'))}
-              </button>
+                {/* Insert date */}
+                <button
+                  className="sp-meta-toggle"
+                  onClick={insertDatetime}
+                  title={t('editor.datetimeTooltip') + ' (Ctrl+D)'}
+                >
+                  {metaAction(metaIcon(CalendarDays), t('editor.actionDate'))}
+                </button>
 
-              {/* Pin */}
-              <button
-                className={`sp-meta-toggle${
-                  activeNoteId && pinnedNotes.has(activeNoteId) ? ' active' : ''
-                }`}
-                disabled={!activeNoteId}
-                onClick={() => {
-                  if (!activeNoteId) return;
-                  togglePin(activeNoteId);
-                }}
-                title={
-                  activeNoteId && pinnedNotes.has(activeNoteId)
-                    ? t('editor.unpinTooltip')
-                    : t('editor.pinTooltip')
-                }
-              >
-                {metaAction(
-                  metaIcon(PinIcon),
-                  activeNoteId && pinnedNotes.has(activeNoteId)
-                    ? t('editor.actionPinned')
-                    : t('editor.actionPin')
-                )}
-              </button>
+                {/* Pin */}
+                <button
+                  className={`sp-meta-toggle${
+                    activeNoteId && pinnedNotes.has(activeNoteId) ? ' active' : ''
+                  }`}
+                  disabled={!activeNoteId}
+                  onClick={() => {
+                    if (!activeNoteId) return;
+                    togglePin(activeNoteId);
+                  }}
+                  title={
+                    activeNoteId && pinnedNotes.has(activeNoteId)
+                      ? t('editor.unpinTooltip')
+                      : t('editor.pinTooltip')
+                  }
+                >
+                  {metaAction(
+                    metaIcon(PinIcon),
+                    activeNoteId && pinnedNotes.has(activeNoteId)
+                      ? t('editor.actionPinned')
+                      : t('editor.actionPin')
+                  )}
+                </button>
 
-              {/* Color picker */}
-              <div className="sp-meta-popover-anchor">
+                {/* Color picker */}
+                <div className="sp-meta-popover-anchor">
                   <button
                     className={`sp-meta-toggle${activeNoteColor ? ' active' : ''}`}
                     disabled={!activeNoteId}
@@ -969,7 +958,7 @@ export function EditorView({
                   )}
                 </div>
 
-              {/* Export current note */}
+                {/* Export current note */}
                 <button
                   className="sp-meta-toggle"
                   disabled={!hasNoteBody}
@@ -979,7 +968,7 @@ export function EditorView({
                   {metaAction(metaIcon(Download), t('editor.actionExportMd'))}
                 </button>
 
-              {/* Export to PDF */}
+                {/* Export to PDF */}
                 <button
                   className="sp-meta-toggle"
                   disabled={!hasNoteBody}
@@ -989,18 +978,18 @@ export function EditorView({
                   {metaAction(metaIcon(Printer), t('editor.actionPdf'))}
                 </button>
 
-              {/* Screenshot capture */}
-              {markdownEnabled && (
-                <button
-                  className="sp-meta-toggle"
-                  onClick={captureScreenshot}
-                  title={t('editor.screenshotTooltip')}
-                >
-                  {metaAction(metaIcon(Camera), t('editor.actionScreenshot'))}
-                </button>
-              )}
+                {/* Screenshot capture */}
+                {markdownEnabled && (
+                  <button
+                    className="sp-meta-toggle"
+                    onClick={captureScreenshot}
+                    title={t('editor.screenshotTooltip')}
+                  >
+                    {metaAction(metaIcon(Camera), t('editor.actionScreenshot'))}
+                  </button>
+                )}
 
-              {/* Encrypt note */}
+                {/* Encrypt note */}
                 <button
                   className={`sp-meta-toggle${activeNote?.encrypted ? ' active' : ''}`}
                   disabled={!activeNoteId}
@@ -1018,32 +1007,34 @@ export function EditorView({
                   )}
                 </button>
 
-              {/* Focus mode */}
-              <button
-                className={`sp-meta-toggle${focusMode ? ' active' : ''}`}
-                onClick={() => setFocusMode(!focusMode)}
-                title={
-                  focusMode
-                    ? t('editor.focusExitTooltip') + ' (Esc)'
-                    : t('editor.focusTooltip') + ' (Ctrl+Shift+F)'
-                }
-              >
-                {metaAction(metaIcon(FocusIcon), t('editor.actionFocus'))}
-              </button>
+                {/* Focus mode */}
+                <button
+                  className={`sp-meta-toggle${focusMode ? ' active' : ''}`}
+                  onClick={() => setFocusMode(!focusMode)}
+                  title={
+                    focusMode
+                      ? t('editor.focusExitTooltip') + ' (Esc)'
+                      : t('editor.focusTooltip') + ' (Ctrl+Shift+F)'
+                  }
+                >
+                  {metaAction(metaIcon(FocusIcon), t('editor.actionFocus'))}
+                </button>
 
-              {/* Reference panel (dual view) */}
-              <button
-                className={`sp-meta-toggle${showRefPanel ? ' active' : ''}`}
-                onClick={() => setShowRefPanel(!showRefPanel)}
-                title={showRefPanel ? t('editor.refPanelExitTooltip') : t('editor.refPanelTooltip')}
-              >
-                {metaAction(
-                  metaIcon(PanelRightOpen),
-                  showRefPanel ? t('editor.actionRefClose') : t('editor.actionReference')
-                )}
-              </button>
+                {/* Reference panel (dual view) */}
+                <button
+                  className={`sp-meta-toggle${showRefPanel ? ' active' : ''}`}
+                  onClick={() => setShowRefPanel(!showRefPanel)}
+                  title={
+                    showRefPanel ? t('editor.refPanelExitTooltip') : t('editor.refPanelTooltip')
+                  }
+                >
+                  {metaAction(
+                    metaIcon(PanelRightOpen),
+                    showRefPanel ? t('editor.actionRefClose') : t('editor.actionReference')
+                  )}
+                </button>
 
-              {/* Copy */}
+                {/* Copy */}
                 <button
                   className={`sp-meta-toggle${copied ? ' active' : ''}`}
                   disabled={!content}
@@ -1056,7 +1047,7 @@ export function EditorView({
                   )}
                 </button>
 
-              {/* Version history */}
+                {/* Version history */}
                 <div className="sp-meta-popover-anchor" ref={historyRef}>
                   <button
                     className={`sp-meta-toggle${showHistory ? ' active' : ''}`}
@@ -1095,7 +1086,7 @@ export function EditorView({
                   )}
                 </div>
 
-              {/* Reminder */}
+                {/* Reminder */}
                 <div className="sp-meta-popover-anchor" ref={reminderRef}>
                   <button
                     className={`sp-meta-toggle${activeNote?.reminderAt ? ' active' : ''}`}
@@ -1174,48 +1165,51 @@ export function EditorView({
                         </button>
                       </div>
                       {showReminderValidation && (
-                        <div className="sp-reminder-validation">
-                          {t('editor.reminderInvalid')}
-                        </div>
+                        <div className="sp-reminder-validation">{t('editor.reminderInvalid')}</div>
                       )}
                     </div>
                   )}
                 </div>
 
-              {/* Clip feedback badge */}
-              {clipFeedback && (
-                <span className="sp-clip-badge">
-                  <AppIcon name="check" size={12} /> {t('editor.clippedFeedback')}
-                </span>
-              )}
+                {/* Clip feedback badge */}
+                {clipFeedback && (
+                  <span className="sp-clip-badge">
+                    <AppIcon name="check" size={12} /> {t('editor.clippedFeedback')}
+                  </span>
+                )}
 
-              {/* Checklist mode toggle */}
-                <button
-                  className={`sp-meta-toggle${checklistMode ? ' active' : ''}`}
-                  onClick={toggleChecklistMode}
-                  title={
-                    checklistMode ? t('editor.checklistExitTooltip') : t('editor.checklistTooltip')
-                  }
-                >
-                  {metaAction(
-                    metaIcon(checklistMode ? SquarePen : ListChecks),
-                    checklistMode ? t('editor.actionPlainText') : t('editor.actionChecklist')
-                  )}
-                </button>
+                {/* Checklist mode */}
+                {activeNoteId && (
+                  <button
+                    type="button"
+                    className={`sp-meta-toggle${checklistMode ? ' active' : ''}`}
+                    onClick={toggleChecklistMode}
+                    title={
+                      checklistMode
+                        ? t('editor.checklistExitTooltip')
+                        : t('editor.checklistTooltip')
+                    }
+                  >
+                    {metaAction(
+                      metaIcon(ListChecks),
+                      checklistMode ? t('editor.actionPlainText') : t('editor.actionChecklist')
+                    )}
+                  </button>
+                )}
 
-              {/* Markdown preview */}
-              {markdownEnabled && (
-                <button
-                  className={`sp-meta-toggle${preview ? ' active' : ''}`}
-                  onClick={() => setPreview(!preview)}
-                  title={t('editor.markdownTooltip')}
-                >
-                  {metaAction(
-                    metaIcon(preview ? SquarePen : Eye),
-                    preview ? t('editor.actionEdit') : t('editor.actionPreview')
-                  )}
-                </button>
-              )}
+                {/* Markdown preview */}
+                {markdownEnabled && (
+                  <button
+                    className={`sp-meta-toggle${preview ? ' active' : ''}`}
+                    onClick={() => setPreview(!preview)}
+                    title={t('editor.markdownTooltip')}
+                  >
+                    {metaAction(
+                      metaIcon(preview ? SquarePen : Eye),
+                      preview ? t('editor.actionEdit') : t('editor.actionPreview')
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
