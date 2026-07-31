@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Features } from '../../store/types';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
 

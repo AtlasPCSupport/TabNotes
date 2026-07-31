@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation, Language } from '@tabnotes/i18n';
 
 interface LanguageSettingsProps {

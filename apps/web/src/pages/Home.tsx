@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useNotesStore } from '../store/notes';
 import { formatRelativeTime } from '@tabnotes/shared';

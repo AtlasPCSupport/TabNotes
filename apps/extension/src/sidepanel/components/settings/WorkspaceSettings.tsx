@@ -1,4 +1,3 @@
-import React from 'react';
 import { useSidePanelStore } from '../../store';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon } from '../AppIcon';

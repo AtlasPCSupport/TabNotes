@@ -36,6 +36,8 @@ When enabled:
 - Notes sync directly between TabNotes and Google Drive.
 - The sync file is stored in your Google account, not on TabNotes infrastructure.
 - The file is hidden from normal "My Drive" view by Google Drive.
+- Drive sync is not end-to-end encrypted by default; notes are uploaded as stored locally.
+- For sensitive content, use per-note encryption or an encrypted manual backup before syncing.
 - TabNotes does not persist your Google access token in extension storage.
 - You can disconnect Google Drive at any time.
 

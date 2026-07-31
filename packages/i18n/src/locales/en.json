@@ -444,6 +444,7 @@
     "backupReminderDesc": "Notify if you haven't exported in",
     "driveSync": "Google Drive backup",
     "driveSyncDesc": "Back up notes to your private Google Drive app data folder. No TabNotes server is used.",
+    "driveEncryptionWarning": "Drive sync is not end-to-end encrypted by default. Notes are uploaded as stored locally. Encrypt sensitive notes first or use an encrypted manual backup.",
     "driveConnect": "Connect Google Drive",
     "driveConnected": "Google Drive connected",
     "driveConnectedStatus": "Connected",

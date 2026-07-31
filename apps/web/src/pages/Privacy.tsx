@@ -130,6 +130,11 @@ export default function PrivacyPage() {
           Google Drive sync transfers your selected sync data directly to your private Google Drive
           app-data folder. TabNotes does not operate a sync server.
         </p>
+        <p>
+          Drive sync is not end-to-end encrypted by default. Notes are uploaded in the form stored
+          locally. For sensitive content, encrypt the note before syncing or use an encrypted manual
+          backup.
+        </p>
       </Section>
 
       <Section title="Permissions used by the extension">

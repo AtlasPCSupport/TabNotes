@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@tabnotes/i18n';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,7 +7,14 @@ const cr: any =
     ? (globalThis as Record<string, unknown>).chrome
     : null;
 
-type DriveStatus = 'idle' | 'syncing' | 'ok' | 'error' | 'disconnected' | 'setup_required' | 'blocked';
+type DriveStatus =
+  | 'idle'
+  | 'syncing'
+  | 'ok'
+  | 'error'
+  | 'disconnected'
+  | 'setup_required'
+  | 'blocked';
 
 interface DriveSyncState {
   enabled?: boolean;
@@ -141,7 +148,10 @@ export function DriveSyncSettings() {
     if (next?.hasBackup) {
       const shouldRestore = window.confirm(t('settingsSections.driveRestoreConfirm'));
       if (shouldRestore) {
-        const restored = await runAction('DRIVE_RESTORE', t('settingsSections.driveRestoreSuccess'));
+        const restored = await runAction(
+          'DRIVE_RESTORE',
+          t('settingsSections.driveRestoreSuccess')
+        );
         if (restored) await restoreReminderAlarms();
       }
     }
@@ -183,6 +193,8 @@ export function DriveSyncSettings() {
         )}
       </div>
 
+      <div className="sp-drive-sync-warning">{t('settingsSections.driveEncryptionWarning')}</div>
+
       {state.setupRequired && (
         <div className="sp-drive-sync-warning">
           {state.setupReason ?? t('settingsSections.driveSetupMissing')}
@@ -195,7 +207,11 @@ export function DriveSyncSettings() {
 
       <div className="sp-drive-sync-actions">
         {!isConnected ? (
-          <button className="sp-drive-btn primary" disabled={busy || !canUse} onClick={handleConnect}>
+          <button
+            className="sp-drive-btn primary"
+            disabled={busy || !canUse}
+            onClick={handleConnect}
+          >
             {busy ? t('settingsSections.driveWorking') : t('settingsSections.driveConnect')}
           </button>
         ) : (
