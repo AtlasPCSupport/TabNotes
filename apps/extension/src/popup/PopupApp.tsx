@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Note, NoteScope,
   ChromeStorageAdapter, NotesService, WorkspacesService, Workspace,

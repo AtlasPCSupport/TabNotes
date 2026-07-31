@@ -85,6 +85,7 @@ TabNotes does not use a TabNotes server for your notes.
 - Manual export creates a JSON file controlled by the user.
 - Optional Google Drive sync uses only `https://www.googleapis.com/auth/drive.appdata`.
 - Drive sync data is written to the user's private Google Drive app data folder.
+- Drive sync is not end-to-end encrypted by default; encrypt sensitive notes first or use an encrypted manual backup.
 - The extension does not include advertising, analytics, telemetry, or tracking SDKs.
 
 ## Manual Install From ZIP

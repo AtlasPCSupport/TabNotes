@@ -1,4 +1,3 @@
-import React from 'react';
 import { Note, stripFormatting } from '@tabnotes/shared';
 import { useTranslation } from '@tabnotes/i18n';
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../AppIcon';
 

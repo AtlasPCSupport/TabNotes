@@ -444,6 +444,7 @@
     "backupReminderDesc": "Notificar si no has exportado en",
     "driveSync": "Copia en Google Drive",
     "driveSyncDesc": "Respalda tus notas en la carpeta privada de datos de app de tu Google Drive. No se usa ningún servidor de TabNotes.",
+    "driveEncryptionWarning": "El sync de Drive no tiene cifrado de extremo a extremo por defecto. Las notas se suben como están guardadas localmente. Cifra las notas sensibles antes de sincronizar o usa una copia manual cifrada.",
     "driveConnect": "Conectar Google Drive",
     "driveConnected": "Google Drive conectado",
     "driveConnectedStatus": "Conectado",

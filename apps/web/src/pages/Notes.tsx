@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNotesStore } from '../store/notes';
 import { Note, NoteScope, formatRelativeTime, searchNotes, renderMarkdown } from '@tabnotes/shared';
 

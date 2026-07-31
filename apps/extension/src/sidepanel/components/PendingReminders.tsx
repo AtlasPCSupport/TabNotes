@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlarmClock, ArrowUpRight, Clock3, X } from 'lucide-react';
 import { formatRelativeTime } from '@tabnotes/shared';
 import { useTranslation } from '@tabnotes/i18n';

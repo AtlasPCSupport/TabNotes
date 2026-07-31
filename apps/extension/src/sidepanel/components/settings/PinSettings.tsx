@@ -1,4 +1,3 @@
-import React from 'react';
 import type { PinHash } from '@tabnotes/shared';
 import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon } from '../AppIcon';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   Note,
   NoteScope,
@@ -24,6 +24,7 @@ import { useNoteActions } from './hooks/useNoteActions';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { usePreferences } from './hooks/usePreferences';
+import { useSidePanelUiState } from './hooks/useSidePanelUiState';
 import { BottomNav } from './components/BottomNav';
 import { ScopeBar } from './components/ScopeBar';
 import { HeaderBar } from './components/HeaderBar';
@@ -41,7 +42,6 @@ import {
   DEFAULT_SNOOZE_MINUTES,
   OPEN_REMINDER_REQUEST_STORAGE_KEY,
   PENDING_REMINDERS_STORAGE_KEY,
-  PendingNoteReminder,
   normalizePendingReminders,
   removePendingReminder,
 } from '../shared/reminders';
@@ -213,50 +213,48 @@ export default function SidePanelApp() {
     setBackupRemindDays,
   });
 
-  const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
-  const [deleteCardConfirmId, setDeleteCardConfirmId] = useState<string | null>(null);
-
-  // Search
-  const [searchQ, setSearchQ] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Bulk select
-  const [selectMode, setSelectMode] = useState(false);
-  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
-
-  // Collapsible scope groups — all collapsed by default
-  const [collapsedScopes, setCollapsedScopes] = useState<Set<string>>(
-    new Set(['url', 'domain', 'workspace', 'global'])
-  );
-  const toggleScope = (sc: string) =>
-    setCollapsedScopes((prev) => {
-      const n = new Set(prev);
-      n.has(sc) ? n.delete(sc) : n.add(sc);
-      return n;
-    });
-
-  // Tag filter in All Notes
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-
-  // Wiki autocomplete / Encryption
-  const [showEncPrompt, setShowEncPrompt] = useState<'lock' | 'unlock' | null>(null);
-
-  // History / Reminders / Reference panel
-  const [showHistory, setShowHistory] = useState(false);
-  const historyRef = useRef<HTMLDivElement>(null);
-  const [showReminderPicker, setShowReminderPicker] = useState(false);
-  const reminderRef = useRef<HTMLDivElement>(null);
-  const [reminderInput, setReminderInput] = useState('');
-  const [pendingReminders, setPendingReminders] = useState<PendingNoteReminder[]>([]);
-  const [refNoteId, setRefNoteId] = useState<string | null>(null);
-  const [showRefPanel, setShowRefPanel] = useState(false);
-
-  // Templates dropdown
-  const [showTemplates, setShowTemplates] = useState(false);
-  const templatesRef = useRef<HTMLDivElement>(null);
-
-  const [colorPickerNoteId, setColorPickerNoteId] = useState<string | null>(null);
+  // Ephemeral panel controls stay local to the panel and out of the persisted store.
+  const {
+    deletePillConfirmId,
+    setDeletePillConfirmId,
+    deleteCardConfirmId,
+    setDeleteCardConfirmId,
+    searchQ,
+    setSearchQ,
+    selectedId,
+    setSelectedId,
+    selectMode,
+    setSelectMode,
+    bulkSelectedIds,
+    setBulkSelectedIds,
+    bulkDeleteConfirm,
+    setBulkDeleteConfirm,
+    collapsedScopes,
+    toggleScope,
+    tagFilter,
+    setTagFilter,
+    showEncPrompt,
+    setShowEncPrompt,
+    showHistory,
+    setShowHistory,
+    historyRef,
+    showReminderPicker,
+    setShowReminderPicker,
+    reminderRef,
+    reminderInput,
+    setReminderInput,
+    pendingReminders,
+    setPendingReminders,
+    refNoteId,
+    setRefNoteId,
+    showRefPanel,
+    setShowRefPanel,
+    showTemplates,
+    setShowTemplates,
+    templatesRef,
+    colorPickerNoteId,
+    setColorPickerNoteId,
+  } = useSidePanelUiState();
 
   // Invoke PIN Lock hook
   const {
@@ -467,13 +465,17 @@ export default function SidePanelApp() {
       selectNote,
       setView,
       setShowRefPanel,
+      setPendingReminders,
     ]
   );
 
-  const dismissPendingReminder = useCallback(async (noteId: string) => {
-    setPendingReminders((prev) => removePendingReminder(prev, noteId));
-    await sendRuntimeMessage({ type: 'DISMISS_REMINDER', noteId }).catch(() => null);
-  }, []);
+  const dismissPendingReminder = useCallback(
+    async (noteId: string) => {
+      setPendingReminders((prev) => removePendingReminder(prev, noteId));
+      await sendRuntimeMessage({ type: 'DISMISS_REMINDER', noteId }).catch(() => null);
+    },
+    [setPendingReminders]
+  );
 
   const snoozePendingReminder = useCallback(
     async (noteId: string) => {
@@ -491,7 +493,7 @@ export default function SidePanelApp() {
 
       await refreshAllNotes();
     },
-    [dismissPendingReminder, refreshAllNotes]
+    [dismissPendingReminder, refreshAllNotes, setPendingReminders]
   );
 
   useEffect(() => {
@@ -534,7 +536,7 @@ export default function SidePanelApp() {
 
     cr.storage.onChanged.addListener(handler);
     return () => cr.storage.onChanged.removeListener(handler);
-  }, [openPendingReminder]);
+  }, [openPendingReminder, setPendingReminders]);
 
   // ── Load extra prefs from localStorage ───────────────────────
   useEffect(() => {
@@ -571,7 +573,7 @@ export default function SidePanelApp() {
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
-  }, [showTemplates]);
+  }, [showTemplates, setShowTemplates, templatesRef]);
 
   // ── Click outside → close color picker ───────────────────────
   useEffect(() => {
@@ -582,7 +584,7 @@ export default function SidePanelApp() {
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
-  }, [colorPickerNoteId]);
+  }, [colorPickerNoteId, setColorPickerNoteId]);
 
   // ── Scope switch ──────────────────────────────────────────────
   const handleScopeChange = async (s: NoteScope) => {

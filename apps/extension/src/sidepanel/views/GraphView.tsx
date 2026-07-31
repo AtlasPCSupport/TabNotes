@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Note } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { NoteGraph } from '../editor/NoteGraph';

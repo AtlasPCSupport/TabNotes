@@ -1,4 +1,3 @@
-import React from 'react';
 import type { NoteScope } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, TranslationKey } from '@tabnotes/i18n';

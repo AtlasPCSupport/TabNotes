@@ -1,4 +1,3 @@
-import React from 'react';
 import { Note, stripFormatting, renderMarkdown } from '@tabnotes/shared';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { useSidePanelStore } from '../store';

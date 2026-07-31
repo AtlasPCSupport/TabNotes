@@ -1,4 +1,3 @@
-import React from 'react';
 import { Note, formatRelativeTime } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';

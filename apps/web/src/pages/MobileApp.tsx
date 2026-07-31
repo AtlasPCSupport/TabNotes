@@ -336,6 +336,16 @@ export default function MobileAppPage() {
               Drive sync.
             </p>
           )}
+          <p
+            style={{
+              color: 'var(--color-text-muted)',
+              fontSize: 'var(--text-xs)',
+              lineHeight: 1.5,
+            }}
+          >
+            Drive sync is not end-to-end encrypted by default. Notes are uploaded as stored locally;
+            encrypt sensitive notes first or use an encrypted manual backup.
+          </p>
         </div>
       </section>
 

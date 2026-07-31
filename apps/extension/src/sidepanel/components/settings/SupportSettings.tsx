@@ -1,4 +1,3 @@
-import React from 'react';
 import { useSidePanelStore } from '../../store';
 import { useTranslation } from '@tabnotes/i18n';
 

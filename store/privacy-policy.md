@@ -24,6 +24,9 @@ If enabled, TabNotes uses Chrome identity and the Google Drive `drive.appdata` s
 sync data in your private Google Drive app data folder. Sync data travels directly between TabNotes
 and Google Drive; the TabNotes developer cannot access it.
 
+Drive sync is not end-to-end encrypted by default. Notes are uploaded as stored locally. Use
+per-note encryption or an encrypted manual backup before syncing sensitive content.
+
 ## Permissions
 
 | Permission                     | Why                                                                   |
