@@ -1,4 +1,7 @@
 const GOOGLE_OAUTH_CLIENT_ID_PATTERN = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i;
+const PUBLISHED_EXTENSION_ID = 'pniapenkdphjolncppcichbahomfiffj';
+const UNPACKED_BUILD_REASON =
+  'Google Drive sync is available in the Chrome Web Store build. This unpacked build has a different extension ID.';
 
 function runtimeErrorMessage(): string | null {
   return chrome.runtime.lastError?.message ?? null;
@@ -19,6 +22,14 @@ export function getOAuthSetupStatus(): { configured: boolean; clientId?: string;
   };
   const clientId = manifest.oauth2?.client_id;
   const scopes = manifest.oauth2?.scopes ?? [];
+
+  if (chrome.runtime.id && chrome.runtime.id !== PUBLISHED_EXTENSION_ID) {
+    return {
+      configured: false,
+      clientId,
+      reason: UNPACKED_BUILD_REASON,
+    };
+  }
 
   if (!clientId || !GOOGLE_OAUTH_CLIENT_ID_PATTERN.test(clientId)) {
     return {
