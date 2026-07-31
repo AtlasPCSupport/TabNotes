@@ -4,6 +4,18 @@ All notable changes to TabNotes will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.11.5] — 2026-07-31
+
+### Added
+- Web Drive adapter and runtime configuration tests
+- Strict TypeScript checks for the extension, web app, shared package, and i18n package
+- OAuth guard tests for unpacked development builds
+
+### Changed
+- Extracted ephemeral side-panel UI state into a dedicated hook
+- Clarified that Google Drive sync is not end-to-end encrypted by default
+- Prevented unpacked clones from attempting the published extension's OAuth client
+
 ## [2.11.4] — 2026-06-02
 
 ### Added
@@ -71,6 +83,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - JSON export and import
 - Companion web app at tabnotes.atlaspcsupport.com
 
+[2.11.5]: https://github.com/AtlasPCSupport/TabNotes/compare/v2.11.4...v2.11.5
 [2.11.4]: https://github.com/AtlasPCSupport/TabNotes/compare/v2.11.3...v2.11.4
 [2.11.3]: https://github.com/AtlasPCSupport/TabNotes/compare/v2.11.0...v2.11.3
 [2.11.0]: https://github.com/AtlasPCSupport/TabNotes/compare/v2.9.0...v2.11.0

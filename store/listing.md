@@ -2,13 +2,13 @@
 
 ## Current public package
 
-- Version: `2.11.4`
+- Version: `2.11.5`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: GitHub Release asset `tabnotes-extension-v2.11.4.zip`
+- ZIP: GitHub Release asset `tabnotes-extension-v2.11.5.zip`
 
 ## Name
 
