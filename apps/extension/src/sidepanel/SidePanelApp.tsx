@@ -7,7 +7,6 @@ import {
   NotesService,
   WorkspacesService,
   normalizeDomain,
-  stripFormatting,
   editorHtmlToPlainText,
   parseChecklistItems,
   serializeChecklist,

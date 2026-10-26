@@ -15,7 +15,7 @@ export function renderMarkdown(text: string): string {
   const htmlChunks: string[] = [];
   const PH = '\x01';
   const safe = text
-    .replace(/<(span|u|s|b|i|strong|em|mark|div)\b([^>]*)>([\s\S]*?)<\/\1>/g, (full) => {
+    .replace(/<(p|span|u|s|b|i|strong|em|mark|div)\b([^>]*)>([\s\S]*?)<\/\1>/g, (full) => {
       htmlChunks.push(full);
       return `${PH}${htmlChunks.length - 1}${PH}`;
     })

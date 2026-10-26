@@ -45,6 +45,13 @@ describe('renderMarkdown', () => {
     expect(out).not.toContain('&lt;img');
   });
 
+  it('renders stored HTML paragraphs without printing literal tags and still sanitizes them', () => {
+    const out = renderMarkdown('<p onclick="alert(1)">Imported <strong>paragraph</strong></p>');
+    expect(out).toContain('<p>Imported <strong>paragraph</strong></p>');
+    expect(out).not.toContain('&lt;p');
+    expect(out).not.toContain('onclick');
+  });
+
   it('renders legacy local screenshot markdown as an image', () => {
     const out = renderMarkdown('![Old screenshot](data:image/jpeg;base64,SGVsbG8=)');
     expect(out).toContain('<img');
