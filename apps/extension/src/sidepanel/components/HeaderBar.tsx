@@ -40,7 +40,7 @@ const ESFlag = () => (
 
 /**
  * Top header: logo, workspace quick-switcher dropdown, and action buttons
- * (streak, offline indicator, graph toggle, theme toggle, settings).
+ * (streak, offline indicator, graph toggle, theme toggle, help).
  *
  * View/theme/workspace data come from the store; workspace switching and the
  * dropdown open-state are passed in (the switch handler reloads context notes
@@ -235,16 +235,6 @@ export function HeaderBar({
         )}
         <button className="sp-icon-btn" onClick={onToggleTheme} title={t('header.toggleTheme')}>
           <AppIcon name={theme === 'dark' ? 'light' : 'dark'} size={15} />
-        </button>
-        <button
-          className="sp-icon-btn"
-          onClick={() => {
-            setSettingsTarget(null);
-            setView('settings');
-          }}
-          title={t('header.settings')}
-        >
-          <AppIcon name="settings" size={15} />
         </button>
         <div className="tn-help-menu-wrap" ref={helpMenuRef}>
           <button

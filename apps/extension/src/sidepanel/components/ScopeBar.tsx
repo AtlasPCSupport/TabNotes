@@ -34,6 +34,8 @@ export function ScopeBar({
         <button
           key={opt.value}
           className={`sp-scope-btn ${scope === opt.value ? 'active' : ''}`}
+          aria-pressed={scope === opt.value}
+          title={t(`scope.${opt.value}Desc` as TranslationKey)}
           onClick={() => onScopeChange(opt.value)}
           disabled={tabLoading}
         >

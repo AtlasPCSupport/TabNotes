@@ -1,14 +1,23 @@
 # TabNotes — Chrome Web Store Listing
 
-## Current public package
+## Next update package (not yet published)
 
-- Version: `2.12.0`
+- Version: `2.12.1`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: GitHub Release asset `tabnotes-extension-v2.12.0.zip`
+- ZIP: locally generated `tabnotes-extension-v2.12.1.zip`; GitHub Release asset not yet published.
+
+## What's new in 2.12.1
+
+- Clearer capture workflow: choose your destination, then select text, screenshot or crop.
+- Easier-to-understand Page, Site, Project and Global scopes with contextual explanations.
+- Cleaner header with the duplicate Settings button removed.
+- More readable note lists, checklist previews and fewer empty groups.
+- Improved Spanish labels and keyboard dismissal of the capture menu.
+- Existing notes, manual backups, encryption and Google Drive compatibility are preserved.
 
 ## Name
 

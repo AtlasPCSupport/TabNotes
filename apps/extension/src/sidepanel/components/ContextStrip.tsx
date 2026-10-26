@@ -1,6 +1,6 @@
 import { normalizeUrl } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
-import { useTranslation } from '@tabnotes/i18n';
+import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 
 /**
  * ContextStrip component.
@@ -8,11 +8,7 @@ import { useTranslation } from '@tabnotes/i18n';
  * along with the count of notes in this scope and the "Saved" badge.
  * Subscribes to the store for context notes, url, scope, workspace lists, and loading/saved states.
  */
-export function ContextStrip({
-  tabLoading,
-}: {
-  tabLoading: boolean;
-}) {
+export function ContextStrip({ tabLoading }: { tabLoading: boolean }) {
   const { t } = useTranslation();
   const scope = useSidePanelStore((s) => s.scope);
   const currentUrl = useSidePanelStore((s) => s.currentUrl);
@@ -33,9 +29,22 @@ export function ContextStrip({
 
   return (
     <div className="sp-context-strip">
-      <span className="sp-context-key" title={scopeKey}>
-        {tabLoading ? t('common.switching') : scopeKey || '—'}
-      </span>
+      <div className="sp-context-copy">
+        <span className="sp-context-key" title={scopeKey}>
+          {tabLoading
+            ? t('common.switching')
+            : t(`scope.${scope}Context` as TranslationKey, { context: scopeKey || '—' })}
+        </span>
+        {!tabLoading && (
+          <span className="sp-context-hint">
+            {t(
+              scope === 'workspace' && !activeWorkspaceId
+                ? 'scope.chooseProject'
+                : (`scope.${scope}Hint` as TranslationKey)
+            )}
+          </span>
+        )}
+      </div>
       <div className="sp-context-right">
         {!tabLoading && contextNotes.length > 0 && (
           <span className="sp-context-count">

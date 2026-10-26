@@ -28,8 +28,17 @@ export function CaptureHub({
     const closeOnOutsideClick = (event: MouseEvent) => {
       if (!hubRef.current?.contains(event.target as Node)) setOpen(false);
     };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      hubRef.current?.querySelector<HTMLButtonElement>('.sp-capture-trigger')?.focus();
+    };
     document.addEventListener('mousedown', closeOnOutsideClick);
-    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
   }, [open]);
 
   return (
@@ -48,33 +57,29 @@ export function CaptureHub({
 
       {open && (
         <div className="sp-capture-menu" role="menu" aria-label={t('captureHub.label')}>
-          <label className="sp-capture-shortcut">
-            {t('captureHub.destination')}
+          <label className="sp-capture-destination">
+            <span className="sp-capture-step">
+              <span className="sp-capture-step-number" aria-hidden="true">
+                1
+              </span>
+              {t('captureHub.chooseDestination')}
+            </span>
             <select
               value={target}
               onChange={(event) => setTarget(event.target.value as 'current' | 'new')}
             >
               <option value="current">{t('captureHub.currentNote')}</option>
-              <option value="new">{t('captureHub.newNote')}</option>
+              <option value="new">
+                {t('captureHub.newNote')} · {t('editor.moveNoFolder')}
+              </option>
             </select>
           </label>
-          <button
-            type="button"
-            className="sp-capture-action"
-            role="menuitem"
-            disabled={disabled}
-            onClick={() => {
-              setOpen(false);
-              void onNewNote();
-            }}
-          >
-            <AppIcon name="note" size={15} />
-            <span>
-              <strong>{t('captureHub.newNote')}</strong>
-              <small>{t('captureHub.newNoteDesc')}</small>
+          <div className="sp-capture-step sp-capture-step-actions">
+            <span className="sp-capture-step-number" aria-hidden="true">
+              2
             </span>
-          </button>
-
+            {t('captureHub.chooseCapture')}
+          </div>
           <button
             type="button"
             className="sp-capture-action"
@@ -82,13 +87,13 @@ export function CaptureHub({
             disabled={disabled}
             onClick={() => {
               setOpen(false);
-              onCaptureArea(target);
+              void onClipSelection(target);
             }}
           >
-            <AppIcon name="crop" size={15} />
+            <AppIcon name="doc" size={15} />
             <span>
-              <strong>{t('captureHub.crop')}</strong>
-              <small>{t('captureHub.cropDesc')}</small>
+              <strong>{t('captureHub.clipSelection')}</strong>
+              <small>{t('captureHub.clipSelectionDesc')}</small>
             </span>
           </button>
 
@@ -116,40 +121,31 @@ export function CaptureHub({
             disabled={disabled}
             onClick={() => {
               setOpen(false);
-              void onClipSelection('current');
+              onCaptureArea(target);
             }}
           >
-            <AppIcon name="doc" size={15} />
+            <AppIcon name="crop" size={15} />
             <span>
-              <strong>{t('captureHub.clipCurrent')}</strong>
-              <small>{t('captureHub.clipCurrentDesc')}</small>
+              <strong>{t('captureHub.crop')}</strong>
+              <small>{t('captureHub.cropDesc')}</small>
             </span>
           </button>
 
           <button
             type="button"
-            className="sp-capture-action"
+            className="sp-capture-action sp-capture-blank"
             role="menuitem"
             disabled={disabled}
             onClick={() => {
               setOpen(false);
-              void onClipSelection('new');
+              void onNewNote();
             }}
           >
-            <AppIcon name="doc" size={15} />
+            <AppIcon name="note" size={15} />
             <span>
-              <strong>{t('captureHub.clipNew')}</strong>
-              <small>{t('captureHub.clipNewDesc')}</small>
+              <strong>{t('captureHub.blankNote')}</strong>
             </span>
           </button>
-
-          <div className="sp-capture-hint" role="note">
-            <AppIcon name="doc" size={15} />
-            <span>
-              <strong>{t('captureHub.clipSelection')}</strong>
-              <small>{t('captureHub.clipSelectionDesc')}</small>
-            </span>
-          </div>
 
           <div className="sp-capture-shortcut">
             <kbd>Ctrl+Shift+N</kbd>

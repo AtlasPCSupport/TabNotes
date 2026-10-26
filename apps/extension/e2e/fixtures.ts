@@ -35,12 +35,28 @@ export const test = base.extend<{
         `Extension build not found at ${DIST}. Run "pnpm --filter @tabnotes/extension build" first (the e2e script does this).`
       );
     }
+    // Optional native Chrome runner for machines where cached Chromium cannot
+    // start. Keep CI on bundled Chromium; never reuse a personal profile.
+    const chromePath = process.env.TABNOTES_E2E_CHROME;
     const context = await chromium.launchPersistentContext('', {
-      channel: 'chromium',
-      args: ['--headless=new', `--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
+      ...(chromePath ? { executablePath: chromePath } : { channel: 'chromium' }),
+      ...(chromePath ? { ignoreDefaultArgs: ['--disable-extensions'] } : {}),
+      args: chromePath
+        ? ['--headless=new', '--enable-unsafe-extension-debugging']
+        : ['--headless=new', `--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
-    let [sw] = context.serviceWorkers();
-    if (!sw) sw = await context.waitForEvent('serviceworker');
+    if (chromePath) {
+      const session = await context.browser()!.newBrowserCDPSession();
+      await session.send('Extensions.loadUnpacked', { path: DIST });
+      await session.detach();
+    }
+    let sw = context
+      .serviceWorkers()
+      .find((worker) => worker.url().endsWith('/background/index.js'));
+    if (!sw)
+      sw = await context.waitForEvent('serviceworker', (worker) =>
+        worker.url().endsWith('/background/index.js')
+      );
     await (sw as Worker).evaluate(
       (key) => chrome.storage.local.set({ [key]: 1 }),
       ONBOARDING_STORAGE_KEY
@@ -51,9 +67,13 @@ export const test = base.extend<{
 
   extensionId: async ({ context }, use) => {
     // The MV3 service worker registers under chrome-extension://<id>/...
-    let [sw] = context.serviceWorkers();
+    let sw = context
+      .serviceWorkers()
+      .find((worker) => worker.url().endsWith('/background/index.js'));
     if (!sw) {
-      sw = await context.waitForEvent('serviceworker');
+      sw = await context.waitForEvent('serviceworker', (worker) =>
+        worker.url().endsWith('/background/index.js')
+      );
     }
     const id = new URL((sw as Worker).url()).host;
     await use(id);
