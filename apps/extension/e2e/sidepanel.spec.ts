@@ -251,7 +251,7 @@ test.describe('TabNotes side panel — baseline', () => {
     await panel.waitForTimeout(500);
     const result = await panel.evaluate(async () => {
       const data = await chrome.storage.local.get(['tn_floating_request', 'tabnotes_data']);
-      return { request: data.tn_floating_request, notes: data.tabnotes_data.notes_domain };
+      return { request: data.tn_floating_request, notes: data.tabnotes_data?.notes_domain };
     });
     expect(result.request?.id).toBe('routing-regression');
     expect(Object.keys(result.notes ?? {})).toHaveLength(0);
