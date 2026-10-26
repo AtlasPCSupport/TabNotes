@@ -4,6 +4,11 @@ Usar un perfil de Chrome de pruebas y cargar `apps/extension/dist` desde
 `chrome://extensions`. Las pruebas automatizadas utilizan datos ficticios;
 no se han abierto ni modificado las notas del perfil habitual del usuario.
 
+Referencia automatizada: código `06bb9be`, 191 pruebas unitarias y 37 E2E aprobadas
+en [CI](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40257819210).
+Una E2E de arrastre sigue omitida. Las capturas E2E simulan la API de Chrome;
+las casillas siguientes requieren una comprobación real antes de publicar.
+
 ## Compatibilidad y recuperación
 
 - [ ] Importar una copia de un backup anterior en el perfil de pruebas.
