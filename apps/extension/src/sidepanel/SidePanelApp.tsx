@@ -121,7 +121,7 @@ export default function SidePanelApp() {
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [cropSource, setCropSource] = React.useState<string | null>(null);
   const [captureFeedback, setCaptureFeedback] = React.useState<string | null>(null);
-  const onCaptureFailure = useCallback(() => setCaptureFeedback(t('captureHub.failed')), [t]);
+  const onCaptureFailure = useCallback(() => setCaptureFeedback(i18n.t('captureHub.failed')), [i18n]);
   const captureSourceRef = useRef<FloatingRequest | undefined>();
   type CaptureDestination = {
     id: string | null;
