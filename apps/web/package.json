@@ -11,15 +11,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tabnotes/i18n": "workspace:*",
     "@tabnotes/shared": "workspace:*",
     "@tabnotes/ui": "workspace:*",
-    "@tabnotes/i18n": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.18.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@types/node": "20.19.43",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.2.0",
