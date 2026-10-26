@@ -4,7 +4,7 @@ All notable changes to TabNotes will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [2.12.0] — 2026-08-22
+## [2.12.0] — 2026-10-26
 
 ### Added
 
@@ -17,6 +17,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Selection clipping now preserves the active note or creates a separate capture note by choice.
 - Documentation and release metadata now describe optional per-site capture permissions accurately.
+- Web offline caches are versioned per build and restricted to public shell assets.
+
+### Fixed
+
+- Repeated Drive restores preserve both conflict edits after advancing the last-sync checkpoint.
+- Literal note titles, including angle brackets and Markdown characters, survive reopening and editing.
+- Image-note list previews show bounded readable text instead of raw HTML or base64 data.
+- PDF output preserves stored HTML paragraphs, local images and escaped title/tag metadata.
+- Floating actions reach the real side panel instead of being consumed by Settings tabs.
+- Crop initialization handles already-loaded images; capture permission failures explain the Chrome extension action.
+- Legacy backup compatibility, coordinated writes, failed-draft recovery and encrypted-history protection have regression coverage.
 
 ### Security
 

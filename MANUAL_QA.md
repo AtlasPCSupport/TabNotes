@@ -1,136 +1,72 @@
-# Validación de TabNotes 2.12 antes de publicar
+# TabNotes 2.12.0 — validación y entrega
 
-Usar un perfil de Chrome de pruebas y cargar `apps/extension/dist` desde
-`chrome://extensions`. Las pruebas automatizadas utilizan datos ficticios;
-no se han abierto ni modificado las notas del perfil habitual del usuario.
+Fecha: 2026-10-26, America/Lima. Pruebas en perfiles de Chrome aislados.
+No se modificó el perfil habitual. El usuario confirmó que la cuenta de Drive es de pruebas.
+No subir la carpeta TabNotes-2.12.0-Prueba-Drive a la Store.
 
-Referencia automatizada: código `2515f8b`, 196 pruebas unitarias y 40 E2E aprobadas
-en [CI](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40355959415).
-Una E2E de arrastre sigue omitida. Las capturas E2E simulan la API de Chrome;
-las casillas siguientes requieren una comprobación real antes de publicar.
+## Candidato final
 
-QA del 2026-10-26: Chrome estable aislado comprobó cambio de ámbito, persistencia
-tras recarga, screenshot y recorte reales (nota actual), aviso de página restringida
-y exportación JSON con dos imágenes. Se corrigió la inicialización del recorte con
-imágenes ya cargadas; ahora hay 192 unitarias aprobadas localmente. Las casillas no
-se marcan globalmente porque incluyen otros destinos y datos antiguos aún pendientes.
+- Runtime: 0cf9204; bfd269e ajusta únicamente una expectativa de prueba.
+- Validación local: lint, tipos, 200 unitarias, builds, metadata e higiene aprobados.
+- Auditoría de producción: ninguna vulnerabilidad conocida reportada.
+- CI final del código aprobada: 200 unitarias y 41 E2E; una omitida.
+  https://github.com/AtlasPCSupport/TabNotes/actions/runs/40380703403
+- La única E2E omitida es arrastre HTML5 en headless; se comprobó en Chrome estable real.
+- No cambiaron tabnotes_data, StorageData versión 3, cliente OAuth ni scopes de Drive.
 
-Actualización del 2026-10-26: el usuario reporta que hizo manualmente las pruebas de
-importación/compatibilidad y funcionan aparentemente bien. Se corrigió después el
-enrutamiento del botón flotante: Ajustes y las pestañas independientes ya no consumen
-acciones del panel real; el botón antiguo se reemplaza al actualizar. En Chrome estable
-se comprobaron Nueva nota y Selección → nota nueva conservando intactas las notas
-existentes. Screenshot/recorte flotantes requieren invocar antes el icono/atajo para
-obtener `activeTab`; sin ello se comprobó error visible sin crear notas vacías.
+## Comprobaciones reales completadas
 
-El usuario confirmó después «Ahora sí funciona» al invocar la acción real de TabNotes.
-No confundir Extensiones (puzle) → TabNotes, o su icono fijado, con el botón genérico
-de panel lateral de Chrome. El candidato `2515f8b` explica esta diferencia en EN/ES
-solo cuando Chrome devuelve el error de permiso de captura. Otros fallos conservan
-un aviso genérico. Lint, tipos y 196 unitarias pasan localmente; añade dos E2E para
-verificar ambos errores sin escribir notas. CI del candidato aprobada:
-[ejecución del candidato](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40355959415).
+| Área | Evidencia y alcance |
+| --- | --- |
+| Capturas | Screenshot/recorte como imágenes, persistencia y errores visibles en Chrome estable; el usuario confirmó que funcionan desde la acción real de TabNotes. Headless simula la API, no los permisos. |
+| Botón flotante | Nueva nota y selección a nota nueva llegan al panel nativo con Ajustes abierto. El permiso es por dominio; invocar Extensiones → TabNotes concede activeTab para captura. |
+| Importación | El usuario completó sus pruebas manuales y reportó buen funcionamiento. Regresiones sintéticas cubren backups legados, cifrado, historial, imágenes grandes e importación atómica. No es una auditoría de todos sus backups personales. |
+| Drive | Identidad oficial y OAuth reales; versiones manuales 1/2, recuperación sobre copia antigua, subida automática de versión 3 y restauración repetida sin duplicados. Lecturas del archivo real confirman texto e ID. |
+| Conflictos | Dos ediciones divergentes en QA, una en el archivo real de Drive simulando otro cliente. Tras corregir el fallo encontrado, dos restauraciones y subida final conservan ambas. No se completó un segundo login OAuth en la web pública. |
+| Arrastre | Panel nativo y comprobación en storage: raíz → carpeta y carpeta → raíz, mismo ID. No se contó una espera de automatización como aprobación. |
+| PDF | Botón real, imagen y título/tags con ángulos y comillas. PDF producido por Chrome, renderizado e inspeccionado: acentos, imagen y texto correctos, sin HTML literal. Solo en QA se interceptó window.print; no se imprimió físicamente. |
+| Títulos | La compilación corregida reabre el título literal y conserva todos los datos al recargar. La E2E añade edición posterior para comprobar que no sobrescribe el título. |
+| Inbox | Filtros Texto/Imágenes/Tareas y resúmenes sin base64. Una imagen con pie de texto pertenece a ambos filtros; no son excluyentes. El cuerpo original no cambia. |
+| Onboarding | Reapertura desde Ayuda, Tab/Shift+Tab dentro del diálogo y cierre con Escape. |
+| Interfaz | Cinco capturas reales 1280×800; revisión adicional 1440×900 y 390×844, español/inglés, claro/oscuro. En panel estrecho no hay desbordamiento horizontal y la navegación inferior queda visible. |
+| PWA | Nueva compilación activada, tres recargas offline y nota con acentos intacta. Se conserva la caché ajena de prueba. Se comprobó también con assets precargados sin encabezado Origin. |
 
-### Evidencia adicional y límites — 2026-10-26
+## Correcciones del cierre
 
-- PWA local en perfil nuevo: crear nota sintética con acentos, recargar offline,
-  editar sin red, observar «Saved» y recargar conservando el texto: aprobado.
-- Actualización del service worker: elimina la caché antigua de TabNotes y conserva
-  una caché ajena de prueba. Una recarga offline inmediata tras la actualización
-  sintética dejó la página vacía; no dar por aprobado aún el ciclo de actualización.
-- La huella anterior de QA ya no representa el estado posterior a las pruebas
-  manuales: 20 notas actuales, 19 IDs anteriores presentes con huellas idénticas,
-  un ID anterior ausente y un ID nuevo. No restaurar ni sobrescribir el perfil
-  automáticamente; no se ha establecido la causa de ese cambio entre pruebas.
-- Copia separada para probar OAuth: escritorio `TabNotes-2.12.0-Prueba-Drive`.
-  Solo esa copia contiene la clave pública de la extensión oficial. Su ID calculado
-  coincide con `pniapenkdphjolncppcichbahomfiffj`. Carga 2.12.0 y autorización Google
-  completadas por el usuario. Primer backup vacío confirmado a las 12:52 del
-  2026-10-26 (America/Lima). El usuario confirmó que es una cuenta de pruebas.
-  No subir esa carpeta como paquete de publicación.
-- ZIP de publicación: escritorio `TabNotes-2.12.0-actualizacion.zip`, 202239 bytes,
-  manifest 2.12.0 en la raíz, 28 entradas, sin sourcemaps ni clave de QA.
-  SHA-256: `0808eccb83c6816d2b8ef62f05f4fc3b713a3dc3900b1adaf411e929155fce0f`.
+- PWA: caché separada por build y coincidencia de módulos públicos pese a Vary: Origin.
+  Una instalación incompleta no sobrescribe la caché activa anterior.
+- Títulos: no se elimina formato del valor guardado al cargarlo en el editor.
+- Drive: una revisión ya retenida como conflicto no sustituye después la edición local
+  al repetir la recuperación. También se respeta descartar esa copia.
+- PDF: los párrafos HTML legados se renderizan, no se muestran como etiquetas.
+- Tarjetas: resumen textual limitado a 240 caracteres, sin HTML/base64 y sin modificar backups.
 
-### Drive real con identidad oficial — 2026-10-26
+## Archivos del escritorio
 
-- Perfil y cuenta de pruebas autorizados por el usuario; al empezar, cero notas.
-- Crear una nota desde el editor, sincronizar con «Sync now» y leer el archivo real
-  de Drive: contenido de la versión 1 e ID coinciden exactamente.
-- Editar y sincronizar versión 2: nueva lectura remota confirma contenido e ID.
-- Preparar una copia local antigua de esa única nota sintética. Solo durante esta
-  preparación se pausa la sincronización automática y se conservan las versiones
-  en memoria; no se simula una eliminación ni se crean tombstones.
-- Usar «Restore / merge» y aceptar su confirmación: recupera la versión 2 real de
-  Drive. Una nota, mismo ID, estado `ok`, sin error; sincronización reactivada.
-- Editar versión 3 sin pulsar «Sync now»: una nueva lectura de Drive confirma la
-  subida automática del texto exacto, incluidos acentos, y mantiene el ID.
-- Repetir «Restore / merge»: no duplica la nota ni cambia su contenido. El editor
-  muestra el texto recuperado; queda activa la alarma periódica de sincronización.
-- Estado final: una nota ficticia local/remota, Drive activo, `status: ok`, sin error.
-  Se deja esa nota para inspección; no se borró ningún backup de la cuenta.
-- Evidencia local, fuera de git: `tmp/drive-qa-20261026/sync-restored.png`.
-- Esto valida el ciclo de una nota en la extensión oficial de QA. No sustituye las
-  pruebas de conflictos entre web/extensión, varias cuentas o todos los tipos de nota.
+- TabNotes-2.12.0-final.zip: ZIP para actualizar la extensión existente en Store.
+- TabNotes-2.12.0-final.zip.sha256: suma de verificación.
+- TabNotes-2.12.0-actualizacion.zip: copia idéntica con el nombre anterior.
+- TabNotes-2.12.0-Store-Assets/: cinco PNG de la interfaz real con datos ficticios.
 
-## Compatibilidad y recuperación
+ZIP comprobado: 202294 bytes, 28 archivos, manifest 2.12.0 en raíz, sin sourcemaps,
+claves QA, perfiles, notas ni dependencias de desarrollo. Cada archivo coincide
+con apps/extension/dist. SHA-256:
+7c2b961c534c3bf1504fc61534bcb3c591226a6c496cf9115ce51bd88ce71350
 
-- [ ] Importar una copia de un backup anterior en el perfil de pruebas.
-- [ ] Comprobar cantidad de notas, IDs/ámbitos, proyectos, carpetas, etiquetas,
-      imágenes, tareas, historial y recordatorios.
-- [ ] Escribir y cambiar inmediatamente de nota, ámbito o proyecto. Volver y
-      comprobar que están los últimos caracteres.
-- [ ] Abrir dos ventanas, crear notas y editar notas distintas simultáneamente.
-- [ ] Exportar, importar en un segundo perfil vacío y comparar el contenido.
-- [ ] Repetir con backup cifrado; probar contraseña incorrecta sin cambios en datos.
-- [ ] Importar datos adicionales y usar la recuperación de la importación.
+Evidencia local ignorada por git: tmp/pdfs/, tmp/final-qa/ y tmp/drive-qa-20261026/.
+El perfil/cuenta QA conserva sus notas ficticias y el proyecto de demostración;
+no se borraron sus backups.
 
-## Cifrado
+## Pendiente de distribución, no ejecutado
 
-- [ ] Cifrar una nota que tenga historial; su cuerpo no debe verse en historial,
-      almacenamiento ni backup JSON sin descifrar.
-- [ ] Desbloquear, editar, cerrar/reabrir el panel y volver a desbloquear.
-- [ ] El título y las etiquetas siguen visibles por diseño; el diálogo lo explica.
-- [ ] Desbloquear una nota cifrada antigua para proteger también su historial legado.
-      La migración requiere su contraseña y conserva los contenidos recuperables.
+1. Integrar PR #7 en main y crear una publicación GitHub si el usuario lo autoriza.
+   El código está subido a la rama; PR permanece en borrador.
+2. Subir el ZIP final como actualización de la ficha existente, revisar las declaraciones
+   de permisos/privacidad y enviar a revisión. Usar las capturas nuevas si se actualizan.
+3. Tras aprobarse, instalar la actualización oficial y verificar versión, notas anteriores,
+   screenshot/recorte y Drive. Hacer backup manual antes de actualizar el perfil habitual.
+4. Para distribuir también los cambios web/PWA, desplegar por separado el sitio. El ZIP
+   de Chrome no actualiza la web pública ni su sesión OAuth; la fuente web queda en el repo.
 
-## Captura y permisos
-
-- [ ] En una página HTTPS normal, invocar primero Extensiones (puzle) → TabNotes
-      o su icono fijado. Abrir solo el panel lateral no concede `activeTab`.
-- [ ] Capture Hub: screenshot y crop → nota actual / nueva nota.
-- [ ] La imagen debe renderizar, persistir tras recargar y no aparecer como texto base64.
-- [ ] Seleccionar texto: clip → nota actual / nueva, incluido menú contextual.
-- [ ] Activar botón flotante en un dominio, aceptar el permiso y probar sus acciones.
-- [ ] Abrir otro dominio: el permiso y el botón no deben aparecer automáticamente.
-- [ ] Tras navegar a otra pestaña, probar captura flotante. Si Chrome exige volver
-      a invocar la extensión, debe aparecer la explicación en vez de fallar en silencio.
-- [ ] Desactivar el botón con varias pestañas del mismo dominio abiertas:
-      desaparece en todas. Revocar permisos también debe impedir la inyección.
-- [ ] Cambiar de nota/pestaña mientras llega una captura: no modificar otra nota.
-- [ ] Páginas restringidas y permisos denegados: mensaje claro, sin notas dañadas.
-
-## Interfaz y otras entradas
-
-- [ ] Onboarding completo, cerrar con Escape y volver a abrir desde Ayuda.
-- [ ] Tab/Shift+Tab permanecen dentro de los diálogos; al cerrar vuelve el foco.
-- [ ] Panel estrecho (390 px), temas claro/oscuro, español/inglés.
-- [ ] Inbox muestra las notas sin carpeta del proyecto activo.
-- [ ] Filtros Texto/Imágenes/Tareas y sus contadores.
-- [ ] Opciones de Chrome muestra los mismos Ajustes e importador que el panel.
-- [ ] Arrastrar una nota a una carpeta (única prueba E2E omitida).
-- [ ] Exportar PDF con imágenes y título/etiquetas que contengan `<`, `>` y comillas.
-- [ ] Web/PWA: editar y recargar sin conexión, después actualizar a la nueva versión.
-
-## Drive y publicación
-
-- [ ] Build desempaquetado: aviso de identidad OAuth local esperado.
-- [x] Identidad oficial de Store: conectar y completar primer backup vacío (2.12.0).
-- [x] Identidad oficial de Store: modificar una nota sintética, sincronizar y recuperar.
-- [ ] Comprobar conflicto entre web/extensión sin perder una de las versiones.
-- [ ] Actualizar capturas promocionales con la interfaz validada.
-- [ ] ZIP generado desde la revisión comprobada, manifest 2.12.0 y sin mapas de código.
-- [ ] Tras subir, verificar versión instalada, web pública y política de privacidad.
-
-La aprobación de Store y el acceso real a la cuenta Google no se pueden demostrar
-con imágenes simuladas ni solo con pruebas unitarias.
+La aprobación de Store no está bajo control del agente. No afirmar que se publicó
+ni que el sitio público se actualizó solo porque las pruebas o el ZIP estén listos.

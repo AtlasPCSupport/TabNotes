@@ -9,8 +9,30 @@ historial y lectura de backups existentes. No modificar perfiles reales de Chrom
 - [x] 3. Implementar capturas con origen/destino, errores y consumo único de solicitudes flotantes (validación real en paso 6).
 - [x] 4. Unificar Ajustes/Opciones, destinos de captura y diálogos accesibles. Inbox continúa significando notas sin carpeta.
 - [x] 5. Actualizar dependencias aplicables y retirar código obsoleto/sin uso.
-- [ ] 6. Validación: regresión y compatibilidad automatizadas completas; importación y captura confirmadas por el usuario; ciclo Drive oficial comprobado con nota sintética. Restan conflictos entre clientes y comprobaciones de `MANUAL_QA.md`.
-- [ ] 7. Documentación y paquete preparados; publicación bloqueada hasta completar las comprobaciones manuales.
+- [x] 6. Cierre de validación: pruebas locales, Drive/conflictos reales, PDF, arrastre, teclado y PWA completados. CI del código aprobada: 200 unitarias y 41 E2E; una omitida con comprobación manual alternativa.
+- [x] 7. Preparación de entrega: documentación actualizada, cinco capturas reales y ZIP final verificado en el escritorio. Publicación/fusión no ejecutadas.
+
+## Estado actual — 2026-10-26
+
+El estado vigente y los límites de las pruebas están en `MANUAL_QA.md`. Las secciones
+inferiores conservan resultados históricos y no deben interpretarse como una nueva
+lista de bloqueos pendientes.
+
+- Correcciones finales: caché PWA por build, títulos literales al reabrir, conflictos
+  Drive idempotentes tras avanzar lastSyncedAt, párrafos HTML en PDF y resúmenes sin base64.
+- La regresión de conflicto falló antes del arreglo y pasó después. Se repitió con
+  archivo real en Drive: dos recuperaciones y subida final conservan ambas ediciones.
+- Lint, tipos, 200 unitarias, build, metadata e higiene pasan localmente; producción
+  sin vulnerabilidades conocidas reportadas. CI del código aprobada:
+  [200 unitarias, 41 E2E, una omitida](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40380703403).
+- ZIP: escritorio `TabNotes-2.12.0-final.zip`, 202294 bytes, 28 archivos verificados
+  contra dist, sin mapas ni clave de QA. SHA-256:
+  `7c2b961c534c3bf1504fc61534bcb3c591226a6c496cf9115ce51bd88ce71350`.
+- Cinco capturas 1280×800 en `TabNotes-2.12.0-Store-Assets`; revisión adicional de
+  escritorio y panel 390×844, español/inglés y temas claro/oscuro.
+- Pendiente externo: integrar PR en main si se autoriza, subir el ZIP a Store,
+  esperar aprobación y comprobar la instalación oficial. Los cambios web/PWA
+  requieren un despliegue separado; no se ha modificado la web pública.
 
 ## Reglas de compatibilidad
 
