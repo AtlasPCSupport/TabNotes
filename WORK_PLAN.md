@@ -57,10 +57,28 @@ solicitudes flotantes globales y pantalla de opciones con importador antiguo.
 - Revisadas las capturas de onboarding, Capture Hub, recorte y Ajustes compartidos.
 - Corregida durante E2E una reinicialización repetida del editor al cambiar el idioma:
   la inicialización ya no depende de una función de traducción de identidad variable.
-- ZIP local: `store/tabnotes-extension-v2.12.0.zip` (201523 bytes).
-  SHA-256: `5eb2829fb1e43f2736aa80f5e79b7b3b7a0a6c03f21de48b9f8e30f55d4ac71c`.
+- ZIP local actualizado tras QA de Chrome: `store/tabnotes-extension-v2.12.0.zip` (201555 bytes).
+  SHA-256: `63255a88ab2285ffb91ae2fc5f10bfa503efb3b4ad482d440c092229d85a4be6`.
 - Cambios subidos a [PR #7](https://github.com/AtlasPCSupport/TabNotes/pull/7), en borrador.
   No se han integrado en main, creado un release ni enviado a Chrome Web Store.
+
+### QA real de Chrome estable — 2026-10-26
+
+Perfil aislado, extensión desempaquetada 2.12.0, Chrome 149.0.7827.115:
+
+- Onboarding abierto y navegación de sus tres tarjetas comprobada.
+- Nota sintética conservada al cambiar de ámbito y volver a abrirla desde la lista.
+- Screenshot real renderizado como imagen y persistente tras recargar la extensión.
+- Detectado y corregido un fallo del recorte con imágenes ya cargadas: el efecto de
+  inicialización borraba las dimensiones recibidas por `onLoad`. La prueba añadida
+  falla antes del arreglo y pasa después; total local actualizado: 192 unitarias.
+- Recorte real seleccionado y guardado como segunda imagen tras aplicar el arreglo.
+- Exportación real descargada: dos notas, texto con acentos y dos imágenes HTML
+  presentes en el JSON. Importación por selector nativo pendiente de completar.
+- Error de permisos tras recargar: mensaje visible; volver a invocar la extensión
+  desde su icono restablece `activeTab` y permite capturar. Página de Chrome
+  restringida muestra explicación sin modificar notas.
+- Botón flotante y sus permisos por dominio aún no validados manualmente.
 
 ## Validación pendiente
 

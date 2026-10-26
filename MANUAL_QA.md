@@ -9,6 +9,12 @@ en [CI](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40257819210).
 Una E2E de arrastre sigue omitida. Las capturas E2E simulan la API de Chrome;
 las casillas siguientes requieren una comprobación real antes de publicar.
 
+QA del 2026-10-26: Chrome estable aislado comprobó cambio de ámbito, persistencia
+tras recarga, screenshot y recorte reales (nota actual), aviso de página restringida
+y exportación JSON con dos imágenes. Se corrigió la inicialización del recorte con
+imágenes ya cargadas; ahora hay 192 unitarias aprobadas localmente. Las casillas no
+se marcan globalmente porque incluyen otros destinos y datos antiguos aún pendientes.
+
 ## Compatibilidad y recuperación
 
 - [ ] Importar una copia de un backup anterior en el perfil de pruebas.

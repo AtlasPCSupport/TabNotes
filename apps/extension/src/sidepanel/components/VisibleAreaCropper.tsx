@@ -44,7 +44,12 @@ export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCrop
   useEffect(() => {
     if (!source) return;
     setSelection(null);
-    setNaturalSize({ width: 0, height: 0 });
+    // Data URLs can finish loading before this effect; do not erase their onLoad dimensions.
+    const image = imageRef.current;
+    setNaturalSize({
+      width: image?.complete ? image.naturalWidth : 0,
+      height: image?.complete ? image.naturalHeight : 0,
+    });
     setError(false);
   }, [source]);
 
