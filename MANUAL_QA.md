@@ -4,8 +4,8 @@ Usar un perfil de Chrome de pruebas y cargar `apps/extension/dist` desde
 `chrome://extensions`. Las pruebas automatizadas utilizan datos ficticios;
 no se han abierto ni modificado las notas del perfil habitual del usuario.
 
-Referencia automatizada: código `06bb9be`, 191 pruebas unitarias y 37 E2E aprobadas
-en [CI](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40257819210).
+Referencia automatizada: código `2515f8b`, 196 pruebas unitarias y 40 E2E aprobadas
+en [CI](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40355959415).
 Una E2E de arrastre sigue omitida. Las capturas E2E simulan la API de Chrome;
 las casillas siguientes requieren una comprobación real antes de publicar.
 
@@ -22,6 +22,33 @@ acciones del panel real; el botón antiguo se reemplaza al actualizar. En Chrome
 se comprobaron Nueva nota y Selección → nota nueva conservando intactas las notas
 existentes. Screenshot/recorte flotantes requieren invocar antes el icono/atajo para
 obtener `activeTab`; sin ello se comprobó error visible sin crear notas vacías.
+
+El usuario confirmó después «Ahora sí funciona» al invocar la acción real de TabNotes.
+No confundir Extensiones (puzle) → TabNotes, o su icono fijado, con el botón genérico
+de panel lateral de Chrome. El candidato `2515f8b` explica esta diferencia en EN/ES
+solo cuando Chrome devuelve el error de permiso de captura. Otros fallos conservan
+un aviso genérico. Lint, tipos y 196 unitarias pasan localmente; añade dos E2E para
+verificar ambos errores sin escribir notas. CI del candidato aprobada:
+[ejecución del candidato](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40355959415).
+
+### Evidencia adicional y límites — 2026-10-26
+
+- PWA local en perfil nuevo: crear nota sintética con acentos, recargar offline,
+  editar sin red, observar «Saved» y recargar conservando el texto: aprobado.
+- Actualización del service worker: elimina la caché antigua de TabNotes y conserva
+  una caché ajena de prueba. Una recarga offline inmediata tras la actualización
+  sintética dejó la página vacía; no dar por aprobado aún el ciclo de actualización.
+- La huella anterior de QA ya no representa el estado posterior a las pruebas
+  manuales: 20 notas actuales, 19 IDs anteriores presentes con huellas idénticas,
+  un ID anterior ausente y un ID nuevo. No restaurar ni sobrescribir el perfil
+  automáticamente; no se ha establecido la causa de ese cambio entre pruebas.
+- Copia separada para probar OAuth: escritorio `TabNotes-2.12.0-Prueba-Drive`.
+  Solo esa copia contiene la clave pública de la extensión oficial. Su ID calculado
+  coincide con `pniapenkdphjolncppcichbahomfiffj`; falta comprobar carga y conexión
+  reales en Chrome. No subir esa carpeta como paquete de publicación.
+- ZIP de publicación: escritorio `TabNotes-2.12.0-actualizacion.zip`, 202239 bytes,
+  manifest 2.12.0 en la raíz, 28 entradas, sin sourcemaps ni clave de QA.
+  SHA-256: `0808eccb83c6816d2b8ef62f05f4fc3b713a3dc3900b1adaf411e929155fce0f`.
 
 ## Compatibilidad y recuperación
 
@@ -46,7 +73,8 @@ obtener `activeTab`; sin ello se comprobó error visible sin crear notas vacías
 
 ## Captura y permisos
 
-- [ ] En una página HTTPS normal, invocar primero TabNotes desde icono/atajo.
+- [ ] En una página HTTPS normal, invocar primero Extensiones (puzle) → TabNotes
+      o su icono fijado. Abrir solo el panel lateral no concede `activeTab`.
 - [ ] Capture Hub: screenshot y crop → nota actual / nueva nota.
 - [ ] La imagen debe renderizar, persistir tras recargar y no aparecer como texto base64.
 - [ ] Seleccionar texto: clip → nota actual / nueva, incluido menú contextual.

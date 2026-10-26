@@ -9,7 +9,7 @@ historial y lectura de backups existentes. No modificar perfiles reales de Chrom
 - [x] 3. Implementar capturas con origen/destino, errores y consumo único de solicitudes flotantes (validación real en paso 6).
 - [x] 4. Unificar Ajustes/Opciones, destinos de captura y diálogos accesibles. Inbox continúa significando notas sin carpeta.
 - [x] 5. Actualizar dependencias aplicables y retirar código obsoleto/sin uso.
-- [ ] 6. Validación: regresión y compatibilidad automatizadas completas; permisos reales y datos de usuario pendientes en un perfil de pruebas.
+- [ ] 6. Validación: regresión y compatibilidad automatizadas completas; importación y captura confirmadas por el usuario. Restan Drive oficial y comprobaciones manuales indicadas en `MANUAL_QA.md`.
 - [ ] 7. Documentación y paquete preparados; publicación bloqueada hasta completar las comprobaciones manuales.
 
 ## Reglas de compatibilidad
@@ -48,7 +48,7 @@ solicitudes flotantes globales y pantalla de opciones con importador antiguo.
 - Herramientas: Node 24 recomendado, ESLint 10 (flat config), Vite 7, Vitest 4,
   DOMPurify 3.4.17 y React Router 7. Producción sin vulnerabilidades conocidas en la auditoría local.
 
-## Resultado comprobado
+## Resultado inicial comprobado (histórico)
 
 - Revisión de código validada: `06bb9bee4db4cff2a10c47f6384f79abecdf8f09`.
 - 191 pruebas unitarias; lint, typecheck, builds web/extensión, metadata e higiene aprobados.
@@ -97,7 +97,7 @@ Perfil aislado, extensión desempaquetada 2.12.0, Chrome 149.0.7827.115:
   solo se añadieron dos notas sintéticas para las comprobaciones.
 - Screenshot sin concesión `activeTab`: error visible y ninguna nota vacía creada.
   El acceso a un solo dominio no sustituye ese permiso de captura. No se añadió acceso
-  global. Falta repetir screenshot/recorte flotantes después de invocar el icono/atajo.
+  global. El usuario confirmó después que ya funciona al invocar la acción real de TabNotes.
 - Se limpia un aviso anterior de captura fallida cuando otra acción se completa.
 - Añadida regresión E2E para que las pestañas independientes no roben solicitudes.
   La prueba headless positiva emula la identidad del panel, no los permisos reales.
@@ -105,7 +105,9 @@ Perfil aislado, extensión desempaquetada 2.12.0, Chrome 149.0.7827.115:
 ## Validación pendiente
 
 El navegador automatizado local no inicia (`spawn UNKNOWN`), por lo que las E2E
-se ejecutaron en CI. No se han modificado perfiles de Chrome ni notas reales.
+se ejecutaron en CI. No se ha modificado el perfil habitual de Chrome. El perfil
+aislado contiene las notas que el usuario importó para las pruebas; no tratarlo como
+descartable ni borrar/restaurar sus datos automáticamente.
 
 Completar `MANUAL_QA.md` en un perfil aislado: copia de un backup real anterior,
 permisos de captura/clip por dominio en Chrome estable, impresión PDF, arrastre,
@@ -113,3 +115,21 @@ PWA sin conexión y Drive con la identidad oficial de Store. Las pruebas de capt
 automatizadas simulan la respuesta de Chrome; no demuestran la concesión de permisos.
 Actualizar capturas promocionales tras validar estos flujos. No publicar hasta
 comprobar estos resultados; la aprobación de Store no garantiza por sí sola OAuth.
+
+### Cierre adicional — 2026-10-26
+
+- CI `2f07518`: 196 unitarias y 38 E2E aprobadas, una omitida (arrastre).
+  [Evidencia](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40353997216).
+- Candidato `2515f8b`: aviso de permiso de captura específico en EN/ES y dos E2E
+  adicionales de errores sin cambios de datos. Validación local aprobada (lint,
+  tipos, 196 unitarias, builds, metadata e higiene). CI del candidato aprobada:
+  40 E2E y una omitida; [ejecución](https://github.com/AtlasPCSupport/TabNotes/actions/runs/40355959415).
+- PWA: edición y recarga offline aprobadas con datos sintéticos. La actualización
+  de caché conserva cachés ajenas, pero su recarga offline inmediata requiere más
+  validación por una pantalla vacía observada. No afecta al ZIP de la extensión.
+- Copia OAuth con identidad oficial preparada fuera del repo, en el escritorio;
+  la carga en el perfil nuevo y la autorización Google requieren al usuario.
+  No se cambió el cliente OAuth ni se eludió la comprobación de identidad.
+- ZIP actualizado y comprobado: 202239 bytes, SHA-256
+  `0808eccb83c6816d2b8ef62f05f4fc3b713a3dc3900b1adaf411e929155fce0f`.
+- PR #7 permanece en borrador; main, Store y GitHub Releases no se han publicado.
