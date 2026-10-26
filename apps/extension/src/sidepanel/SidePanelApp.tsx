@@ -382,7 +382,7 @@ export default function SidePanelApp() {
         contentSavedRef.current = n.content;
         hydrateChecklistForContent(n.content);
         setContent(n.content);
-        setTitle(stripFormatting(n.title ?? ''));
+        setTitle(n.title ?? '');
         setTags(n.tags.join(', '));
         setSaved(false);
         setPreview(false);

@@ -173,7 +173,7 @@ export function useChromeStorageAndTabs({
       contentSavedRef.current = nextContent;
       setActiveNoteId(note?.id ?? null);
       setContent(nextContent);
-      setTitle(stripFormatting(note?.title ?? ''));
+      setTitle(note?.title ?? '');
       setTags(note?.tags.join(', ') ?? '');
       const plainContent = editorHtmlToPlainText(nextContent);
       const isChecklist = isChecklistContent(plainContent);
@@ -279,7 +279,7 @@ export function useChromeStorageAndTabs({
       activeNoteIdRef.current = savedNote.id;
       setActiveNoteId(savedNote.id);
       setContent(savedNote.content);
-      setTitle(stripFormatting(savedNote.title ?? ''));
+      setTitle(savedNote.title ?? '');
       setTags(savedNote.tags.join(', '));
       const plainContent = editorHtmlToPlainText(savedNote.content);
       const checklist = isChecklistContent(plainContent);

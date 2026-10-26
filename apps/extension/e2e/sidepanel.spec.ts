@@ -281,6 +281,24 @@ test.describe('TabNotes side panel — baseline', () => {
     expect(Object.keys(result.notes ?? {})).toHaveLength(0);
   });
 
+  test('reopening and editing a note preserves literal title characters', async ({ context, sidePanelUrl }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const title = 'Research <capture> & "quotes" **literal**';
+    await panel.locator('.sp-note-title-input').fill(title);
+    await panel.locator('.sp-rich-editor').fill('Title compatibility fixture');
+    await expect.poll(() => panel.evaluate(async () => {
+      const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+      return Object.values(data?.notes_domain ?? {}).map((note) => (note as { title?: string }).title);
+    })).toContain(title);
+    await panel.reload();
+    await expect(panel.locator('.sp-note-title-input')).toHaveValue(title);
+    await panel.locator('.sp-rich-editor').fill('Edited body, unchanged title');
+    await expect.poll(() => panel.evaluate(async () => {
+      const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+      return Object.values(data?.notes_domain ?? {}).find((note) => (note as { content?: string }).content?.includes('Edited body'));
+    })).toMatchObject({ title });
+  });
+
   test('floating screenshot request is consumed by the side panel', async ({
     context,
     sidePanelUrl,
