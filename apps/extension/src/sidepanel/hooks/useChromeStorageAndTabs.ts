@@ -118,6 +118,10 @@ export function useChromeStorageAndTabs({
   const ownerWindowRef = React.useRef<number | null>(null);
 
   const consumeFloatingRequest = useCallback(async () => {
+    // Options and standalone panel tabs share storage, but must not steal the
+    // request from Chrome's real side panel. getCurrent() is undefined there.
+    if (await cr.tabs.getCurrent()) return;
+    if (document.visibilityState !== 'visible') return;
     const request = await withStorageLock(async () => {
       const data = await cr.storage.local.get(FLOATING_REQUEST_STORAGE_KEY);
       const value = data[FLOATING_REQUEST_STORAGE_KEY] as FloatingRequest | undefined;
@@ -377,8 +381,12 @@ export function useChromeStorageAndTabs({
         loadContextNotes(url, scopeRef.current, wsIdRef.current),
       ]);
       setTabLoading(false);
+      // The click may arrive while this panel is still switching to its source tab.
+      await consumeFloatingRequest().catch(onCaptureFailure);
     },
     [
+      consumeFloatingRequest,
+      onCaptureFailure,
       loadContextNotes,
       refreshAllNotes,
       setCurrentDomain,

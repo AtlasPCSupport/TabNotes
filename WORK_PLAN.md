@@ -57,7 +57,7 @@ solicitudes flotantes globales y pantalla de opciones con importador antiguo.
 - Revisadas las capturas de onboarding, Capture Hub, recorte y Ajustes compartidos.
 - Corregida durante E2E una reinicialización repetida del editor al cambiar el idioma:
   la inicialización ya no depende de una función de traducción de identidad variable.
-- ZIP local actualizado tras QA de Chrome: `store/tabnotes-extension-v2.12.0.zip` (201555 bytes).
+- ZIP de la revisión del recorte (anterior al arreglo flotante): `store/tabnotes-extension-v2.12.0.zip` (201555 bytes).
   SHA-256: `63255a88ab2285ffb91ae2fc5f10bfa503efb3b4ad482d440c092229d85a4be6`.
 - Cambios subidos a [PR #7](https://github.com/AtlasPCSupport/TabNotes/pull/7), en borrador.
   No se han integrado en main, creado un release ni enviado a Chrome Web Store.
@@ -79,6 +79,28 @@ Perfil aislado, extensión desempaquetada 2.12.0, Chrome 149.0.7827.115:
   desde su icono restablece `activeTab` y permite capturar. Página de Chrome
   restringida muestra explicación sin modificar notas.
 - Botón flotante y sus permisos por dominio aún no validados manualmente.
+
+### Corrección del botón flotante — 2026-10-26
+
+- El usuario informa que completó las comprobaciones manuales de importación y
+  compatibilidad sin fallos aparentes. Es un resultado reportado, no una auditoría
+  independiente de sus backups personales.
+- Reproducido en Chrome estable: una pestaña independiente de TabNotes interceptaba
+  la solicitud destinada al panel lateral. Ahora solo el panel real y visible la consume;
+  al terminar de cambiar de pestaña se vuelve a comprobar una solicitud pendiente.
+- Tras actualizar, se reemplaza el botón de la versión anterior que Chrome deja en
+  la página con un contexto de mensajería inválido. No se reemplaza contenido del sitio.
+- Respuestas `{ ok: false }`, rechazos y errores síncronos ya muestran una explicación
+  junto al botón. Añadidas traducciones EN/ES y cuatro pruebas del script flotante.
+- QA real: Nueva nota y Selección → nota nueva llegan al panel correcto con Ajustes
+  abierto en otra pestaña. Huellas de las 20 notas existentes en QA permanecen iguales;
+  solo se añadieron dos notas sintéticas para las comprobaciones.
+- Screenshot sin concesión `activeTab`: error visible y ninguna nota vacía creada.
+  El acceso a un solo dominio no sustituye ese permiso de captura. No se añadió acceso
+  global. Falta repetir screenshot/recorte flotantes después de invocar el icono/atajo.
+- Se limpia un aviso anterior de captura fallida cuando otra acción se completa.
+- Añadida regresión E2E para que las pestañas independientes no roben solicitudes.
+  La prueba headless positiva emula la identidad del panel, no los permisos reales.
 
 ## Validación pendiente
 

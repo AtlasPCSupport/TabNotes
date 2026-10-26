@@ -240,12 +240,31 @@ test.describe('TabNotes side panel — baseline', () => {
     );
   });
 
+  test('standalone tabs do not steal floating actions from the real side panel', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await panel.evaluate(() => chrome.storage.local.set({
+      tn_floating_request: { action: 'new-note', requestedAt: Date.now(), id: 'routing-regression' },
+    }));
+    await panel.waitForTimeout(500);
+    const result = await panel.evaluate(async () => {
+      const data = await chrome.storage.local.get(['tn_floating_request', 'tabnotes_data']);
+      return { request: data.tn_floating_request, notes: data.tabnotes_data.notes_domain };
+    });
+    expect(result.request?.id).toBe('routing-regression');
+    expect(Object.keys(result.notes ?? {})).toHaveLength(0);
+  });
+
   test('floating screenshot request is consumed by the side panel', async ({
     context,
     sidePanelUrl,
   }) => {
     const panel = await openPanelWithRealTab(context, sidePanelUrl);
     await panel.evaluate(() => {
+      // This fixture opens a regular tab; emulate the real side-panel identity.
+      chrome.tabs.getCurrent = (() => Promise.resolve(undefined)) as typeof chrome.tabs.getCurrent;
       const runtime = chrome.runtime as typeof chrome.runtime & {
         sendMessage: (message: unknown, callback?: (response: unknown) => void) => void;
       };

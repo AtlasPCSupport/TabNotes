@@ -1023,6 +1023,7 @@ export default function SidePanelApp() {
 
   const clipSelection = useCallback(
     async (target: 'current' | 'new') => {
+      setCaptureFeedback(null);
       if (!(await requestSelectionPermission())) {
         setCaptureFeedback(t('captureHub.permissionDenied'));
         return;
@@ -1042,7 +1043,7 @@ export default function SidePanelApp() {
         setCaptureFeedback(t('captureHub.noSelection'));
         return;
       }
-      await appendClipToCurrentNote(
+      const saved = await appendClipToCurrentNote(
         {
           text,
           sourceUrl: response?.sourceUrl || currentUrlRef.current,
@@ -1050,6 +1051,7 @@ export default function SidePanelApp() {
         },
         target
       );
+      setCaptureFeedback(t(saved ? 'captureHub.saved' : 'captureHub.failed'));
     },
     [appendClipToCurrentNote, currentUrlRef, requestSelectionPermission, t]
   );
@@ -1069,6 +1071,7 @@ export default function SidePanelApp() {
 
   floatingRequestRef.current = async (action, request) => {
     captureSourceRef.current = request;
+    setCaptureFeedback(null);
     setView('note');
     try {
       if (action === 'new-note') await addNoteToContextRef.current();

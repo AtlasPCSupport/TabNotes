@@ -9,7 +9,14 @@ type FloatingAction =
 
 const ROOT_ID = 'tabnotes-floating-button';
 
-const copy = (key: string, fallback: string) => chrome.i18n.getMessage(key) || fallback;
+const copy = (key: string, fallback: string) => {
+  try {
+    return chrome.i18n.getMessage(key) || fallback;
+  } catch {
+    // A page can retain the button after an extension update invalidates its context.
+    return fallback;
+  }
+};
 
 if (window.top === window && !document.getElementById(ROOT_ID)) {
   const host = document.createElement('div');
@@ -23,6 +30,8 @@ if (window.top === window && !document.getElementById(ROOT_ID)) {
     .root { position: fixed; right: 16px; bottom: 16px; z-index: 2147483646; font-family: system-ui, sans-serif; color: #fff; }
     .menu { display: grid; gap: 4px; width: 220px; margin: 0 0 8px auto; padding: 6px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; background: #1d1e22; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
     .menu[hidden] { display: none; }
+    .status { max-width: 220px; margin-bottom: 8px; padding: 10px; border: 1px solid #e9ae60; border-radius: 8px; background: #1d1e22; font-size: 12px; line-height: 1.4; }
+    .status[hidden] { display: none; }
     button { font: 600 12px/1.25 system-ui, sans-serif; color: #fff; cursor: pointer; }
     .item { width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
     .item:hover, .item:focus-visible { background: #2d2e34; outline: 0; }
@@ -41,6 +50,11 @@ if (window.top === window && !document.getElementById(ROOT_ID)) {
   menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', copy('floatingLabel', 'TabNotes capture'));
   menu.hidden = true;
+
+  const status = document.createElement('div');
+  status.className = 'status';
+  status.setAttribute('role', 'alert');
+  status.hidden = true;
 
   const trigger = document.createElement('button');
   trigger.className = 'trigger';
@@ -90,26 +104,34 @@ if (window.top === window && !document.getElementById(ROOT_ID)) {
     item.type = 'button';
     item.role = 'menuitem';
     item.textContent = label;
-    item.addEventListener('click', () => {
-      void chrome.runtime.sendMessage({ type: 'FLOATING_ACTION', action }).catch(() => {
-        trigger.title = copy(
-          'floatingOpenFailed',
-          'Click the TabNotes toolbar icon and try again.'
-        );
-      });
+    item.addEventListener('click', async () => {
+      status.hidden = true;
       setOpen(false);
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'FLOATING_ACTION', action });
+        if (response?.ok !== true) throw new Error('Floating action was not accepted');
+      } catch {
+        status.textContent = copy(
+          'floatingOpenFailed',
+          'Could not complete this action. Open TabNotes using its toolbar icon and try again. If you updated the extension, reload this page.'
+        );
+        status.hidden = false;
+      }
     });
     menu.append(item);
   });
 
-  trigger.addEventListener('click', () => setOpen(menu.hidden));
+  trigger.addEventListener('click', () => {
+    status.hidden = true;
+    setOpen(menu.hidden);
+  });
   const closeOnOutsideClick = (event: MouseEvent) => {
     if (!host.contains(event.target as Node)) setOpen(false);
   };
   document.addEventListener('click', closeOnOutsideClick);
 
   shadow.append(root);
-  root.append(menu, trigger);
+  root.append(status, menu, trigger);
   document.documentElement.append(host);
 
   const setEnabled = (message: { type?: unknown; enabled?: unknown }) => {

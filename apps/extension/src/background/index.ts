@@ -123,13 +123,21 @@ async function getFloatingDomains(): Promise<string[]> {
   return normalizeFloatingDomains(result[FLOATING_DOMAINS_STORAGE_KEY]);
 }
 
-async function injectFloatingButton(tabId: number): Promise<void> {
+async function injectFloatingButton(tabId: number, afterExtensionUpdate = false): Promise<void> {
   try {
     const tab = await chrome.tabs.get(tabId);
     const domain = floatingDomainFromUrl(tab.url);
     if (!domain) return;
     const domains = await getFloatingDomains();
     if (!domains.includes(domain) || !(await hasFloatingPermission(domain))) return;
+    if (afterExtensionUpdate) {
+      // Updated extensions leave their old DOM behind, but its messaging context
+      // is invalid. Replace only this extension's button before reinjecting it.
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => document.getElementById('tabnotes-floating-button')?.remove(),
+      });
+    }
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['contentScript/floatingButton.js'],
@@ -145,10 +153,12 @@ function removeFloatingButton(tabId: number): void {
   });
 }
 
-async function injectFloatingButtonsOnOpenTabs(): Promise<void> {
+async function injectFloatingButtonsOnOpenTabs(afterExtensionUpdate = false): Promise<void> {
   const tabs = await chrome.tabs.query({});
   await Promise.all(
-    tabs.flatMap((tab) => (typeof tab.id === 'number' ? [injectFloatingButton(tab.id)] : []))
+    tabs.flatMap((tab) =>
+      typeof tab.id === 'number' ? [injectFloatingButton(tab.id, afterExtensionUpdate)] : []
+    )
   );
 }
 
@@ -781,7 +791,7 @@ chrome.runtime.onInstalled.addListener(() => {
   void scheduleDrivePeriodicSync().catch(() => undefined);
   void restoreNoteReminderAlarms().catch(() => undefined);
   void restoreReminderAlertIfNeeded().catch(() => undefined);
-  void injectFloatingButtonsOnOpenTabs().catch(() => undefined);
+  void injectFloatingButtonsOnOpenTabs(true).catch(() => undefined);
 });
 
 chrome.runtime.onStartup.addListener(() => {

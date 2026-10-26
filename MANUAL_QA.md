@@ -15,6 +15,14 @@ y exportación JSON con dos imágenes. Se corrigió la inicialización del recor
 imágenes ya cargadas; ahora hay 192 unitarias aprobadas localmente. Las casillas no
 se marcan globalmente porque incluyen otros destinos y datos antiguos aún pendientes.
 
+Actualización del 2026-10-26: el usuario reporta que hizo manualmente las pruebas de
+importación/compatibilidad y funcionan aparentemente bien. Se corrigió después el
+enrutamiento del botón flotante: Ajustes y las pestañas independientes ya no consumen
+acciones del panel real; el botón antiguo se reemplaza al actualizar. En Chrome estable
+se comprobaron Nueva nota y Selección → nota nueva conservando intactas las notas
+existentes. Screenshot/recorte flotantes requieren invocar antes el icono/atajo para
+obtener `activeTab`; sin ello se comprobó error visible sin crear notas vacías.
+
 ## Compatibilidad y recuperación
 
 - [ ] Importar una copia de un backup anterior en el perfil de pruebas.

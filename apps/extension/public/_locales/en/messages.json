@@ -8,6 +8,9 @@
   "floatingLabel": {
     "message": "TabNotes capture"
   },
+  "floatingOpenFailed": {
+    "message": "Could not complete this action. Open TabNotes using its toolbar icon and try again. If you updated the extension, reload this page."
+  },
   "floatingNewNote": {
     "message": "New note"
   },

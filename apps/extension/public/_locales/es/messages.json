@@ -8,6 +8,9 @@
   "floatingLabel": {
     "message": "Capturas de TabNotes"
   },
+  "floatingOpenFailed": {
+    "message": "No se pudo completar la acción. Abre TabNotes desde su icono en la barra de Chrome y vuelve a intentarlo. Si actualizaste la extensión, recarga esta página."
+  },
   "floatingNewNote": {
     "message": "Nueva nota"
   },
