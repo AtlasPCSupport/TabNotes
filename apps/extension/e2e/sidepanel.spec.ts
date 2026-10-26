@@ -397,7 +397,8 @@ test.describe('TabNotes side panel — baseline', () => {
     const filters = panel.getByTestId('note-content-filters');
     await expect(filters).toBeVisible();
     await expect(filters.getByRole('button', { name: /All/ })).toContainText('4');
-    await expect(filters.getByRole('button', { name: /Text/ })).toContainText('1');
+    // The image fixture now also has a readable caption; filters can overlap.
+    await expect(filters.getByRole('button', { name: /Text/ })).toContainText('2');
     await expect(filters.getByRole('button', { name: /Images/ })).toContainText('2');
     await expect(filters.getByRole('button', { name: /Tasks/ })).toContainText('1');
 
