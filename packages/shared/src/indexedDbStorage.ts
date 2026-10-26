@@ -188,13 +188,13 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async get(): Promise<StorageData> {
     // A failed read is not an empty database. Propagate it so no caller can
     // overwrite existing notes with defaults after a temporary storage error.
-    return this.ensureData();
+    return withStorageLock(() => this.ensureData());
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
     const run = this.writeChain.then(() =>
       withStorageLock(async () => {
-        const current = await this.get();
+        const current = await this.ensureData();
         await this.setRaw(STORAGE_KEY, { ...current, ...data });
       })
     );
@@ -205,7 +205,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData> {
     const run = this.writeChain.then(() =>
       withStorageLock(async () => {
-        const current = await this.get();
+        const current = await this.ensureData();
         const next = { ...current, ...mutator(current) };
         await this.setRaw(STORAGE_KEY, next);
         return next;
@@ -221,7 +221,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         const snapshot: RecoverySnapshot = {
           createdAt: now,
           reason,
-          data: await this.get(),
+          data: await this.ensureData(),
         };
         await this.setRaw(RECOVERY_SNAPSHOT_KEY, snapshot);
         return snapshot;
@@ -246,7 +246,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async importWithSnapshot(merge: (current: StorageData) => StorageData): Promise<StorageData> {
     const run = this.writeChain.then(() =>
       withStorageLock(async () => {
-        const current = await this.get();
+        const current = await this.ensureData();
         const next = merge(current);
         const db = await this.open();
         const transaction = db.transaction(this.storeName, 'readwrite');

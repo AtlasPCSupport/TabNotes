@@ -8,7 +8,8 @@ description: Test TabNotes Chrome extension side panel changes end-to-end. Use w
 ## Secrets needed
 
 - None for local extension UI testing. TabNotes is local-first and can be tested with Chrome extension storage.
-- If testing AI chat features, a Groq API key may be needed in the app settings, but standard side panel/editor tests do not require it.
+- Drive OAuth needs a real Google account and the published extension identity;
+  unit/E2E tests must use synthetic data and never a user's everyday profile.
 
 ## Local setup
 
@@ -116,8 +117,12 @@ Notes:
   panel adopts a real (non-restricted) tab context and renders the editor.
 - Passing scenarios: boot, persistent chrome, bottom-nav view switching, PIN lock/unlock,
   editor renders, **editor autosave-to-storage**, **fixed-chrome scrolling**, and **checklist mode**.
-- Two scenarios remain `test.fixme`: folder drag-and-drop (HTML5 DnD is unreliable in headless
-  Chromium — verified manually) and the in-editor encryption lock/unlock UI (encryption
-  correctness is covered by `packages/shared/src/crypto.test.ts`; the UI trigger is verified
-  manually).
+- One scenario remains `test.fixme`: folder drag-and-drop (HTML5 DnD is unreliable in headless
+  Chromium). Encryption lock/unlock/edit persistence and concurrent panel drafts are
+  covered by E2E. `packages/shared/src/compatibility.test.ts` covers old exports,
+  legacy ciphertext, history migration, large images and atomic import recovery.
+- If Chromium cannot start (`spawn UNKNOWN` on Windows), report the infrastructure
+  failure and run the browser checks in CI; do not count it as an application pass.
+- Real Chrome capture permissions and Store OAuth still require the checklist in
+  `MANUAL_QA.md` before publication.
 - CI runs `playwright test` after `pnpm build` (see `.github/workflows/ci.yml`).
