@@ -81,6 +81,7 @@ interface UseChromeStorageAndTabsProps {
   >;
   flushPendingSave: () => Promise<void>;
   isDraftDirty: () => boolean;
+  onCaptureFailure: () => void;
 }
 
 export function useChromeStorageAndTabs({
@@ -98,6 +99,7 @@ export function useChromeStorageAndTabs({
   floatingRequestRef,
   flushPendingSave,
   isDraftDirty,
+  onCaptureFailure,
 }: UseChromeStorageAndTabsProps) {
   const [loading, setLoading] = useState(true);
   const [storageError, setStorageError] = useState(false);
@@ -321,6 +323,25 @@ export function useChromeStorageAndTabs({
     ]
   );
 
+  const consumePendingClip = useCallback(async () => {
+    const clip = await withStorageLock(async () => {
+      const data = await cr.storage.local.get(PENDING_CLIP_STORAGE_KEY);
+      const request = data[PENDING_CLIP_STORAGE_KEY] as
+        | (PendingClip & { windowId?: number; tabId?: number })
+        | undefined;
+      if (!normalizePendingClip(request)) return null;
+      if (typeof request?.windowId === 'number') {
+        const window = await cr.windows.getCurrent();
+        if (window.id !== request.windowId) return null;
+      }
+      if (typeof request?.tabId === 'number' && request.sourceUrl !== currentUrlRef.current)
+        return null;
+      await cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
+      return request;
+    });
+    if (clip) await appendClipToCurrentNote(clip);
+  }, [appendClipToCurrentNote, currentUrlRef]);
+
   const loadContextNotes = useCallback(
     async (url: string, sc: NoteScope, wsId: string | null, preferNoteId?: string | null) => {
       await flushPendingSave();
@@ -416,15 +437,11 @@ export function useChromeStorageAndTabs({
       area: string
     ) => {
       if (area === 'local' && changes[PENDING_CLIP_STORAGE_KEY]?.newValue) {
-        void appendClipToCurrentNote(changes[PENDING_CLIP_STORAGE_KEY].newValue).then(
-          (consumed) => {
-            if (consumed) cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
-          }
-        );
+        void consumePendingClip().catch(onCaptureFailure);
         return;
       }
       if (area === 'local' && changes[FLOATING_REQUEST_STORAGE_KEY]?.newValue) {
-        void consumeFloatingRequest();
+        void consumeFloatingRequest().catch(onCaptureFailure);
         return;
       }
       if (area === 'local' && changes['tn_quick_capture']?.newValue) {
@@ -486,6 +503,8 @@ export function useChromeStorageAndTabs({
     };
   }, [
     consumeFloatingRequest,
+    consumePendingClip,
+    onCaptureFailure,
     applyCleanNoteToEditor,
     isDraftDirty,
     addNoteToContextRef,
@@ -585,12 +604,7 @@ export function useChromeStorageAndTabs({
       currentUrlRef.current = url;
       await loadContextNotes(url, sc, wsId);
 
-      const pendingClipData = await new Promise<Record<string, unknown>>((res) =>
-        cr.storage.local.get(PENDING_CLIP_STORAGE_KEY, res)
-      );
-      if (await appendClipToCurrentNote(pendingClipData[PENDING_CLIP_STORAGE_KEY])) {
-        cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
-      }
+      await consumePendingClip().catch(onCaptureFailure);
 
       const qcData = await new Promise<Record<string, unknown>>((res) =>
         cr.storage.local.get('tn_quick_capture', res)
@@ -615,6 +629,8 @@ export function useChromeStorageAndTabs({
   }, [
     adapter,
     consumeFloatingRequest,
+    consumePendingClip,
+    onCaptureFailure,
     wsSvc,
     setDefaultScopeState,
     setScope,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@tabnotes/i18n';
 import { AppIcon } from './AppIcon';
 
@@ -18,6 +18,14 @@ export function EncryptionPrompt({
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!showEncPrompt) return;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, [showEncPrompt]);
 
   // Reset local state when prompt changes/closes
   useEffect(() => {
@@ -28,47 +36,59 @@ export function EncryptionPrompt({
   if (!showEncPrompt) return null;
 
   const handleConfirm = async () => {
-    if (!password) return;
+    if (!password || busy) return;
+    setBusy(true);
     setError('');
-    
-    const success = showEncPrompt === 'lock'
-      ? await onLockNote(password)
-      : await onUnlockNote(password);
+
+    let success: boolean;
+    try {
+      success =
+        showEncPrompt === 'lock' ? await onLockNote(password) : await onUnlockNote(password);
+    } catch {
+      success = false;
+    } finally {
+      setBusy(false);
+    }
 
     if (success) {
       setShowEncPrompt(null);
     } else {
       setError(
-        showEncPrompt === 'lock'
-          ? t('encryption.encryptionFailed')
-          : t('encryption.wrongPassword')
+        showEncPrompt === 'lock' ? t('encryption.encryptionFailed') : t('encryption.wrongPassword')
       );
     }
   };
 
   const handleCancel = () => {
-    setShowEncPrompt(null);
+    if (!busy) setShowEncPrompt(null);
   };
 
   return (
     <div className="tn-enc-overlay">
-      <div className="tn-enc-dialog">
-        <div className="tn-enc-title">
+      <dialog
+        className="tn-enc-dialog"
+        ref={dialogRef}
+        aria-labelledby="tn-enc-title"
+        onCancel={(event) => {
+          event.preventDefault();
+          handleCancel();
+        }}
+      >
+        <div className="tn-enc-title" id="tn-enc-title">
           <AppIcon name={showEncPrompt === 'lock' ? 'lock' : 'key'} size={16} />
           <span>
             {showEncPrompt === 'lock' ? t('encryption.encryptNote') : t('encryption.decryptNote')}
           </span>
         </div>
         <p className="tn-enc-desc">
-          {showEncPrompt === 'lock'
-            ? t('encryption.encryptDesc')
-            : t('encryption.decryptDesc')}
+          {showEncPrompt === 'lock' ? t('encryption.encryptDesc') : t('encryption.decryptDesc')}
         </p>
         <input
           className="tn-enc-input"
           type="password"
           placeholder={t('encryption.passwordPlaceholder')}
           value={password}
+          disabled={busy}
           autoFocus
           onChange={(e) => {
             setPassword(e.target.value);
@@ -85,18 +105,14 @@ export function EncryptionPrompt({
         />
         {error && <p className="tn-enc-error">{error}</p>}
         <div className="tn-enc-actions">
-          <button className="tn-enc-cancel" onClick={handleCancel}>
+          <button className="tn-enc-cancel" disabled={busy} onClick={handleCancel}>
             {t('common.cancel')}
           </button>
-          <button
-            className="tn-enc-confirm"
-            onClick={handleConfirm}
-            disabled={!password}
-          >
+          <button className="tn-enc-confirm" onClick={handleConfirm} disabled={!password || busy}>
             {showEncPrompt === 'lock' ? t('encryption.encrypt') : t('encryption.decrypt')}
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

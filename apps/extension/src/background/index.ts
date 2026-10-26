@@ -805,6 +805,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   const text = info.selectionText?.trim();
   if (!text) return;
 
+  // Keep the browser's user gesture: opening after storage awaits can fail.
+  const panelOpened = tab?.id ? chrome.sidePanel.open({ tabId: tab.id }) : Promise.resolve();
+  void panelOpened.catch(() => undefined);
+
   void (async () => {
     const sourceUrl = info.pageUrl || tab?.url || '';
     await chrome.storage.local.set({
@@ -814,10 +818,12 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         sourceUrl,
         sourceTitle: tab?.title || sourceUrl,
         createdAt: Date.now(),
+        windowId: tab?.windowId,
+        tabId: tab?.id,
       },
     });
 
-    if (tab?.id) await chrome.sidePanel.open({ tabId: tab.id });
+    await panelOpened;
   })().catch(() => undefined);
 });
 

@@ -523,7 +523,13 @@ export class NotesService {
       versions.map((version) => decryptText(encryptedVersionPayload(version.content)!, password))
     );
     const encryptedData = leakedBody ? await encryptText(content, password) : note.encryptedData;
-    const migrated = await this.replaceEncryptedNote(note, encryptedData, versions);
+    const unchanged =
+      note.content === ENCRYPTED_NOTE_PLACEHOLDER &&
+      encryptedData === note.encryptedData &&
+      JSON.stringify(versions) === JSON.stringify(note.versions ?? []);
+    const migrated = unchanged
+      ? note
+      : await this.replaceEncryptedNote(note, encryptedData, versions);
     this.passwords.set(id, password);
     return this.getEditorNote(migrated);
   }

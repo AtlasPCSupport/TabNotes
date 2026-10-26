@@ -128,6 +128,8 @@ test.describe('TabNotes side panel — baseline', () => {
     const dialog = page.getByTestId('onboarding-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Choose how far a note should reach');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath('onboarding.png') });
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(dialog).toContainText('Save the useful part while you browse');
     await page.getByRole('button', { name: 'Next' }).click();
@@ -174,6 +176,8 @@ test.describe('TabNotes side panel — baseline', () => {
     ).toBeVisible();
     await expect(hub).toContainText(/Clip selected text|Recortar texto seleccionado/);
     await expect(hub).toContainText('Ctrl+Shift+N');
+    await panel.setViewportSize({ width: 390, height: 844 });
+    await panel.screenshot({ path: test.info().outputPath('capture-hub.png') });
   });
 
   test('visible-area cropper saves only the selected screenshot area', async ({
@@ -215,6 +219,7 @@ test.describe('TabNotes side panel — baseline', () => {
 
     const save = cropper.getByRole('button', { name: /Add crop to note|Añadir recorte a la nota/ });
     await expect(save).toBeEnabled();
+    await panel.screenshot({ path: test.info().outputPath('crop-selection.png') });
     await save.click();
     await expect(cropper).toHaveCount(0);
     await expect(panel.locator('.sp-rich-editor img[alt^="Cropped screenshot"]')).toHaveCount(1);
@@ -1506,6 +1511,37 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
 });
 
 test.describe('TabNotes compatibility regressions', () => {
+  test('two panel contexts preserve concurrent new drafts', async ({ context, sidePanelUrl }) => {
+    const first = await openPanelWithRealTab(context, sidePanelUrl);
+    const second = await openPanelWithRealTab(context, sidePanelUrl);
+    await expect(first.locator('.sp-rich-editor')).toBeVisible();
+    await expect(second.locator('.sp-rich-editor')).toBeVisible();
+    await Promise.all(
+      [first, second].map((page, index) =>
+        page.locator('.sp-rich-editor').evaluate((el, value) => {
+          (el as HTMLElement).innerText = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }, `Concurrent draft ${index}`)
+      )
+    );
+    await expect
+      .poll(() =>
+        first.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .toContain('Concurrent draft 0');
+    await expect
+      .poll(() =>
+        first.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .toContain('Concurrent draft 1');
+  });
+
   test('switching scope immediately flushes the pending draft to its original note', async ({
     context,
     sidePanelUrl,
@@ -1542,6 +1578,8 @@ test.describe('TabNotes compatibility regressions', () => {
     await expect(options.locator('[data-settings-section="data"]')).toBeVisible();
     await expect(options.locator('[data-testid="floating-button-settings"]')).toBeAttached();
     await expect(options.getByText('Google Drive backup', { exact: true })).toBeAttached();
+    await options.setViewportSize({ width: 390, height: 844 });
+    await options.screenshot({ path: test.info().outputPath('shared-settings.png') });
   });
 
   test('encryption protects history and saved edits after unlock', async ({
