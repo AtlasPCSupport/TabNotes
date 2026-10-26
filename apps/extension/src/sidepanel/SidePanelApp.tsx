@@ -996,8 +996,9 @@ export default function SidePanelApp() {
         setCropSource(response.dataUrl);
         setCaptureFeedback(null);
       } else await appendScreenshot(response.dataUrl, 'Screenshot', destination);
-    } catch {
-      setCaptureFeedback(t('captureHub.failed'));
+    } catch (error) {
+      const needsActivation = error instanceof Error && /activeTab|<all_urls>/.test(error.message);
+      setCaptureFeedback(t(needsActivation ? 'captureHub.activationRequired' : 'captureHub.failed'));
     }
   };
   const captureScreenshot = () => {

@@ -240,6 +240,30 @@ test.describe('TabNotes side panel — baseline', () => {
     );
   });
 
+  for (const error of ["Either the '<all_urls>' or 'activeTab' permission is required.", 'PAGE_CHANGED']) {
+    test(`capture failure explains ${error.includes('activeTab') ? 'activation' : 'page change'} without writing notes`, async ({
+      context,
+      sidePanelUrl,
+    }) => {
+      const panel = await openPanelWithRealTab(context, sidePanelUrl);
+      await panel.evaluate((captureError) => {
+        const original = chrome.runtime.sendMessage.bind(chrome.runtime);
+        chrome.runtime.sendMessage = ((message: { type?: string }, callback: (response: unknown) => void) => {
+          if (message.type === 'CAPTURE_TAB') callback({ error: captureError });
+          else original(message, callback);
+        }) as typeof chrome.runtime.sendMessage;
+      }, error);
+      const before = await panel.evaluate(async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data);
+      const hub = panel.getByTestId('capture-hub');
+      await hub.getByRole('button', { name: /Capture|Capturar/ }).click();
+      await hub.getByRole('menuitem', { name: /Screenshot|Captura de pantalla/ }).click();
+      await expect(panel.getByText(error.includes('activeTab') ? /puzzle icon|icono de puzle/ : /original page|página original/)).toBeVisible();
+      const after = await panel.evaluate(async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data);
+      expect(after).toEqual(before);
+      await expect(panel.locator('.sp-rich-editor img')).toHaveCount(0);
+    });
+  }
+
   test('standalone tabs do not steal floating actions from the real side panel', async ({
     context,
     sidePanelUrl,
