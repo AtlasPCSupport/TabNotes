@@ -14,6 +14,11 @@ import {
 } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import i18n, { resolveLanguage } from '@tabnotes/i18n';
+import {
+  FLOATING_REQUEST_STORAGE_KEY,
+  normalizeFloatingAction,
+  type FloatingAction,
+} from '../../shared/floating';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cr: any =
@@ -28,6 +33,7 @@ interface PendingClip {
   text: string;
   sourceUrl?: string;
   sourceTitle?: string;
+  target?: 'current' | 'new';
 }
 
 function normalizePendingClip(value: unknown): PendingClip | null {
@@ -39,6 +45,7 @@ function normalizePendingClip(value: unknown): PendingClip | null {
     text,
     sourceUrl: typeof clip.sourceUrl === 'string' ? clip.sourceUrl : undefined,
     sourceTitle: typeof clip.sourceTitle === 'string' ? clip.sourceTitle : undefined,
+    target: clip.target === 'new' ? 'new' : 'current',
   };
 }
 
@@ -68,6 +75,7 @@ interface UseChromeStorageAndTabsProps {
   currentUrlRef: React.MutableRefObject<string>;
   wsIdRef: React.MutableRefObject<string | null>;
   addNoteToContextRef: React.MutableRefObject<() => Promise<void>>;
+  floatingRequestRef: React.MutableRefObject<(action: FloatingAction) => Promise<void>>;
 }
 
 export function useChromeStorageAndTabs({
@@ -83,6 +91,7 @@ export function useChromeStorageAndTabs({
   currentUrlRef,
   wsIdRef,
   addNoteToContextRef,
+  floatingRequestRef,
 }: UseChromeStorageAndTabsProps) {
   const [loading, setLoading] = useState(true);
   const [tabLoading, setTabLoading] = useState(false);
@@ -169,45 +178,56 @@ export function useChromeStorageAndTabs({
   }, [noteSvc, setAllNotes]);
 
   const appendClipToCurrentNote = useCallback(
-    async (rawClip: unknown): Promise<boolean> => {
+    async (rawClip: unknown, requestedTarget?: 'current' | 'new'): Promise<boolean> => {
       const clip = normalizePendingClip(rawClip);
       if (!clip) return false;
 
       const state = useSidePanelStore.getState();
       const sourceUrl = clip.sourceUrl || currentUrlRef.current;
-      const nextContent = state.content.trim()
-        ? `${state.content}${formatClipMarkdown(clip, currentUrlRef.current)}`
-        : formatClipMarkdown(clip, currentUrlRef.current).trimStart();
-      const parsedTags = state.tags
+      const target = requestedTarget ?? clip.target ?? 'current';
+      const useCurrentNote = target === 'current';
+      const nextContent =
+        useCurrentNote && state.content.trim()
+          ? `${state.content}${formatClipMarkdown(clip, currentUrlRef.current)}`
+          : formatClipMarkdown(clip, currentUrlRef.current).trimStart();
+      const parsedTags = (useCurrentNote ? state.tags : '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-      const title = stripFormatting(state.title || clip.sourceTitle || sourceUrl || '');
+      const title = stripFormatting(
+        (useCurrentNote ? state.title : '') || clip.sourceTitle || sourceUrl || ''
+      );
 
       setSaved(false);
       clearTimeout(saveTimer.current);
 
-      const savedNote = activeNoteIdRef.current
-        ? await noteSvc.current.updateNote(activeNoteIdRef.current, {
-            content: nextContent,
-            title: title || undefined,
-            tags: parsedTags,
-          })
-        : await noteSvc.current.createNote({
-            scope: scopeRef.current,
-            url: currentUrlRef.current || sourceUrl,
-            workspaceId: wsIdRef.current,
-            content: nextContent,
-            title: title || undefined,
-            tags: parsedTags,
-          });
+      const savedNote =
+        useCurrentNote && activeNoteIdRef.current
+          ? await noteSvc.current.updateNote(activeNoteIdRef.current, {
+              content: nextContent,
+              title: title || undefined,
+              tags: parsedTags,
+            })
+          : await noteSvc.current.createNote({
+              scope: scopeRef.current,
+              url: currentUrlRef.current || sourceUrl,
+              workspaceId: wsIdRef.current,
+              content: nextContent,
+              title: title || undefined,
+              tags: parsedTags,
+            });
 
       if (!savedNote) return false;
 
       activeNoteIdRef.current = savedNote.id;
+      setActiveNoteId(savedNote.id);
       setContent(savedNote.content);
       setTitle(stripFormatting(savedNote.title ?? ''));
       setTags(savedNote.tags.join(', '));
+      const plainContent = editorHtmlToPlainText(savedNote.content);
+      const checklist = isChecklistContent(plainContent);
+      setChecklistMode(checklist);
+      setChecklistItems(checklist ? parseChecklistItems(plainContent) : []);
       setContextNotes(
         await noteSvc.current.getNotesByScope(
           scopeRef.current,
@@ -239,6 +259,9 @@ export function useChromeStorageAndTabs({
       scopeRef,
       setContent,
       setContextNotes,
+      setActiveNoteId,
+      setChecklistItems,
+      setChecklistMode,
       setSaved,
       setTags,
       setTitle,
@@ -346,6 +369,15 @@ export function useChromeStorageAndTabs({
         );
         return;
       }
+      if (area === 'local' && changes[FLOATING_REQUEST_STORAGE_KEY]?.newValue) {
+        const request = changes[FLOATING_REQUEST_STORAGE_KEY].newValue as {
+          action?: unknown;
+        };
+        const action = normalizeFloatingAction(request?.action);
+        cr.storage.local.remove(FLOATING_REQUEST_STORAGE_KEY);
+        if (action) void floatingRequestRef.current(action);
+        return;
+      }
       if (area === 'local' && changes['tn_quick_capture']?.newValue) {
         cr.storage.local.remove('tn_quick_capture');
         addNoteToContextRef.current().then(() => {
@@ -417,6 +449,7 @@ export function useChromeStorageAndTabs({
     };
   }, [
     addNoteToContextRef,
+    floatingRequestRef,
     appendClipToCurrentNote,
     setView,
     editorRef,
@@ -525,6 +558,18 @@ export function useChromeStorageAndTabs({
           setTimeout(() => editorRef.current?.focus(), 120);
         }
 
+        const floatingData = await new Promise<Record<string, unknown>>((res) =>
+          cr.storage.local.get(FLOATING_REQUEST_STORAGE_KEY, res)
+        );
+        const floatingRequest = floatingData[FLOATING_REQUEST_STORAGE_KEY] as
+          | { action?: unknown }
+          | undefined;
+        const floatingAction = normalizeFloatingAction(floatingRequest?.action);
+        if (floatingAction) {
+          cr.storage.local.remove(FLOATING_REQUEST_STORAGE_KEY);
+          await floatingRequestRef.current(floatingAction);
+        }
+
         setLoading(false);
         requestDriveSyncIfEnabled();
       });
@@ -550,6 +595,7 @@ export function useChromeStorageAndTabs({
     loadContextNotes,
     appendClipToCurrentNote,
     addNoteToContextRef,
+    floatingRequestRef,
     setView,
     editorRef,
     requestDriveSyncIfEnabled,
@@ -626,5 +672,6 @@ export function useChromeStorageAndTabs({
     loadContextNotes,
     switchToTab,
     saveDigest,
+    appendClipToCurrentNote,
   };
 }

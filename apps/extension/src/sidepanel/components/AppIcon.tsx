@@ -15,6 +15,7 @@ import {
   CircleCheck,
   CircleDot,
   Command,
+  Crop,
   Download,
   ExternalLink,
   FileDown,
@@ -62,6 +63,7 @@ export type AppIconName =
   | 'chevronRight'
   | 'chevronUp'
   | 'command'
+  | 'crop'
   | 'close'
   | 'download'
   | 'doc'
@@ -115,6 +117,7 @@ const ICON_MAP: Record<AppIconName, LucideIcon> = {
   chevronRight: ChevronRight,
   chevronUp: ChevronUp,
   command: Command,
+  crop: Crop,
   close: X,
   download: Download,
   doc: FileText,

@@ -2,13 +2,13 @@
 
 ## Current public package
 
-- Version: `2.11.5`
+- Version: `2.12.0`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: GitHub Release asset `tabnotes-extension-v2.11.5.zip`
+- ZIP: GitHub Release asset `tabnotes-extension-v2.12.0.zip`
 
 ## Name
 
@@ -33,6 +33,8 @@ Key features:
 - Multiple notes per context: create more than one note for the same page, domain, or workspace.
 - Search and tags: find notes across titles, content, tags, and scopes.
 - Templates: insert common note structures quickly.
+- Capture Hub: create notes, clip selected text, take screenshots, and crop visible areas.
+- Optional floating capture button: trigger a screenshot, crop, or text clip from the current site.
 - Reminders: create note reminders and receive browser notifications.
 - Export and restore: back up notes manually with JSON export and restore.
 - Optional Google Drive sync: if enabled, TabNotes stores sync data in your private Google Drive app data folder using the limited drive.appdata scope.
@@ -60,6 +62,8 @@ Work and planning / Productivity
 - `identity`: enables optional Google OAuth authentication for Google Drive sync and restore.
 - `offscreen`: plays local reminder audio when a reminder fires.
 - `contextMenus`: adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
+- `scripting`: reads selected text after an explicit capture action and injects the optional floating capture button.
+- `http://*/*`, `https://*/*`: optional per-site access requested only when the user enables clipping or the floating button for that site.
 - `https://www.googleapis.com/*`: used only for optional Google Drive appData sync and restore after the user enables Drive sync.
 
 ## Data usage disclosure

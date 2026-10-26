@@ -4,16 +4,46 @@ export function generateId(): string {
 
 // Tracking params to strip
 const TRACKING_PARAMS = new Set([
-  'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
-  'ref','fbclid','gclid','msclkid','twclid','mc_cid','mc_eid',
-  '_ga','_gl','igshid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'ref',
+  'fbclid',
+  'gclid',
+  'msclkid',
+  'twclid',
+  'mc_cid',
+  'mc_eid',
+  '_ga',
+  '_gl',
+  'igshid',
 ]);
 
 // Sensitive params that may contain PII, auth tokens, or session data
 const SENSITIVE_PARAMS = new Set([
-  'token','access_token','auth_token','auth','code','session','sessionid',
-  'sid','key','api_key','apikey','secret','password','passwd','pwd',
-  'otp','nonce','state','redirect_uri','return_url','callback',
+  'token',
+  'access_token',
+  'auth_token',
+  'auth',
+  'code',
+  'session',
+  'sessionid',
+  'sid',
+  'key',
+  'api_key',
+  'apikey',
+  'secret',
+  'password',
+  'passwd',
+  'pwd',
+  'otp',
+  'nonce',
+  'state',
+  'redirect_uri',
+  'return_url',
+  'callback',
 ]);
 
 export function normalizeDomain(url: string): string {
@@ -46,10 +76,14 @@ export function getScopeKey(
   workspaceId?: string | null
 ): string {
   switch (scope) {
-    case 'url':    return normalizeUrl(url);
-    case 'domain': return normalizeDomain(url);
-    case 'workspace': return workspaceId ?? 'default';
-    case 'global': return '';
+    case 'url':
+      return normalizeUrl(url);
+    case 'domain':
+      return normalizeDomain(url);
+    case 'workspace':
+      return workspaceId ?? 'default';
+    case 'global':
+      return '';
   }
 }
 
@@ -80,4 +114,41 @@ export function searchNotes(
       n.tags.some((t) => t.toLowerCase().includes(q)) ||
       n.scopeKey.toLowerCase().includes(q)
   );
+}
+
+export type NoteContentFilter = 'all' | 'text' | 'images' | 'tasks';
+
+const NOTE_IMAGE_RE = /<img\b[^>]*>|!\[[^\]]*\]\([^)]*\)/i;
+const NOTE_TASK_RE = /(?:^|\n)\s*- \[(?: |x|X)\](?:\s|$)/;
+
+function noteTextWithoutImages(content: string): string {
+  return content
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+export function noteHasImages(note: Pick<import('./types').Note, 'content'>): boolean {
+  return NOTE_IMAGE_RE.test(note.content);
+}
+
+export function noteHasTasks(note: Pick<import('./types').Note, 'content'>): boolean {
+  return NOTE_TASK_RE.test(noteTextWithoutImages(note.content));
+}
+
+export function noteHasText(note: Pick<import('./types').Note, 'content'>): boolean {
+  return Boolean(noteTextWithoutImages(note.content)) && !noteHasTasks(note);
+}
+
+export function matchesNoteContentFilter(
+  note: Pick<import('./types').Note, 'content'>,
+  filter: NoteContentFilter
+): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'images') return noteHasImages(note);
+  if (filter === 'tasks') return noteHasTasks(note);
+  return noteHasText(note);
 }

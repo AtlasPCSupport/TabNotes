@@ -5,6 +5,30 @@
   "appDesc": {
     "message": "Contextual notes per tab, domain, or workspace. Multiple notes per page. Local-first, no account needed."
   },
+  "floatingLabel": {
+    "message": "TabNotes capture"
+  },
+  "floatingNewNote": {
+    "message": "New note"
+  },
+  "floatingScreenshotCurrent": {
+    "message": "Screenshot → current note"
+  },
+  "floatingScreenshotNew": {
+    "message": "Screenshot → new note"
+  },
+  "floatingCropCurrent": {
+    "message": "Crop → current note"
+  },
+  "floatingCropNew": {
+    "message": "Crop → new note"
+  },
+  "floatingClipCurrent": {
+    "message": "Clip selection → current note"
+  },
+  "floatingClipNew": {
+    "message": "Clip selection → new note"
+  },
   "actionTitle": {
     "message": "Open TabNotes"
   },

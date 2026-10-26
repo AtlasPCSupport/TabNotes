@@ -22,5 +22,6 @@ playwright-report/
 PRIVADO_CUIDADO/
 output/
 design/
+tmp/
 .zcode/
 .playwright-mcp/

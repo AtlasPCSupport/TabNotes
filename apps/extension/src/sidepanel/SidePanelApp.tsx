@@ -29,14 +29,18 @@ import { BottomNav } from './components/BottomNav';
 import { ScopeBar } from './components/ScopeBar';
 import { HeaderBar } from './components/HeaderBar';
 import { ContextStrip } from './components/ContextStrip';
+import { CaptureHub } from './components/CaptureHub';
 import { NoteTree, type Template } from './components/NoteTree';
 import { CommandPalette } from './components/CommandPalette';
 import { EncryptionPrompt } from './components/EncryptionPrompt';
+import { OnboardingDialog } from './components/OnboardingDialog';
+import { VisibleAreaCropper } from './components/VisibleAreaCropper';
 import { PendingReminders } from './components/PendingReminders';
 import { AppIcon } from './components/AppIcon';
 import { useTranslation } from '@tabnotes/i18n';
 import { formatEditorDateTime } from './utils/dateTime';
 import { insertTextAtSelection } from './utils/editorCommands';
+import type { FloatingAction } from '../shared/floating';
 import { SCOPE_OPTIONS, templateDateLocale, templateFieldKey } from './sidepanelConfig';
 import {
   DEFAULT_SNOOZE_MINUTES,
@@ -53,10 +57,17 @@ const cr: any =
     ? (globalThis as Record<string, unknown>).chrome
     : null;
 
+const ONBOARDING_STORAGE_KEY = 'tn_onboarding_version';
+const ONBOARDING_VERSION = 1;
+
 interface RuntimeResponse {
   ok?: boolean;
   error?: string;
   reminderAt?: number;
+  dataUrl?: string;
+  text?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
 }
 
 function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeResponse | null> {
@@ -77,6 +88,23 @@ function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeRe
   });
 }
 
+const SCREENSHOT_DATA_URL_RE = /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i;
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function buildScreenshotMarkup(dataUrl: string, label: string, timestamp: string): string | null {
+  if (!SCREENSHOT_DATA_URL_RE.test(dataUrl)) return null;
+
+  const alt = escapeHtmlAttribute(`${label} ${timestamp}`);
+  return `<br><img src="${escapeHtmlAttribute(dataUrl)}" alt="${alt}"><br>`;
+}
+
 // ── Crypto utilities ──────────────────────────────────────────
 // AES-256-GCM encryption now lives in @tabnotes/shared (crypto.ts), where it
 // is unit-tested. encryptText / decryptText are imported above.
@@ -88,6 +116,8 @@ function sendRuntimeMessage(message: Record<string, unknown>): Promise<RuntimeRe
 
 export default function SidePanelApp() {
   const { t, i18n } = useTranslation();
+  const [showOnboarding, setShowOnboarding] = React.useState(false);
+  const [cropSource, setCropSource] = React.useState<string | null>(null);
 
   // Services
   const adapter = useRef(new ChromeStorageAdapter());
@@ -145,6 +175,9 @@ export default function SidePanelApp() {
 
   // Quick-capture: ref so the storage.onChanged handler can call it without stale closure
   const addNoteToContextRef = useRef<() => Promise<void>>(async () => {});
+  const floatingRequestRef = useRef<(action: FloatingAction) => Promise<void>>(async () => {});
+  const captureScreenshotRef = useRef<() => void>(() => {});
+  const captureAreaRef = useRef<() => void>(() => {});
 
   // Rich editor ref (contentEditable div)
   const editorRef = useRef<HTMLDivElement>(null);
@@ -169,6 +202,7 @@ export default function SidePanelApp() {
     refreshAllNotes,
     loadContextNotes,
     saveDigest,
+    appendClipToCurrentNote,
   } = useChromeStorageAndTabs({
     adapter,
     noteSvc,
@@ -182,6 +216,7 @@ export default function SidePanelApp() {
     currentUrlRef,
     wsIdRef,
     addNoteToContextRef,
+    floatingRequestRef,
   });
 
   // Local UI / Interactive States
@@ -221,6 +256,10 @@ export default function SidePanelApp() {
     setDeleteCardConfirmId,
     searchQ,
     setSearchQ,
+    inboxOnly,
+    setInboxOnly,
+    contentFilter,
+    setContentFilter,
     selectedId,
     setSelectedId,
     selectMode,
@@ -255,6 +294,18 @@ export default function SidePanelApp() {
     colorPickerNoteId,
     setColorPickerNoteId,
   } = useSidePanelUiState();
+
+  useEffect(() => {
+    if (!cr?.storage?.local) return;
+    cr.storage.local.get(ONBOARDING_STORAGE_KEY, (result: Record<string, unknown>) => {
+      setShowOnboarding(result[ONBOARDING_STORAGE_KEY] !== ONBOARDING_VERSION);
+    });
+  }, []);
+
+  const completeOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    cr?.storage?.local?.set({ [ONBOARDING_STORAGE_KEY]: ONBOARDING_VERSION });
+  }, []);
 
   // Invoke PIN Lock hook
   const {
@@ -796,18 +847,95 @@ export default function SidePanelApp() {
   ]);
 
   // ── Screenshot capture ───────────────────────────────────────
+  const appendScreenshot = useCallback(
+    (dataUrl: string, label: string) => {
+      const ts = new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+      const insert = buildScreenshotMarkup(dataUrl, label, ts);
+      if (!insert) return;
+      const next = content + insert;
+      setContent(next);
+      schedule(next, title, tags);
+    },
+    [content, schedule, setContent, tags, title]
+  );
+
   const captureScreenshot = () => {
-    cr?.runtime?.sendMessage(
-      { type: 'CAPTURE_TAB' },
-      (res: { dataUrl?: string; error?: string }) => {
-        if (!res?.dataUrl) return;
-        const ts = new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
-        const insert = `\n\n![Screenshot ${ts}](${res.dataUrl})\n`;
-        const next = content + insert;
-        setContent(next);
-        schedule(next, title, tags);
-      }
-    );
+    void sendRuntimeMessage({ type: 'CAPTURE_TAB' })
+      .then((response) => {
+        if (response?.dataUrl) appendScreenshot(response.dataUrl, 'Screenshot');
+      })
+      .catch(() => undefined);
+  };
+
+  const requestSelectionPermission = useCallback((): Promise<boolean> => {
+    const url = currentUrlRef.current;
+    if (!cr?.permissions?.request) return Promise.resolve(true);
+    try {
+      const page = new URL(url);
+      if (page.protocol !== 'http:' && page.protocol !== 'https:') return Promise.resolve(false);
+      return new Promise((resolve) => {
+        cr.permissions.request(
+          { origins: [`${page.protocol}//${page.host}/*`] },
+          (granted: boolean) => resolve(granted)
+        );
+      });
+    } catch {
+      return Promise.resolve(false);
+    }
+  }, [currentUrlRef]);
+
+  const clipSelection = useCallback(
+    async (target: 'current' | 'new') => {
+      if (!(await requestSelectionPermission())) return;
+      const response = await sendRuntimeMessage({ type: 'GET_SELECTED_TEXT' });
+      const text = response?.text?.trim();
+      if (!text) return;
+      await appendClipToCurrentNote(
+        {
+          text,
+          sourceUrl: response?.sourceUrl || currentUrlRef.current,
+          sourceTitle: response?.sourceTitle,
+        },
+        target
+      );
+    },
+    [appendClipToCurrentNote, currentUrlRef, requestSelectionPermission]
+  );
+
+  const captureArea = () => {
+    void sendRuntimeMessage({ type: 'CAPTURE_TAB' })
+      .then((response) => {
+        if (response?.dataUrl) setCropSource(response.dataUrl);
+      })
+      .catch(() => undefined);
+  };
+
+  const saveCroppedScreenshot = (dataUrl: string) => {
+    appendScreenshot(dataUrl, 'Cropped screenshot');
+    setCropSource(null);
+  };
+
+  captureScreenshotRef.current = captureScreenshot;
+  captureAreaRef.current = captureArea;
+  floatingRequestRef.current = async (action) => {
+    setView('note');
+    if (action === 'new-note') {
+      await addNoteToContextRef.current();
+      return;
+    }
+
+    if (action === 'clip-current' || action === 'clip-new') {
+      await clipSelection(action === 'clip-new' ? 'new' : 'current');
+      return;
+    }
+
+    const createsNote = action === 'screenshot-new' || action === 'crop-new';
+    if (createsNote) {
+      await addNoteToContextRef.current();
+      await new Promise((resolve) => window.setTimeout(resolve, 160));
+    }
+    if (action.startsWith('screenshot')) captureScreenshotRef.current();
+    else captureAreaRef.current();
   };
 
   // Export to PDF is handled by useNoteActions hook
@@ -1030,6 +1158,7 @@ export default function SidePanelApp() {
         syncedToast={syncedToast}
         language={language}
         setLanguage={setLanguage}
+        onOpenOnboarding={() => setShowOnboarding(true)}
       />
 
       {/* ── Scope bar ── */}
@@ -1043,6 +1172,16 @@ export default function SidePanelApp() {
 
       {/* ── Context strip ── */}
       {view === 'note' && <ContextStrip tabLoading={tabLoading} />}
+
+      {view === 'note' && (
+        <CaptureHub
+          disabled={isRestrictedUrl || tabLoading}
+          onNewNote={addNoteToContext}
+          onCaptureScreenshot={captureScreenshot}
+          onCaptureArea={captureArea}
+          onClipSelection={clipSelection}
+        />
+      )}
 
       <PendingReminders
         reminders={pendingReminders}
@@ -1127,6 +1266,10 @@ export default function SidePanelApp() {
           setRefNoteId={setRefNoteId}
           searchQ={searchQ}
           setSearchQ={setSearchQ}
+          inboxOnly={inboxOnly}
+          setInboxOnly={setInboxOnly}
+          contentFilter={contentFilter}
+          setContentFilter={setContentFilter}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           tagFilter={tagFilter}
@@ -1212,6 +1355,14 @@ export default function SidePanelApp() {
         setShowEncPrompt={setShowEncPrompt}
         onLockNote={handleLockNote}
         onUnlockNote={handleUnlockNote}
+      />
+
+      <OnboardingDialog open={showOnboarding} onComplete={completeOnboarding} />
+
+      <VisibleAreaCropper
+        source={cropSource}
+        onCancel={() => setCropSource(null)}
+        onSave={saveCroppedScreenshot}
       />
 
       {/* ── Bottom nav ── */}

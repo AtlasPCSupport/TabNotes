@@ -1,4 +1,5 @@
 import { Note, formatRelativeTime } from '@tabnotes/shared';
+import type { NoteContentFilter } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
@@ -23,6 +24,12 @@ export function AllNotesView(props: {
   allTags: string[];
   searchQ: string;
   setSearchQ: (v: string) => void;
+  inboxOnly: boolean;
+  inboxCount: number;
+  setInboxOnly: (v: boolean) => void;
+  contentFilter: NoteContentFilter;
+  contentFilterCounts: Record<NoteContentFilter, number>;
+  setContentFilter: (v: NoteContentFilter) => void;
   tagFilter: string | null;
   setTagFilter: (v: string | null) => void;
   selectMode: boolean;
@@ -51,6 +58,12 @@ export function AllNotesView(props: {
     allTags,
     searchQ,
     setSearchQ,
+    inboxOnly,
+    inboxCount,
+    setInboxOnly,
+    contentFilter,
+    contentFilterCounts,
+    setContentFilter,
     tagFilter,
     setTagFilter,
     selectMode,
@@ -118,6 +131,42 @@ export function AllNotesView(props: {
         >
           {selectMode ? t('common.cancel') : <AppIcon name="check" size={15} />}
         </button>
+      </div>
+
+      <div className="sp-inbox-switch" data-testid="inbox-switch">
+        <button
+          type="button"
+          className={`sp-inbox-tab${inboxOnly ? ' active' : ''}`}
+          onClick={() => setInboxOnly(true)}
+        >
+          <AppIcon name="doc" size={14} />
+          <span>{t('noteList.inbox')}</span>
+          <span className="sp-inbox-count">{inboxCount}</span>
+        </button>
+        <button
+          type="button"
+          className={`sp-inbox-tab${!inboxOnly ? ' active' : ''}`}
+          onClick={() => setInboxOnly(false)}
+        >
+          <span>{t('nav.allNotes')}</span>
+        </button>
+        <span className="sp-inbox-hint">{t('noteList.inboxHint')}</span>
+      </div>
+
+      <div className="sp-content-filters" data-testid="note-content-filters">
+        <span className="sp-content-filter-label">{t('noteList.filterLabel')}</span>
+        {(['all', 'text', 'images', 'tasks'] as const).map((filter) => (
+          <button
+            key={filter}
+            type="button"
+            className={`sp-content-filter${contentFilter === filter ? ' active' : ''}`}
+            aria-pressed={contentFilter === filter}
+            onClick={() => setContentFilter(filter)}
+          >
+            {t(`noteList.filter${filter[0].toUpperCase()}${filter.slice(1)}` as TranslationKey)}
+            <span>{contentFilterCounts[filter]}</span>
+          </button>
+        ))}
       </div>
 
       {/* Tag filter chips */}
@@ -220,9 +269,7 @@ export function AllNotesView(props: {
                           }}
                         >
                           {selectMode && (
-                            <span
-                              className={`sp-card-checkbox${isBulkSelected ? ' checked' : ''}`}
-                            >
+                            <span className={`sp-card-checkbox${isBulkSelected ? ' checked' : ''}`}>
                               {isBulkSelected ? <AppIcon name="check" size={12} /> : ''}
                             </span>
                           )}
@@ -272,9 +319,7 @@ export function AllNotesView(props: {
                           <div className="sp-card-scope-ctx">
                             <span className="sp-card-scope-icon">
                               <AppIcon
-                                name={
-                                  scopeOptions.find((s) => s.value === n.scope)?.icon ?? 'note'
-                                }
+                                name={scopeOptions.find((s) => s.value === n.scope)?.icon ?? 'note'}
                                 size={11}
                               />
                             </span>

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifestPath = path.join(root, 'apps/extension/public/manifest.json');
 const expectedHostPermissions = ['https://www.googleapis.com/*'];
+const expectedOptionalHostPermissions = ['http://*/*', 'https://*/*'];
 const removedAssistantMarkers = [
   /groq/gi,
   /ask your notes/gi,
@@ -67,6 +68,21 @@ if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:\.\d+)?$/.test(version)) {
     fail(
       `${path.relative(root, manifestPath)} host_permissions must contain only ${expectedHostPermissions.join(', ')}.`
     );
+  }
+
+  const optionalHostPermissions = manifest.optional_host_permissions;
+  if (
+    !Array.isArray(optionalHostPermissions) ||
+    optionalHostPermissions.length !== expectedOptionalHostPermissions.length ||
+    expectedOptionalHostPermissions.some((host) => !optionalHostPermissions.includes(host))
+  ) {
+    fail(
+      `${path.relative(root, manifestPath)} optional_host_permissions must contain only ${expectedOptionalHostPermissions.join(', ')}.`
+    );
+  }
+
+  if (!Array.isArray(manifest.permissions) || !manifest.permissions.includes('scripting')) {
+    fail(`${path.relative(root, manifestPath)} permissions must include scripting.`);
   }
 
   const markerPatterns = new Map([

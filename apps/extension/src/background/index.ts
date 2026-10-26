@@ -30,6 +30,15 @@ import {
   roundUpToMinute,
   upsertPendingReminder,
 } from '../shared/reminders';
+import {
+  FLOATING_DOMAINS_STORAGE_KEY,
+  FLOATING_REQUEST_STORAGE_KEY,
+  floatingDomainFromUrl,
+  floatingPermissionOrigins,
+  normalizeFloatingAction,
+  normalizeFloatingDomain,
+  normalizeFloatingDomains,
+} from '../shared/floating';
 
 type ReminderCollectionKey = 'notes_url' | 'notes_domain' | 'notes_workspace' | 'notes_global';
 
@@ -139,6 +148,46 @@ function getLocalStorage(keys: string | string[]): Promise<Record<string, unknow
 
 function setLocalStorage(items: Record<string, unknown>): Promise<void> {
   return new Promise((resolve) => chrome.storage.local.set(items, () => resolve()));
+}
+
+function hasFloatingPermission(domain: string): Promise<boolean> {
+  return new Promise((resolve) =>
+    chrome.permissions.contains({ origins: floatingPermissionOrigins(domain) }, resolve)
+  );
+}
+
+async function getFloatingDomains(): Promise<string[]> {
+  const result = await getLocalStorage(FLOATING_DOMAINS_STORAGE_KEY);
+  return normalizeFloatingDomains(result[FLOATING_DOMAINS_STORAGE_KEY]);
+}
+
+async function injectFloatingButton(tabId: number): Promise<void> {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    const domain = floatingDomainFromUrl(tab.url);
+    if (!domain) return;
+    const domains = await getFloatingDomains();
+    if (!domains.includes(domain) || !(await hasFloatingPermission(domain))) return;
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['contentScript/floatingButton.js'],
+    });
+  } catch {
+    // Restricted pages and tabs that close during navigation cannot be injected.
+  }
+}
+
+function removeFloatingButton(tabId: number): void {
+  chrome.tabs.sendMessage(tabId, { type: 'FLOATING_SET_ENABLED', enabled: false }, () => {
+    void chrome.runtime.lastError;
+  });
+}
+
+async function injectFloatingButtonsOnOpenTabs(): Promise<void> {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(
+    tabs.flatMap((tab) => (typeof tab.id === 'number' ? [injectFloatingButton(tab.id)] : []))
+  );
 }
 
 function stripReminderText(value: string | undefined): string {
@@ -770,6 +819,7 @@ chrome.runtime.onInstalled.addListener(() => {
   void scheduleDrivePeriodicSync().catch(() => undefined);
   void restoreNoteReminderAlarms().catch(() => undefined);
   void restoreReminderAlertIfNeeded().catch(() => undefined);
+  void injectFloatingButtonsOnOpenTabs().catch(() => undefined);
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -779,6 +829,7 @@ chrome.runtime.onStartup.addListener(() => {
   void scheduleDrivePeriodicSync().catch(() => undefined);
   void restoreNoteReminderAlarms().catch(() => undefined);
   void restoreReminderAlertIfNeeded().catch(() => undefined);
+  void injectFloatingButtonsOnOpenTabs().catch(() => undefined);
 });
 
 // ── Open side panel on icon click ─────────────────────────────────────────────
@@ -833,9 +884,11 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url && tab.active) {
+  if (changeInfo.status !== 'complete' || !tab.url) return;
+  if (tab.active) {
     await updateBadge(tabId, tab.url);
   }
+  await injectFloatingButton(tabId);
 });
 
 // ── Badge: update when notes change in storage ────────────────────────────────
@@ -868,13 +921,79 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 
 // ── Message handler ───────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (handleDriveMessage(msg, sendResponse)) return true;
+
+  if (msg.type === 'FLOATING_SET_DOMAIN') {
+    (async () => {
+      const domain = normalizeFloatingDomain(msg.domain);
+      const enabled = msg.enabled === true;
+      if (!domain) {
+        sendResponse({ ok: false, error: 'INVALID_DOMAIN' });
+        return;
+      }
+      if (enabled && !(await hasFloatingPermission(domain))) {
+        sendResponse({ ok: false, error: 'PERMISSION_REQUIRED' });
+        return;
+      }
+
+      const domains = await getFloatingDomains();
+      const nextDomains = enabled
+        ? [...new Set([...domains, domain])]
+        : domains.filter((entry) => entry !== domain);
+      await setLocalStorage({ [FLOATING_DOMAINS_STORAGE_KEY]: nextDomains });
+
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id && floatingDomainFromUrl(activeTab.url) === domain) {
+        if (enabled) await injectFloatingButton(activeTab.id);
+        else removeFloatingButton(activeTab.id);
+      }
+      sendResponse({ ok: true, enabled });
+    })().catch((error) => sendResponse({ ok: false, error: String(error) }));
+    return true;
+  }
+
+  if (msg.type === 'FLOATING_ACTION') {
+    const action = normalizeFloatingAction(msg.action);
+    const tabId = sender.tab?.id;
+    const domain = floatingDomainFromUrl(sender.tab?.url);
+    if (!action || typeof tabId !== 'number' || !domain) {
+      sendResponse({ ok: false, error: 'INVALID_FLOATING_REQUEST' });
+      return false;
+    }
+
+    // Start opening immediately while Chrome still has the user gesture from
+    // the floating-button click. Awaiting permissions/storage first can make
+    // sidePanel.open reject with "must be called during a user gesture".
+    let sidePanelOpen: Promise<void>;
+    try {
+      sidePanelOpen = chrome.sidePanel.open({ tabId });
+    } catch (error) {
+      sendResponse({ ok: false, error: String(error) });
+      return false;
+    }
+    // Keep a rejection handled if validation fails before we await it below.
+    void sidePanelOpen.catch(() => undefined);
+    (async () => {
+      const domains = await getFloatingDomains();
+      if (!domains.includes(domain) || !(await hasFloatingPermission(domain))) {
+        await sidePanelOpen.catch(() => undefined);
+        sendResponse({ ok: false, error: 'FLOATING_NOT_ENABLED' });
+        return;
+      }
+      await setLocalStorage({
+        [FLOATING_REQUEST_STORAGE_KEY]: { action, requestedAt: Date.now() },
+      });
+      await sidePanelOpen;
+      sendResponse({ ok: true });
+    })().catch((error) => sendResponse({ ok: false, error: String(error) }));
+    return true;
+  }
 
   // CAPTURE_TAB: take a screenshot of the active tab
   if (msg.type === 'CAPTURE_TAB') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (!tabs[0]?.windowId) {
+      if (typeof tabs[0]?.windowId !== 'number') {
         sendResponse({ error: 'No active tab' });
         return;
       }
@@ -886,6 +1005,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({ dataUrl });
       } catch (e) {
         sendResponse({ error: String(e) });
+      }
+    });
+    return true;
+  }
+
+  // GET_SELECTED_TEXT: read the current page selection for Capture Hub and
+  // floating-button clip actions. The side panel requests the host permission
+  // before sending this message when the page has not been granted yet.
+  if (msg.type === 'GET_SELECTED_TEXT') {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (typeof tab?.id !== 'number' || !tab.url || !/^https?:\/\//i.test(tab.url)) {
+        sendResponse({ error: 'No selectable web page' });
+        return;
+      }
+
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => window.getSelection()?.toString() ?? '',
+        });
+        const text = typeof results[0]?.result === 'string' ? results[0].result.trim() : '';
+        sendResponse({ text, sourceUrl: tab.url, sourceTitle: tab.title || tab.url });
+      } catch (error) {
+        sendResponse({ error: String(error) });
       }
     });
     return true;

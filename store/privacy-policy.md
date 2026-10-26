@@ -1,6 +1,6 @@
 # TabNotes Privacy Policy
 
-**Effective date:** June 20, 2026
+**Effective date:** August 22, 2026
 
 ## The one-line version
 
@@ -29,19 +29,21 @@ per-note encryption or an encrypted manual backup before syncing sensitive conte
 
 ## Permissions
 
-| Permission                     | Why                                                                   |
-| ------------------------------ | --------------------------------------------------------------------- |
-| `storage`                      | Save notes locally on your device                                     |
-| `unlimitedStorage`             | Support local-first note collections that may grow over time          |
-| `tabs`                         | Read the current tab URL to link notes contextually                   |
-| `activeTab`                    | Access the current tab URL when the panel is open                     |
-| `sidePanel`                    | Display the notes panel alongside browser content                     |
-| `contextMenus`                 | Let users clip selected text into notes from the browser context menu |
-| `identity`                     | Optional Google sign-in for Drive sync                                |
-| `offscreen`                    | Play local reminder audio when a reminder fires                       |
-| `alarms`                       | Sync debounce, reminders, and scheduled notifications                 |
-| `notifications`                | User reminders and daily digest                                       |
-| `https://www.googleapis.com/*` | Optional Google Drive sync API calls                                  |
+| Permission                     | Why                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `storage`                      | Save notes locally on your device                                                |
+| `unlimitedStorage`             | Support local-first note collections that may grow over time                     |
+| `tabs`                         | Read the current tab URL to link notes contextually                              |
+| `activeTab`                    | Access the current tab URL when the panel is open                                |
+| `sidePanel`                    | Display the notes panel alongside browser content                                |
+| `contextMenus`                 | Let users clip selected text into notes from the browser context menu            |
+| `identity`                     | Optional Google sign-in for Drive sync                                           |
+| `offscreen`                    | Play local reminder audio when a reminder fires                                  |
+| `alarms`                       | Sync debounce, reminders, and scheduled notifications                            |
+| `notifications`                | User reminders and daily digest                                                  |
+| `scripting`                    | Reads a selection after clipping or injects the optional floating capture button |
+| `http://*/*`, `https://*/*`    | Optional per-site access requested only for those capture features               |
+| `https://www.googleapis.com/*` | Optional Google Drive sync API calls                                             |
 
 ## No analytics, no tracking
 

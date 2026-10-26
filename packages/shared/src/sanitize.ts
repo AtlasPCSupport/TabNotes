@@ -16,22 +16,53 @@ import DOMPurify from 'dompurify';
  */
 
 const ALLOWED_TAGS = [
-  'p', 'br', 'div', 'span',
-  'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'mark', 'code', 'pre',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'ul', 'ol', 'li',
-  'a', 'input', 'blockquote',
+  'p',
+  'br',
+  'div',
+  'span',
+  'b',
+  'strong',
+  'i',
+  'em',
+  'u',
+  's',
+  'strike',
+  'mark',
+  'code',
+  'pre',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'a',
+  'img',
+  'input',
+  'blockquote',
 ];
 
 const ALLOWED_ATTR = [
-  'class', 'style',
-  'href', 'target', 'rel',
+  'class',
+  'style',
+  'href',
+  'target',
+  'rel',
+  // local screenshots captured by the extension
+  'src',
+  'alt',
   // task checkboxes rendered from markdown
-  'type', 'checked', 'data-task',
+  'type',
+  'checked',
+  'data-task',
   // wiki links
   'data-wiki',
   // text alignment / direction on block elements
-  'dir', 'align',
+  'dir',
+  'align',
 ];
 
 /**
@@ -52,6 +83,25 @@ const ALLOWED_STYLE_PROPS = new Set([
   'text-decoration-line',
 ]);
 
+const LEGACY_SCREENSHOT_MARKDOWN_RE =
+  /!\[([^\]\r\n]{0,240})\]\((data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2})\)/gi;
+
+/** Escape user-controlled text before placing it in a generated HTML document. */
+export function escapeHtml(value: string): string {
+  const replacements: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return value.replace(/[&<>"']/g, (character) => replacements[character] ?? character);
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value);
+}
+
 let hooksInstalled = false;
 
 function installHooks(instance: typeof DOMPurify): void {
@@ -64,6 +114,15 @@ function installHooks(instance: typeof DOMPurify): void {
       const el = node as HTMLElement;
       el.setAttribute('target', '_blank');
       el.setAttribute('rel', 'noopener noreferrer');
+    }
+
+    if (node.nodeName === 'IMG') {
+      const el = node as HTMLImageElement;
+      const src = el.getAttribute('src') ?? '';
+      // Notes may persist screenshots, but never arbitrary remote resources.
+      if (!/^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(src)) {
+        el.removeAttribute('src');
+      }
     }
 
     // Restrict inline styles to the allowlisted, value-safe property set.
@@ -104,17 +163,22 @@ export function sanitizeHtml(dirty: string, options: SanitizeOptions = {}): stri
   if (!dirty) return '';
   installHooks(DOMPurify);
 
-  const tags = options.allowLinks === false
-    ? ALLOWED_TAGS.filter((t) => t !== 'a')
-    : ALLOWED_TAGS;
+  // Migrate screenshots written by older builds as Markdown without allowing
+  // arbitrary Markdown images or remote resources into the HTML sink.
+  const normalized = dirty.replace(
+    LEGACY_SCREENSHOT_MARKDOWN_RE,
+    (_, alt: string, src: string) => `<img src="${src}" alt="${escapeHtmlAttribute(alt)}">`
+  );
 
-  return DOMPurify.sanitize(dirty, {
+  const tags = options.allowLinks === false ? ALLOWED_TAGS.filter((t) => t !== 'a') : ALLOWED_TAGS;
+
+  return DOMPurify.sanitize(normalized, {
     ALLOWED_TAGS: tags,
     ALLOWED_ATTR,
     // Only http(s), mailto and relative anchors survive on links.
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i,
     FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'srcset', 'src'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'srcset'],
     ADD_ATTR: ['target'],
   });
 }

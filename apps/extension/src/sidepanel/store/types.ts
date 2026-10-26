@@ -5,6 +5,7 @@ import type { Language } from '@tabnotes/i18n';
 export type View = 'note' | 'all' | 'settings' | 'graph' | 'about';
 export type SettingsTarget =
   | 'features'
+  | 'floating'
   | 'appearance'
   | 'language'
   | 'pin'

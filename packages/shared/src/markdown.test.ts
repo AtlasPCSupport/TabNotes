@@ -36,6 +36,21 @@ describe('renderMarkdown', () => {
     expect(out).toContain('&gt;');
   });
 
+  it('preserves a captured image in preview output', () => {
+    const out = renderMarkdown(
+      '<br><img src="data:image/jpeg;base64,SGVsbG8=" alt="Screenshot"><br>'
+    );
+    expect(out).toContain('<img');
+    expect(out).toContain('data:image/jpeg;base64,SGVsbG8=');
+    expect(out).not.toContain('&lt;img');
+  });
+
+  it('renders legacy local screenshot markdown as an image', () => {
+    const out = renderMarkdown('![Old screenshot](data:image/jpeg;base64,SGVsbG8=)');
+    expect(out).toContain('<img');
+    expect(out).toContain('alt="Old screenshot"');
+  });
+
   it('returns empty string for empty input', () => {
     expect(renderMarkdown('')).toBe('');
   });

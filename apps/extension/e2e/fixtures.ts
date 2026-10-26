@@ -9,6 +9,7 @@ const DIST = resolve(process.cwd(), 'dist');
 const REAL_TAB_URL = `data:text/html;charset=utf-8,${encodeURIComponent(
   '<!doctype html><html><head><title>TabNotes E2E Page</title></head><body><main><h1>TabNotes E2E Page</h1><p>Local browser context for extension tests.</p></main></body></html>'
 )}`;
+export const ONBOARDING_STORAGE_KEY = 'tn_onboarding_version';
 
 /**
  * Playwright fixtures that load the built unpacked TabNotes extension into a
@@ -36,12 +37,14 @@ export const test = base.extend<{
     }
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
-      args: [
-        '--headless=new',
-        `--disable-extensions-except=${DIST}`,
-        `--load-extension=${DIST}`,
-      ],
+      args: ['--headless=new', `--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
     });
+    let [sw] = context.serviceWorkers();
+    if (!sw) sw = await context.waitForEvent('serviceworker');
+    await (sw as Worker).evaluate(
+      (key) => chrome.storage.local.set({ [key]: 1 }),
+      ONBOARDING_STORAGE_KEY
+    );
     await use(context);
     await context.close();
   },

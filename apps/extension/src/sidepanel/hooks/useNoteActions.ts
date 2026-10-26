@@ -10,6 +10,7 @@ import {
   createManualBackupEnvelope,
   decryptEncryptedManualBackupEnvelope,
   decryptText,
+  escapeHtml,
   encryptText,
   isBackupImportTextWithinLimit,
   isEncryptedManualBackupEnvelope,
@@ -168,8 +169,11 @@ export function useNoteActions({
   };
 
   const exportToPDF = () => {
+    const safeTitle = escapeHtml(title || 'TabNote');
+    const safeDomain = escapeHtml(currentDomain);
+    const safeTags = escapeHtml(tags);
     const html = `<!DOCTYPE html><html><head>
-<meta charset="utf-8"><title>${title || 'TabNote'}</title>
+<meta charset="utf-8"><title>${safeTitle}</title>
 <style>
   body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1a1a1a;line-height:1.7}
   h1,h2,h3{font-family:system-ui,sans-serif}
@@ -180,8 +184,8 @@ export function useNoteActions({
   .meta{font-size:.8em;color:#9ca3af;padding-bottom:10px;margin-bottom:20px;border-bottom:1px solid #f0f0f0}
   @media print{body{margin:0}}
 </style></head><body>
-${title ? `<h1>${title}</h1>` : ''}
-<div class="meta">${new Date().toLocaleString()}${currentDomain ? ` · ${currentDomain}` : ''}${tags ? ` · Tags: ${tags}` : ''}</div>
+${title ? `<h1>${safeTitle}</h1>` : ''}
+<div class="meta">${new Date().toLocaleString()}${currentDomain ? ` · ${safeDomain}` : ''}${tags ? ` · Tags: ${safeTags}` : ''}</div>
 ${renderMarkdown(content)}
 <script>window.addEventListener('load',()=>window.print());</script>
 </body></html>`;
@@ -319,18 +323,29 @@ ${renderMarkdown(content)}
 
       const current = await adapter.current.get();
       const currentPrefs: Record<string, unknown> = {};
-      const localPrefKeys = ['tn_colors', 'tn_folder_colors', 'tn_pins', 'tn_fontsize', 'tn_align', 'tn_features'];
+      const localPrefKeys = [
+        'tn_colors',
+        'tn_folder_colors',
+        'tn_pins',
+        'tn_fontsize',
+        'tn_align',
+        'tn_features',
+      ];
       for (const k of localPrefKeys) {
         const val = localStorage.getItem(k);
         if (val !== null) currentPrefs[k] = val;
       }
       await new Promise<void>((resolve) => {
-        cr?.storage?.local?.get(['tn_digest', 'tn_streak', 'tn_backup_remind'], (res: Record<string, unknown>) => {
-          if (res?.tn_digest !== undefined) currentPrefs.tn_digest = res.tn_digest;
-          if (res?.tn_streak !== undefined) currentPrefs.tn_streak = res.tn_streak;
-          if (res?.tn_backup_remind !== undefined) currentPrefs.tn_backup_remind = res.tn_backup_remind;
-          resolve();
-        });
+        cr?.storage?.local?.get(
+          ['tn_digest', 'tn_streak', 'tn_backup_remind'],
+          (res: Record<string, unknown>) => {
+            if (res?.tn_digest !== undefined) currentPrefs.tn_digest = res.tn_digest;
+            if (res?.tn_streak !== undefined) currentPrefs.tn_streak = res.tn_streak;
+            if (res?.tn_backup_remind !== undefined)
+              currentPrefs.tn_backup_remind = res.tn_backup_remind;
+            resolve();
+          }
+        );
       });
 
       const restored = applyBackupImport(parsed, current);
@@ -454,7 +469,14 @@ ${renderMarkdown(content)}
       }
 
       if (snapshot.prefs) {
-        const localKeys = ['tn_colors', 'tn_folder_colors', 'tn_pins', 'tn_fontsize', 'tn_align', 'tn_features'];
+        const localKeys = [
+          'tn_colors',
+          'tn_folder_colors',
+          'tn_pins',
+          'tn_fontsize',
+          'tn_align',
+          'tn_features',
+        ];
         for (const k of localKeys) {
           if (snapshot.prefs[k] !== undefined) {
             localStorage.setItem(k, String(snapshot.prefs[k]));

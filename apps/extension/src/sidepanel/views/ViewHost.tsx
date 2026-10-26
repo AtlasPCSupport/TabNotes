@@ -7,6 +7,8 @@ import {
   NoteScope,
   PinHash,
   searchNotes,
+  matchesNoteContentFilter,
+  type NoteContentFilter,
   type MoveNoteTarget,
 } from '@tabnotes/shared';
 import type { Features, Theme, Align } from '../store/types';
@@ -64,6 +66,10 @@ export interface ViewHostProps {
   // AllNotesView props
   searchQ: string;
   setSearchQ: (v: string) => void;
+  inboxOnly: boolean;
+  setInboxOnly: (v: boolean) => void;
+  contentFilter: NoteContentFilter;
+  setContentFilter: (v: NoteContentFilter) => void;
   selectedId: string | null;
   setSelectedId: (v: string | null) => void;
   tagFilter: string | null;
@@ -173,6 +179,10 @@ export function ViewHost({
   setRefNoteId,
   searchQ,
   setSearchQ,
+  inboxOnly,
+  setInboxOnly,
+  contentFilter,
+  setContentFilter,
   selectedId,
   setSelectedId,
   tagFilter,
@@ -256,8 +266,20 @@ export function ViewHost({
   const pinnedNotes = useSidePanelStore((s) => s.pinnedNotes);
 
   const workspaceAllNotes = allNotes.filter((n) => n.workspaceId === activeWorkspaceId);
+  const inboxCount = workspaceAllNotes.filter((n) => !n.folder).length;
+  const notesForFilters = inboxOnly
+    ? workspaceAllNotes.filter((n) => !n.folder)
+    : workspaceAllNotes;
+  const contentFilterCounts = {
+    all: notesForFilters.length,
+    text: notesForFilters.filter((n) => matchesNoteContentFilter(n, 'text')).length,
+    images: notesForFilters.filter((n) => matchesNoteContentFilter(n, 'images')).length,
+    tasks: notesForFilters.filter((n) => matchesNoteContentFilter(n, 'tasks')).length,
+  };
   const allTags = [...new Set(workspaceAllNotes.flatMap((n) => n.tags))].sort();
   const filteredNotes = searchNotes(workspaceAllNotes, searchQ)
+    .filter((n) => (inboxOnly ? !n.folder : true))
+    .filter((n) => matchesNoteContentFilter(n, contentFilter))
     .filter((n) => (tagFilter ? n.tags.includes(tagFilter) : true))
     .sort((a, b) => {
       const aPin = pinnedNotes.has(a.id) ? 0 : 1;
@@ -346,6 +368,12 @@ export function ViewHost({
             allTags={allTags}
             searchQ={searchQ}
             setSearchQ={setSearchQ}
+            inboxOnly={inboxOnly}
+            inboxCount={inboxCount}
+            setInboxOnly={setInboxOnly}
+            contentFilter={contentFilter}
+            contentFilterCounts={contentFilterCounts}
+            setContentFilter={setContentFilter}
             tagFilter={tagFilter}
             setTagFilter={setTagFilter}
             selectMode={selectMode}
