@@ -1,4 +1,4 @@
-import { Note, formatRelativeTime } from '@tabnotes/shared';
+import { Note, formatRelativeTime, stripFormatting } from '@tabnotes/shared';
 import type { NoteContentFilter } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
@@ -307,7 +307,13 @@ export function AllNotesView(props: {
                             )}
                           </div>
                           {n.title && <div className="sp-card-title">{n.title}</div>}
-                          {n.content && <div className="sp-card-excerpt">{n.content}</div>}
+                          {n.content && (
+                            <div className="sp-card-excerpt">
+                              {stripFormatting(
+                                n.content.replace(/!\[([^\]]*)\]\(data:image\/[^)]*\)/gi, '$1')
+                              ).slice(0, 240)}
+                            </div>
+                          )}
                           {n.tags.length > 0 && (
                             <div className="sp-card-tags">
                               {n.tags.slice(0, 4).map((t) => (

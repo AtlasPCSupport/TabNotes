@@ -380,7 +380,7 @@ test.describe('TabNotes side panel — baseline', () => {
                 notes_workspace: {},
                 notes_global: {
                   text: note('text', '<p>Plain text capture</p>'),
-                  image: note('image', '<img src="data:image/png;base64,AA==">'),
+                  image: note('image', '<p>Screenshot reference</p><img src="data:image/png;base64,AA==">![Legacy screenshot](data:image/png;base64,' + 'A'.repeat(1000) + ')'),
                   task: note('task', '- [ ] Review captured task'),
                   filed: note('filed', '<img src="data:image/png;base64,BB==">', '/organized'),
                 },
@@ -407,6 +407,12 @@ test.describe('TabNotes side panel — baseline', () => {
     await filters.getByRole('button', { name: /Images/ }).click();
     await panel.locator('.sp-group-header', { hasText: /Global/ }).click();
     await expect(panel.locator('.sp-note-card')).toHaveCount(1);
+
+    const imageExcerpt = panel.locator('.sp-card-excerpt');
+    await expect(imageExcerpt).toContainText('Screenshot reference');
+    await expect(imageExcerpt).not.toContainText('data:image');
+    await expect(imageExcerpt).not.toContainText('<img');
+    expect((await imageExcerpt.innerText()).length).toBeLessThanOrEqual(240);
 
     await filters.getByRole('button', { name: /Tasks/ }).click();
     await expect(panel.locator('.sp-note-card')).toHaveCount(1);
