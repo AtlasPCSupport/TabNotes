@@ -1,4 +1,45 @@
-# TabNotes 2.12.0 — validación y entrega
+# TabNotes — validación y entrega
+
+## Ajustes de interfaz posteriores al envío — candidato 2.12.1
+
+Rama: `codex/ui-clarity-polish`. Nuevo ZIP local 2.12.1; no es otro envío a la Store.
+La validación de entrega que figura debajo corresponde al paquete 2.12.0 anterior,
+no al `dist` reconstruido con estos ajustes de interfaz.
+
+- Cabecera: solo se retira el engranaje superior; idiomas, tema, grafo, proyecto,
+  ayuda y navegación inferior se conservan.
+- Ámbitos: Página / Sitio / Proyecto / Global con explicación contextual EN/ES;
+  valores internos, formato de notas y backups sin cambios.
+- Capturar: destino resaltado como paso 1 y tipo de captura como paso 2,
+  manteniendo un destino común para texto, screenshot y recorte; nota en blanco
+  separada; Escape cierra el menú y devuelve el foco.
+- Lista: Sin organizar en español, proyecto actual en la explicación, grupos
+  vacíos ocultos y tareas de solo lectura sin marcadores Markdown ni HTML/base64.
+- Pruebas reales: screenshot y recorte a nota actual/nueva en Chrome estable,
+  con imágenes visibles y texto previo conservado. Perfil nuevo con datos ficticios;
+  no se usa el perfil habitual ni los perfiles anteriores con notas importadas.
+- Evidencia y registro local: `tmp/ui-clarity-qa/QA.md` y sus capturas.
+  Acceso directo de escritorio: `TabNotes-Pruebas-UI.lnk`.
+- Validación local: 213 unitarias y 44 E2E aprobadas; una E2E de arrastre
+  omitida por la limitación conocida de headless. Lint, tipos, formato,
+  compilación, metadata e higiene aprobados.
+
+Si Chromium de Playwright no arranca en Windows (`spawn UNKNOWN`), el runner admite
+Chrome instalado con carga de extensiones por CDP. Siempre crea un perfil efímero:
+
+```powershell
+$env:TABNOTES_E2E_CHROME = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+pnpm --filter @tabnotes/extension exec playwright test
+```
+
+CI sigue usando Chromium de Playwright por defecto. No se alteran permisos del
+manifest, cliente OAuth ni identidades de Drive. El envío 2.12.0 a revisión no se
+ha modificado. Sus ZIP locales anteriores se retiran del escritorio por petición
+del usuario, después de validar el nuevo paquete.
+
+---
+
+## Entrega 2.12.0 anterior — registro histórico
 
 Fecha: 2026-10-26, America/Lima. Pruebas en perfiles de Chrome aislados.
 No se modificó el perfil habitual. El usuario confirmó que la cuenta de Drive es de pruebas.
@@ -16,20 +57,20 @@ No subir la carpeta TabNotes-2.12.0-Prueba-Drive a la Store.
 
 ## Comprobaciones reales completadas
 
-| Área | Evidencia y alcance |
-| --- | --- |
-| Capturas | Screenshot/recorte como imágenes, persistencia y errores visibles en Chrome estable; el usuario confirmó que funcionan desde la acción real de TabNotes. Headless simula la API, no los permisos. |
-| Botón flotante | Nueva nota y selección a nota nueva llegan al panel nativo con Ajustes abierto. El permiso es por dominio; invocar Extensiones → TabNotes concede activeTab para captura. |
-| Importación | El usuario completó sus pruebas manuales y reportó buen funcionamiento. Regresiones sintéticas cubren backups legados, cifrado, historial, imágenes grandes e importación atómica. No es una auditoría de todos sus backups personales. |
-| Drive | Identidad oficial y OAuth reales; versiones manuales 1/2, recuperación sobre copia antigua, subida automática de versión 3 y restauración repetida sin duplicados. Lecturas del archivo real confirman texto e ID. |
-| Conflictos | Dos ediciones divergentes en QA, una en el archivo real de Drive simulando otro cliente. Tras corregir el fallo encontrado, dos restauraciones y subida final conservan ambas. No se completó un segundo login OAuth en la web pública. |
-| Arrastre | Panel nativo y comprobación en storage: raíz → carpeta y carpeta → raíz, mismo ID. No se contó una espera de automatización como aprobación. |
-| PDF | Botón real, imagen y título/tags con ángulos y comillas. PDF producido por Chrome, renderizado e inspeccionado: acentos, imagen y texto correctos, sin HTML literal. Solo en QA se interceptó window.print; no se imprimió físicamente. |
-| Títulos | La compilación corregida reabre el título literal y conserva todos los datos al recargar. La E2E añade edición posterior para comprobar que no sobrescribe el título. |
-| Inbox | Filtros Texto/Imágenes/Tareas y resúmenes sin base64. Una imagen con pie de texto pertenece a ambos filtros; no son excluyentes. El cuerpo original no cambia. |
-| Onboarding | Reapertura desde Ayuda, Tab/Shift+Tab dentro del diálogo y cierre con Escape. |
-| Interfaz | Cinco capturas reales 1280×800; revisión adicional 1440×900 y 390×844, español/inglés, claro/oscuro. En panel estrecho no hay desbordamiento horizontal y la navegación inferior queda visible. |
-| PWA | Nueva compilación activada, tres recargas offline y nota con acentos intacta. Se conserva la caché ajena de prueba. Se comprobó también con assets precargados sin encabezado Origin. |
+| Área           | Evidencia y alcance                                                                                                                                                                                                                     |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capturas       | Screenshot/recorte como imágenes, persistencia y errores visibles en Chrome estable; el usuario confirmó que funcionan desde la acción real de TabNotes. Headless simula la API, no los permisos.                                       |
+| Botón flotante | Nueva nota y selección a nota nueva llegan al panel nativo con Ajustes abierto. El permiso es por dominio; invocar Extensiones → TabNotes concede activeTab para captura.                                                               |
+| Importación    | El usuario completó sus pruebas manuales y reportó buen funcionamiento. Regresiones sintéticas cubren backups legados, cifrado, historial, imágenes grandes e importación atómica. No es una auditoría de todos sus backups personales. |
+| Drive          | Identidad oficial y OAuth reales; versiones manuales 1/2, recuperación sobre copia antigua, subida automática de versión 3 y restauración repetida sin duplicados. Lecturas del archivo real confirman texto e ID.                      |
+| Conflictos     | Dos ediciones divergentes en QA, una en el archivo real de Drive simulando otro cliente. Tras corregir el fallo encontrado, dos restauraciones y subida final conservan ambas. No se completó un segundo login OAuth en la web pública. |
+| Arrastre       | Panel nativo y comprobación en storage: raíz → carpeta y carpeta → raíz, mismo ID. No se contó una espera de automatización como aprobación.                                                                                            |
+| PDF            | Botón real, imagen y título/tags con ángulos y comillas. PDF producido por Chrome, renderizado e inspeccionado: acentos, imagen y texto correctos, sin HTML literal. Solo en QA se interceptó window.print; no se imprimió físicamente. |
+| Títulos        | La compilación corregida reabre el título literal y conserva todos los datos al recargar. La E2E añade edición posterior para comprobar que no sobrescribe el título.                                                                   |
+| Inbox          | Filtros Texto/Imágenes/Tareas y resúmenes sin base64. Una imagen con pie de texto pertenece a ambos filtros; no son excluyentes. El cuerpo original no cambia.                                                                          |
+| Onboarding     | Reapertura desde Ayuda, Tab/Shift+Tab dentro del diálogo y cierre con Escape.                                                                                                                                                           |
+| Interfaz       | Cinco capturas reales 1280×800; revisión adicional 1440×900 y 390×844, español/inglés, claro/oscuro. En panel estrecho no hay desbordamiento horizontal y la navegación inferior queda visible.                                         |
+| PWA            | Nueva compilación activada, tres recargas offline y nota con acentos intacta. Se conserva la caché ajena de prueba. Se comprobó también con assets precargados sin encabezado Origin.                                                   |
 
 ## Correcciones del cierre
 

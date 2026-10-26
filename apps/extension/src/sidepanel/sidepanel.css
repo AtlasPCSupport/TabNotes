@@ -443,20 +443,31 @@ select:focus-visible,
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 5px 14px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
   flex-shrink: 0;
   min-height: 26px;
 }
+.sp-context-copy {
+  flex: 1;
+  min-width: 0;
+}
 .sp-context-key {
-  font-size: 10px;
-  color: var(--text-subtle);
+  display: block;
+  font-size: 12px;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  font-family: var(--mono);
+  font-family: var(--font);
+}
+.sp-context-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
 }
 .sp-context-right {
   display: flex;
@@ -529,7 +540,9 @@ select:focus-visible,
   top: calc(100% - 1px);
   right: 12px;
   left: 12px;
-  overflow: hidden;
+  max-height: min(480px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border-strong);
   border-radius: 0 0 var(--r-md) var(--r-md);
   background: var(--bg-card);
@@ -537,8 +550,7 @@ select:focus-visible,
   animation: fadeIn 120ms var(--ease);
 }
 
-.sp-capture-action,
-.sp-capture-hint {
+.sp-capture-action {
   display: flex;
   align-items: flex-start;
   gap: 9px;
@@ -567,37 +579,80 @@ select:focus-visible,
   opacity: 0.45;
 }
 
-.sp-capture-action svg,
-.sp-capture-hint svg {
+.sp-capture-action svg {
   flex: 0 0 auto;
   margin-top: 1px;
   color: var(--accent);
 }
 
-.sp-capture-action span,
-.sp-capture-hint span {
+.sp-capture-action span {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.sp-capture-action strong,
-.sp-capture-hint strong {
+.sp-capture-action strong {
   color: var(--text);
   font-size: 12px;
   font-weight: 650;
 }
 
-.sp-capture-action small,
-.sp-capture-hint small {
+.sp-capture-action small {
   color: var(--text-subtle);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
-.sp-capture-hint {
+.sp-capture-blank {
   border-top: 1px solid var(--border);
+}
+.sp-capture-destination {
+  display: grid;
+  gap: 10px;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.sp-capture-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.sp-capture-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 23px;
+  height: 23px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+}
+.sp-capture-step-actions {
+  padding: 12px 11px 4px;
+}
+.sp-capture-step-actions .sp-capture-step-number {
+  border: 1px solid var(--border-strong);
   background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+.sp-capture-destination select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 1px solid var(--accent-muted);
+  border-radius: var(--r-sm);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
 }
 
 .sp-capture-shortcut {
@@ -1751,6 +1806,7 @@ select:focus-visible,
 
 .sp-inbox-switch {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 7px 12px 5px;
@@ -1772,6 +1828,7 @@ select:focus-visible,
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .sp-inbox-tab:hover,
@@ -1803,14 +1860,16 @@ select:focus-visible,
 }
 
 .sp-inbox-hint {
-  margin-left: auto;
-  color: var(--text-subtle);
-  font-size: 9px;
-  white-space: nowrap;
+  flex-basis: 100%;
+  padding: 3px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .sp-content-filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   overflow-x: auto;
@@ -1870,6 +1929,12 @@ select:focus-visible,
 .sp-content-filter.active span {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+@media (max-width: 420px) {
+  .sp-content-filter-label {
+    display: none;
+  }
 }
 
 .sp-search-inner {
@@ -1942,6 +2007,7 @@ select:focus-visible,
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
 }
 .sp-card-scope-icon {
   font-size: 11px;
@@ -1953,7 +2019,7 @@ select:focus-visible,
 }
 .sp-card-time {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   flex-shrink: 0;
 }
@@ -2009,17 +2075,6 @@ select:focus-visible,
   padding: 1px 6px;
   transition: opacity 120ms;
 }
-.sp-group-count.empty {
-  opacity: 0.35;
-}
-
-/* ─── Empty group state ──────────────────────────────────────── */
-.sp-group-empty {
-  padding: 8px 20px 10px;
-  font-size: 11px;
-  color: var(--text-subtle);
-  font-style: italic;
-}
 
 /* ─── Card scope context ─────────────────────────────────────── */
 .sp-card-scope-ctx {
@@ -2033,7 +2088,7 @@ select:focus-visible,
   flex-shrink: 0;
 }
 .sp-card-scope-key {
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-subtle);
   font-family: var(--mono);
   overflow: hidden;
@@ -2146,21 +2201,53 @@ select:focus-visible,
 }
 
 .sp-card-title {
-  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .sp-card-excerpt {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.5;
+}
+.sp-card-checklist {
+  display: grid;
+  gap: 5px;
+  padding: 3px 0;
+}
+.sp-card-task {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.sp-card-task-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 13px;
+  height: 13px;
+  border: 1px solid var(--text-subtle);
+  border-radius: 3px;
+}
+.sp-card-task-box.checked {
+  background: var(--bg-subtle);
+}
+.sp-card-task-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sp-card-tags {
   display: flex;

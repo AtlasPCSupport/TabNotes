@@ -1,8 +1,9 @@
-import { Note, formatRelativeTime, stripFormatting } from '@tabnotes/shared';
+import { Note, formatRelativeTime } from '@tabnotes/shared';
 import type { NoteContentFilter } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
+import { NoteCardPreview } from '../components/NoteCardPreview';
 
 export interface ScopeOption {
   value: Note['scope'];
@@ -87,6 +88,11 @@ export function AllNotesView(props: {
   } = props;
 
   const pinnedNotes = useSidePanelStore((s) => s.pinnedNotes);
+  const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
+  const workspaces = useSidePanelStore((s) => s.workspaces);
+  const projectName =
+    workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ??
+    t('header.noWorkspace');
 
   return (
     <div className="sp-all-view">
@@ -150,10 +156,15 @@ export function AllNotesView(props: {
         >
           <span>{t('nav.allNotes')}</span>
         </button>
-        <span className="sp-inbox-hint">{t('noteList.inboxHint')}</span>
+        <span className="sp-inbox-hint">{t('noteList.inboxHint', { project: projectName })}</span>
       </div>
 
-      <div className="sp-content-filters" data-testid="note-content-filters">
+      <div
+        className="sp-content-filters"
+        data-testid="note-content-filters"
+        role="group"
+        aria-label={t('noteList.filterLabel')}
+      >
         <span className="sp-content-filter-label">{t('noteList.filterLabel')}</span>
         {(['all', 'text', 'images', 'tasks'] as const).map((filter) => (
           <button
@@ -212,6 +223,7 @@ export function AllNotesView(props: {
               scopeOpt,
               notes: filteredNotes.filter((n) => n.scope === scopeOpt.value),
             }))
+            .filter(({ notes }) => notes.length > 0)
             .map(({ scopeOpt, notes }) => {
               const isCollapsed = collapsedScopes.has(scopeOpt.value);
               return (
@@ -226,18 +238,8 @@ export function AllNotesView(props: {
                     <span className="sp-group-label">
                       {t(`scope.${scopeOpt.value}` as TranslationKey)}
                     </span>
-                    <span className={`sp-group-count${notes.length === 0 ? ' empty' : ''}`}>
-                      {notes.length}
-                    </span>
+                    <span className="sp-group-count">{notes.length}</span>
                   </button>
-
-                  {!isCollapsed && notes.length === 0 && (
-                    <div className="sp-group-empty">
-                      {t('noteList.noScopeNotes', {
-                        scope: t(`scope.${scopeOpt.value}` as TranslationKey).toLowerCase(),
-                      })}
-                    </div>
-                  )}
 
                   {!isCollapsed &&
                     notes.length > 0 &&
@@ -280,7 +282,7 @@ export function AllNotesView(props: {
                                 <AppIcon name="pin" size={12} />
                               </span>
                             )}
-                            <span className="sp-card-time">{formatRelativeTime(n.updatedAt)}</span>
+                            <div className="sp-card-title">{n.title || t('editor.untitled')}</div>
                             {!selectMode && (
                               <button
                                 className={`sp-card-delete${deleteCardConfirmId === n.id ? ' confirming' : ''}`}
@@ -306,14 +308,7 @@ export function AllNotesView(props: {
                               </button>
                             )}
                           </div>
-                          {n.title && <div className="sp-card-title">{n.title}</div>}
-                          {n.content && (
-                            <div className="sp-card-excerpt">
-                              {stripFormatting(
-                                n.content.replace(/!\[([^\]]*)\]\(data:image\/[^)]*\)/gi, '$1')
-                              ).slice(0, 240)}
-                            </div>
-                          )}
+                          <NoteCardPreview note={n} />
                           {n.tags.length > 0 && (
                             <div className="sp-card-tags">
                               {n.tags.slice(0, 4).map((t) => (
@@ -343,6 +338,7 @@ export function AllNotesView(props: {
                                 <AppIcon name="arrowUpRight" size={11} />
                               </a>
                             )}
+                            <span className="sp-card-time">{formatRelativeTime(n.updatedAt)}</span>
                           </div>
                         </div>
                       );

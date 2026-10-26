@@ -4,6 +4,26 @@ All notable changes to TabNotes will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.12.1] — 2026-10-26
+
+### Changed
+
+- Capture Hub highlights the destination as step 1 and the capture type as step 2, with one shared destination for text, screenshots and crops.
+- Scope labels now read Page, Site, Project and Global, with contextual explanations in English and Spanish.
+- Removed only the duplicate Settings button from the header; language, theme, graph, workspace and Help remain available.
+- Notes have clearer title and metadata hierarchy, hide empty scope groups and show read-only checklist previews.
+- The Spanish Inbox label is now "Sin organizar", with the current project shown in its explanation.
+
+### Fixed
+
+- Rich-text excerpts keep spaces between paragraphs without displaying HTML or image payloads.
+- Capture menus close with Escape and return keyboard focus to their trigger.
+
+### Compatibility
+
+- Note storage schema, backup formats, encryption, Drive OAuth and capture permissions are unchanged.
+- Added capture-destination and preview regression tests, plus an optional native Chrome E2E runner for Windows.
+
 ## [2.12.0] — 2026-10-26
 
 ### Added
