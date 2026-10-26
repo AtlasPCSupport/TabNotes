@@ -5630,3 +5630,12 @@ select:focus-visible,
 .tn-onboarding-next:focus-visible {
   background: var(--accent-hover);
 }
+dialog.tn-onboarding-dialog,
+dialog.sp-crop-dialog {
+  margin: auto;
+  color: var(--text);
+}
+dialog.tn-onboarding-dialog::backdrop,
+dialog.sp-crop-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}

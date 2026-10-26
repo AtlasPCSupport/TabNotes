@@ -1505,17 +1505,107 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
   });
 });
 
+test.describe('TabNotes compatibility regressions', () => {
+  test('switching scope immediately flushes the pending draft to its original note', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const editor = panel.locator('.sp-rich-editor');
+    await expect(editor).toBeVisible();
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Draft before immediate switch';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Scope change is deliberately inside the autosave debounce.
+    await panel.locator('.sp-scope-btn').last().click();
+    await expect
+      .poll(() =>
+        panel.evaluate(async () => {
+          const result = await chrome.storage.local.get('tabnotes_data');
+          return JSON.stringify(result.tabnotes_data);
+        })
+      )
+      .toContain('Draft before immediate switch');
+    const data = await panel.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    expect(JSON.stringify(data.notes_global)).not.toContain('Draft before immediate switch');
+  });
+
+  test('Options uses the same backup and Drive settings as the side panel', async ({
+    context,
+    extensionId,
+  }) => {
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/options/index.html`);
+    await expect(options.locator('[data-settings-section="data"]')).toBeVisible();
+    await expect(options.locator('[data-testid="floating-button-settings"]')).toBeAttached();
+    await expect(options.getByText('Google Drive backup', { exact: true })).toBeAttached();
+  });
+
+  test('encryption protects history and saved edits after unlock', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await createSavedNote(panel, 'Private body first');
+    const editor = panel.locator('.sp-rich-editor');
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Private body second';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const actions = panel.locator('.sp-note-meta-actions');
+    await actions.hover();
+    await panel
+      .locator('.sp-meta-toggle')
+      .filter({ hasText: /^Encrypt$/ })
+      .click();
+    await panel.locator('.tn-enc-input').fill('test-password');
+    await panel.locator('.tn-enc-confirm').click();
+    await expect(panel.locator('.tn-enc-dialog')).toBeHidden({ timeout: 15000 });
+    await expect(editor).not.toContainText('Private body');
+    const stored = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    expect(stored).not.toContain('Private body first');
+    expect(stored).not.toContain('Private body second');
+    await actions.hover();
+    await panel
+      .locator('.sp-meta-toggle')
+      .filter({ hasText: /^Decrypt$/ })
+      .click();
+    await panel.locator('.tn-enc-input').fill('test-password');
+    await panel.locator('.tn-enc-confirm').click();
+    await expect(editor).toContainText('Private body second', { timeout: 15000 });
+    const beforeEdit = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Private body edited after unlock';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect
+      .poll(() =>
+        panel.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .not.toBe(beforeEdit);
+    const afterEdit = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    expect(afterEdit).not.toContain('Private body edited after unlock');
+    await panel.reload();
+    await expect(panel.locator('.sp-rich-editor')).not.toContainText('Private body');
+  });
+});
+
 test.describe('TabNotes side panel — known headless limitations', () => {
   // HTML5 drag-and-drop is unreliable in headless Chromium; verified manually
   // per the testing skill. Kept as a documented fixme.
   test.fixme('folder drag-and-drop sets the note folder', async () => {
     // Drag a note onto a folder; assert the note's `folder` is set in storage.
-  });
-
-  // Per-note encryption correctness is covered by unit tests
-  // (packages/shared/src/crypto.test.ts). The in-editor lock/unlock UI path is
-  // verified manually; its trigger affordance varies and is left as a fixme.
-  test.fixme('encryption lock/unlock hides and restores content in the editor', async () => {
-    // Lock with a password; assert content hidden. Unlock; assert restored.
   });
 });

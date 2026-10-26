@@ -74,7 +74,8 @@ export function usePreferences({ adapter, title, content }: UsePreferencesProps)
 
   const togglePin = (noteId: string) => {
     const next = new Set(pinnedNotes);
-    next.has(noteId) ? next.delete(noteId) : next.add(noteId);
+    if (next.has(noteId)) next.delete(noteId);
+    else next.add(noteId);
     setPinnedNotes(next);
     localStorage.setItem('tn_pins', JSON.stringify(Array.from(next)));
   };

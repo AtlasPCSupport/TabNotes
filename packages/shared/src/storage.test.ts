@@ -92,8 +92,6 @@ describe('NotesService', () => {
     await svc.updateNote(note.id, {
       content: 'payload v2',
       reminderAt: Date.now() + 60_000,
-      encrypted: true,
-      encryptedData: 'ciphertext',
     });
 
     const moved = await svc.moveNote(note.id, {
@@ -114,8 +112,6 @@ describe('NotesService', () => {
       title: 'Source title',
       tags: ['alpha'],
       folder: undefined,
-      encrypted: true,
-      encryptedData: 'ciphertext',
     });
     expect(moved?.createdAt).toBe(note.createdAt);
     expect(moved?.versions?.[0].content).toBe('payload');
@@ -379,16 +375,38 @@ describe('ChromeStorageAdapter recovery snapshots', () => {
 
     expect(data.notes_url.misplaced).toBeUndefined();
     expect(data.notes_global.misplaced).toMatchObject({ scope: 'global', content: 'Move me' });
+    // Normalization is read-only until an explicit, serialized write.
+    expect((values[dataKey] as StorageData).notes_url.misplaced).toBeDefined();
+    await new ChromeStorageAdapter().set({ theme: 'dark' });
     expect((values[dataKey] as StorageData).notes_global.misplaced).toBeDefined();
+  });
+
+  it('preserves concurrent writes from separate adapter instances', async () => {
+    const services = [
+      new NotesService(new ChromeStorageAdapter()),
+      new NotesService(new ChromeStorageAdapter()),
+    ];
+    await Promise.all(
+      services.map((service, index) =>
+        service.createNote({
+          scope: 'global',
+          url: '',
+          content: `window-${index}`,
+        })
+      )
+    );
+    expect(await services[0].getAllNotes()).toHaveLength(2);
   });
 
   it('rejects failed Chrome storage writes instead of reporting a successful import checkpoint', async () => {
     const chrome = globalThis as typeof globalThis & {
       chrome: { runtime: { lastError?: { message: string } } };
     };
-    const local = (chrome.chrome as unknown as {
-      storage: { local: { set: (patch: Record<string, unknown>, callback: () => void) => void } };
-    }).storage.local;
+    const local = (
+      chrome.chrome as unknown as {
+        storage: { local: { set: (patch: Record<string, unknown>, callback: () => void) => void } };
+      }
+    ).storage.local;
     const originalSet = local.set;
     local.set = (_patch, callback) => {
       chrome.chrome.runtime.lastError = { message: 'QUOTA_BYTES exceeded' };
@@ -396,9 +414,9 @@ describe('ChromeStorageAdapter recovery snapshots', () => {
       delete chrome.chrome.runtime.lastError;
     };
 
-    await expect(new ChromeStorageAdapter().createRecoverySnapshot('before-import')).rejects.toThrow(
-      'QUOTA_BYTES exceeded'
-    );
+    await expect(
+      new ChromeStorageAdapter().createRecoverySnapshot('before-import')
+    ).rejects.toThrow('QUOTA_BYTES exceeded');
 
     local.set = originalSet;
   });

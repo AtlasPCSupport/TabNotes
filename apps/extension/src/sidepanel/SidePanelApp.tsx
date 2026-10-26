@@ -13,6 +13,7 @@ import {
   serializeChecklist,
   checklistItemsToPlainText,
   isChecklistContent,
+  generateId,
   type ChecklistItem,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from './store';
@@ -40,7 +41,8 @@ import { AppIcon } from './components/AppIcon';
 import { useTranslation } from '@tabnotes/i18n';
 import { formatEditorDateTime } from './utils/dateTime';
 import { insertTextAtSelection } from './utils/editorCommands';
-import type { FloatingAction } from '../shared/floating';
+import type { FloatingAction, FloatingRequest } from '../shared/floating';
+import { Autosave } from './utils/autosave';
 import { SCOPE_OPTIONS, templateDateLocale, templateFieldKey } from './sidepanelConfig';
 import {
   DEFAULT_SNOOZE_MINUTES,
@@ -118,12 +120,32 @@ export default function SidePanelApp() {
   const { t, i18n } = useTranslation();
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [cropSource, setCropSource] = React.useState<string | null>(null);
+  const [captureFeedback, setCaptureFeedback] = React.useState<string | null>(null);
+  const captureSourceRef = useRef<FloatingRequest | undefined>();
+  type CaptureDestination = {
+    id: string | null;
+    activeId: string | null;
+    url: string;
+    scope: NoteScope;
+    workspaceId: string | null;
+  };
+  const cropDestinationRef = useRef<CaptureDestination | null>(null);
 
   // Services
   const adapter = useRef(new ChromeStorageAdapter());
   const noteSvc = useRef(new NotesService(adapter.current));
   const wsSvc = useRef(new WorkspacesService(adapter.current));
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const autosave = useRef(new Autosave());
+  const [saveError, setSaveError] = React.useState(false);
+  const isDraftDirty = useCallback(() => autosave.current.hasPending(), []);
+  const flushPendingSave = useCallback(async () => {
+    try {
+      await autosave.current.flush();
+    } catch (error) {
+      setSaveError(true);
+      throw error;
+    }
+  }, []);
   const contentSavedRef = useRef(''); // last content persisted — dirty-check for cross-tab sync
   const lastSaveTs = useRef(0); // timestamp of our most recent save — skip our own writes
 
@@ -175,9 +197,9 @@ export default function SidePanelApp() {
 
   // Quick-capture: ref so the storage.onChanged handler can call it without stale closure
   const addNoteToContextRef = useRef<() => Promise<void>>(async () => {});
-  const floatingRequestRef = useRef<(action: FloatingAction) => Promise<void>>(async () => {});
-  const captureScreenshotRef = useRef<() => void>(() => {});
-  const captureAreaRef = useRef<() => void>(() => {});
+  const floatingRequestRef = useRef<
+    (action: FloatingAction, request?: FloatingRequest) => Promise<void>
+  >(async () => {});
 
   // Rich editor ref (contentEditable div)
   const editorRef = useRef<HTMLDivElement>(null);
@@ -185,7 +207,9 @@ export default function SidePanelApp() {
   // Invoke Chrome Storage and Tabs Synchronization hook
   const {
     loading,
+    storageError,
     tabLoading,
+    setTabLoading,
     streak,
     setStreak,
     digestEnabled,
@@ -207,7 +231,6 @@ export default function SidePanelApp() {
     adapter,
     noteSvc,
     wsSvc,
-    saveTimer,
     contentSavedRef,
     lastSaveTs,
     editorRef,
@@ -217,6 +240,8 @@ export default function SidePanelApp() {
     wsIdRef,
     addNoteToContextRef,
     floatingRequestRef,
+    flushPendingSave,
+    isDraftDirty,
   });
 
   // Local UI / Interactive States
@@ -235,6 +260,8 @@ export default function SidePanelApp() {
     handleExport,
     handleImport,
   } = useNoteActions({
+    flushPendingSave,
+    contentSavedRef,
     adapter,
     noteSvc,
     wsSvc,
@@ -338,17 +365,28 @@ export default function SidePanelApp() {
   );
 
   const selectNote = useCallback(
-    (n: Note) => {
-      clearTimeout(saveTimer.current);
-      setActiveNoteId(n.id);
-      activeNoteIdRef.current = n.id;
-      contentSavedRef.current = n.content;
-      hydrateChecklistForContent(n.content);
-      setContent(n.content);
-      setTitle(stripFormatting(n.title ?? ''));
-      setTags(n.tags.join(', '));
-      setSaved(false);
-      setPreview(false);
+    async (n: Note) => {
+      setTabLoading(true);
+      try {
+        await flushPendingSave();
+        n = await noteSvc.current.getEditorNote(n);
+        useSidePanelStore.setState({
+          noteUnlocked: noteSvc.current.isUnlocked(n.id),
+          editorVersions:
+            n.encrypted && !noteSvc.current.isUnlocked(n.id) ? [] : (n.versions ?? []),
+        });
+        setActiveNoteId(n.id);
+        activeNoteIdRef.current = n.id;
+        contentSavedRef.current = n.content;
+        hydrateChecklistForContent(n.content);
+        setContent(n.content);
+        setTitle(stripFormatting(n.title ?? ''));
+        setTags(n.tags.join(', '));
+        setSaved(false);
+        setPreview(false);
+      } finally {
+        setTabLoading(false);
+      }
     },
     [
       hydrateChecklistForContent,
@@ -357,6 +395,8 @@ export default function SidePanelApp() {
       setTitle,
       setTags,
       setSaved,
+      flushPendingSave,
+      setTabLoading,
       setPreview,
     ]
   );
@@ -422,6 +462,7 @@ export default function SidePanelApp() {
     onSetReminder,
     onClearReminder,
   } = useWorkspaceManager({
+    flushPendingSave,
     wsSvc,
     noteSvc,
     wsIdRef,
@@ -455,7 +496,7 @@ export default function SidePanelApp() {
 
   const openPendingReminder = useCallback(
     async (noteId: string, dismiss = true) => {
-      clearTimeout(saveTimer.current);
+      await flushPendingSave();
 
       const notes = await refreshAllNotes();
       const note = notes.find((candidate) => candidate.id === noteId);
@@ -517,6 +558,7 @@ export default function SidePanelApp() {
       setView,
       setShowRefPanel,
       setPendingReminders,
+      flushPendingSave,
     ]
   );
 
@@ -639,10 +681,10 @@ export default function SidePanelApp() {
 
   // ── Scope switch ──────────────────────────────────────────────
   const handleScopeChange = async (s: NoteScope) => {
+    await flushPendingSave();
     setScope(s);
     scopeRef.current = s;
     setPreview(false);
-    clearTimeout(saveTimer.current);
     await loadContextNotes(currentUrlRef.current, s, wsIdRef.current);
     await refreshAllNotes();
   };
@@ -666,6 +708,7 @@ export default function SidePanelApp() {
   }, [setStreak]);
 
   const addNoteToContext = async (folderName?: string) => {
+    await flushPendingSave();
     const url = currentUrlRef.current;
     if (!url || url.startsWith('chrome://')) return;
     const folder = folderName || undefined;
@@ -680,7 +723,7 @@ export default function SidePanelApp() {
     }
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
     setContextNotes(notes);
-    selectNote(created);
+    await selectNote(created);
     await refreshAllNotes();
     updateStreak();
   };
@@ -688,8 +731,18 @@ export default function SidePanelApp() {
 
   // ── Autosave — uses refs, never stale ────────────────────────
   const saveNote = useCallback(
-    async (c: string, t: string, tg: string) => {
-      const id = activeNoteIdRef.current;
+    async (
+      c: string,
+      t: string,
+      tg: string,
+      context = {
+        id: activeNoteIdRef.current,
+        url: currentUrlRef.current,
+        scope: scopeRef.current,
+        workspaceId: wsIdRef.current,
+      }
+    ) => {
+      const id = context.id;
       const parsedTags = tg
         .split(',')
         .map((s) => s.trim())
@@ -702,30 +755,39 @@ export default function SidePanelApp() {
           title: t || undefined,
           tags: parsedTags,
         });
-      } else {
-        const url = currentUrlRef.current;
+      }
+      if (!saved) {
+        const url = context.url;
         if (!url || url.startsWith('chrome://')) return;
         saved = await noteSvc.current.createNote({
-          scope: scopeRef.current,
+          id: id ?? undefined,
+          scope: context.scope,
           url,
-          workspaceId: wsIdRef.current,
+          workspaceId: context.workspaceId,
           content: c,
           title: t || undefined,
           tags: parsedTags,
         });
       }
 
-      if (saved) {
+      const stillActive =
+        activeNoteIdRef.current === id &&
+        currentUrlRef.current === context.url &&
+        scopeRef.current === context.scope &&
+        wsIdRef.current === context.workspaceId;
+      if (saved && stillActive) {
         activeNoteIdRef.current = saved.id;
         setActiveNoteId(saved.id);
         // Refresh context notes to reflect updated title in pill
         const url = currentUrlRef.current;
         const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
         setContextNotes(notes);
+        const editorNote = await noteSvc.current.getEditorNote(saved);
+        useSidePanelStore.setState({ editorVersions: editorNote.versions ?? [] });
       }
 
       // Track what we just saved so cross-tab sync can tell it's not a remote change
-      contentSavedRef.current = c;
+      if (stillActive) contentSavedRef.current = c;
       lastSaveTs.current = Date.now();
 
       // Track offline queue — note saved locally; will "sync" when reconnected
@@ -734,6 +796,7 @@ export default function SidePanelApp() {
       }
 
       setSaved(true);
+      setSaveError(false);
       await refreshAllNotes();
       updateStreak();
       setTimeout(() => setSaved(false), 2000);
@@ -743,7 +806,7 @@ export default function SidePanelApp() {
 
   const moveNote = useCallback(
     async (noteId: string, target: MoveNoteTarget) => {
-      clearTimeout(saveTimer.current);
+      await flushPendingSave();
 
       // Flush pending editor changes before relocating a currently open note.
       if (activeNoteIdRef.current === noteId) {
@@ -790,6 +853,7 @@ export default function SidePanelApp() {
       title,
       tags,
       saveNote,
+      flushPendingSave,
       onSetActiveWorkspace,
       setScope,
       setCurrentDomain,
@@ -803,8 +867,18 @@ export default function SidePanelApp() {
   const schedule = useCallback(
     (c: string, t: string, tg: string) => {
       setSaved(false);
-      clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => saveNote(c, t, tg), 600);
+      const id = activeNoteIdRef.current ?? generateId();
+      activeNoteIdRef.current = id;
+      const context = {
+        id,
+        url: currentUrlRef.current,
+        scope: scopeRef.current,
+        workspaceId: wsIdRef.current,
+      };
+      autosave.current.schedule(
+        () => saveNote(c, t, tg, context),
+        () => setSaveError(true)
+      );
     },
     [saveNote, setSaved]
   );
@@ -847,24 +921,85 @@ export default function SidePanelApp() {
   ]);
 
   // ── Screenshot capture ───────────────────────────────────────
-  const appendScreenshot = useCallback(
-    (dataUrl: string, label: string) => {
-      const ts = new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
-      const insert = buildScreenshotMarkup(dataUrl, label, ts);
-      if (!insert) return;
-      const next = content + insert;
-      setContent(next);
-      schedule(next, title, tags);
-    },
-    [content, schedule, setContent, tags, title]
-  );
+  const appendScreenshot = async (
+    dataUrl: string,
+    label: string,
+    destination: CaptureDestination
+  ) => {
+    await flushPendingSave();
+    const ts = new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+    const insert = buildScreenshotMarkup(dataUrl, label, ts);
+    if (!insert) throw new Error('INVALID_IMAGE');
+    const current = destination.id
+      ? (await noteSvc.current.getAllNotes()).find((note) => note.id === destination.id)
+      : null;
+    if (destination.id && !current) throw new Error('NOTE_REMOVED');
+    const editorNote = current ? await noteSvc.current.getEditorNote(current) : null;
+    const saved = editorNote
+      ? await noteSvc.current.updateNote(editorNote.id, { content: editorNote.content + insert })
+      : await noteSvc.current.createNote({
+          scope: destination.scope,
+          url: destination.url,
+          workspaceId: destination.workspaceId,
+          content: insert,
+        });
+    if (
+      saved &&
+      activeNoteIdRef.current === destination.activeId &&
+      currentUrlRef.current === destination.url &&
+      scopeRef.current === destination.scope &&
+      wsIdRef.current === destination.workspaceId
+    ) {
+      setContextNotes(
+        await noteSvc.current.getNotesByScope(
+          destination.scope,
+          destination.url,
+          destination.workspaceId
+        )
+      );
+      await selectNote(saved);
+    }
+    await refreshAllNotes();
+    setCaptureFeedback(t('captureHub.saved'));
+  };
 
+  const startCapture = async (crop: boolean, target: 'current' | 'new' = 'current') => {
+    const destination = {
+      id: target === 'new' ? null : activeNoteIdRef.current,
+      activeId: activeNoteIdRef.current,
+      url: currentUrlRef.current,
+      scope: scopeRef.current,
+      workspaceId: wsIdRef.current,
+    };
+    const source = captureSourceRef.current;
+    setCaptureFeedback(t('captureHub.capturing'));
+    try {
+      await flushPendingSave();
+      // A first draft receives its ID during flush.
+      if (target === 'current' && !destination.id) {
+        destination.id = activeNoteIdRef.current;
+        destination.activeId = activeNoteIdRef.current;
+      }
+      const window = await cr.windows.getCurrent();
+      const response = await sendRuntimeMessage({
+        type: 'CAPTURE_TAB',
+        sourceUrl: destination.url,
+        tabId: source?.tabId,
+        windowId: source?.windowId ?? window.id,
+      });
+      if (!response?.dataUrl || response.error)
+        throw new Error(response?.error || 'CAPTURE_FAILED');
+      if (crop) {
+        cropDestinationRef.current = destination;
+        setCropSource(response.dataUrl);
+        setCaptureFeedback(null);
+      } else await appendScreenshot(response.dataUrl, 'Screenshot', destination);
+    } catch {
+      setCaptureFeedback(t('captureHub.failed'));
+    }
+  };
   const captureScreenshot = () => {
-    void sendRuntimeMessage({ type: 'CAPTURE_TAB' })
-      .then((response) => {
-        if (response?.dataUrl) appendScreenshot(response.dataUrl, 'Screenshot');
-      })
-      .catch(() => undefined);
+    void startCapture(false);
   };
 
   const requestSelectionPermission = useCallback((): Promise<boolean> => {
@@ -886,10 +1021,25 @@ export default function SidePanelApp() {
 
   const clipSelection = useCallback(
     async (target: 'current' | 'new') => {
-      if (!(await requestSelectionPermission())) return;
-      const response = await sendRuntimeMessage({ type: 'GET_SELECTED_TEXT' });
+      if (!(await requestSelectionPermission())) {
+        setCaptureFeedback(t('captureHub.permissionDenied'));
+        return;
+      }
+      const response = await sendRuntimeMessage({
+        type: 'GET_SELECTED_TEXT',
+        sourceUrl: currentUrlRef.current,
+        tabId: captureSourceRef.current?.tabId,
+        windowId: captureSourceRef.current?.windowId,
+      });
       const text = response?.text?.trim();
-      if (!text) return;
+      if (response?.error) {
+        setCaptureFeedback(t('captureHub.failed'));
+        return;
+      }
+      if (!text) {
+        setCaptureFeedback(t('captureHub.noSelection'));
+        return;
+      }
       await appendClipToCurrentNote(
         {
           text,
@@ -899,43 +1049,36 @@ export default function SidePanelApp() {
         target
       );
     },
-    [appendClipToCurrentNote, currentUrlRef, requestSelectionPermission]
+    [appendClipToCurrentNote, currentUrlRef, requestSelectionPermission, t]
   );
 
-  const captureArea = () => {
-    void sendRuntimeMessage({ type: 'CAPTURE_TAB' })
-      .then((response) => {
-        if (response?.dataUrl) setCropSource(response.dataUrl);
-      })
-      .catch(() => undefined);
+  const saveCroppedScreenshot = async (dataUrl: string) => {
+    const destination = cropDestinationRef.current;
+    if (!destination) return;
+    try {
+      await appendScreenshot(dataUrl, 'Cropped screenshot', destination);
+      setCropSource(null);
+      cropDestinationRef.current = null;
+    } catch (error) {
+      setCaptureFeedback(t('captureHub.failed'));
+      throw error;
+    }
   };
 
-  const saveCroppedScreenshot = (dataUrl: string) => {
-    appendScreenshot(dataUrl, 'Cropped screenshot');
-    setCropSource(null);
-  };
-
-  captureScreenshotRef.current = captureScreenshot;
-  captureAreaRef.current = captureArea;
-  floatingRequestRef.current = async (action) => {
+  floatingRequestRef.current = async (action, request) => {
+    captureSourceRef.current = request;
     setView('note');
-    if (action === 'new-note') {
-      await addNoteToContextRef.current();
-      return;
+    try {
+      if (action === 'new-note') await addNoteToContextRef.current();
+      else if (action === 'clip-current' || action === 'clip-new')
+        await clipSelection(action === 'clip-new' ? 'new' : 'current');
+      else
+        await startCapture(action.startsWith('crop'), action.endsWith('-new') ? 'new' : 'current');
+    } catch {
+      setCaptureFeedback(t('captureHub.failed'));
+    } finally {
+      captureSourceRef.current = undefined;
     }
-
-    if (action === 'clip-current' || action === 'clip-new') {
-      await clipSelection(action === 'clip-new' ? 'new' : 'current');
-      return;
-    }
-
-    const createsNote = action === 'screenshot-new' || action === 'crop-new';
-    if (createsNote) {
-      await addNoteToContextRef.current();
-      await new Promise((resolve) => window.setTimeout(resolve, 160));
-    }
-    if (action.startsWith('screenshot')) captureScreenshotRef.current();
-    else captureAreaRef.current();
   };
 
   // Export to PDF is handled by useNoteActions hook
@@ -946,7 +1089,7 @@ export default function SidePanelApp() {
 
   // ── Bulk delete selected notes ────────────────────────────────
   const bulkDeleteNotes = async () => {
-    clearTimeout(saveTimer.current);
+    await flushPendingSave();
     const ids = Array.from(bulkSelectedIds);
     await Promise.all(ids.map((id) => noteSvc.current.deleteNote(id)));
     setBulkSelectedIds(new Set());
@@ -972,7 +1115,7 @@ export default function SidePanelApp() {
 
   // ── Delete note by id (from list card) ───────────────────────
   const deleteCardNote = async (id: string) => {
-    clearTimeout(saveTimer.current);
+    await flushPendingSave();
     await noteSvc.current.deleteNote(id);
     setDeleteCardConfirmId(null);
     // If we deleted the active note, clear editor
@@ -995,7 +1138,7 @@ export default function SidePanelApp() {
 
   // ── Delete note by id (from pill ×) ──────────────────────────
   const deletePillNote = async (id: string) => {
-    clearTimeout(saveTimer.current);
+    await flushPendingSave();
     await noteSvc.current.deleteNote(id);
     const url = currentUrlRef.current;
     const notes = await noteSvc.current.getNotesByScope(scopeRef.current, url, wsIdRef.current);
@@ -1039,9 +1182,8 @@ export default function SidePanelApp() {
     tags,
     focusMode,
     setFocusMode,
-    saveNote,
+    saveNote: flushPendingSave,
     insertDatetime,
-    saveTimer,
   });
 
   // Exporting is handled by useNoteActions hook
@@ -1090,6 +1232,32 @@ export default function SidePanelApp() {
     !currentUrl ||
     currentUrl.startsWith('chrome://') ||
     currentUrl.startsWith('chrome-extension://');
+
+  useEffect(() => {
+    const flush = () => {
+      void flushPendingSave().catch(() => setSaveError(true));
+    };
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHidden);
+      flush();
+    };
+  }, [flushPendingSave]);
+
+  if (storageError)
+    return (
+      <div className="sp-root" role="alert">
+        <p>{t('editor.storageFailed')}</p>
+        <button type="button" onClick={() => location.reload()}>
+          {t('editor.retrySave')}
+        </button>
+      </div>
+    );
 
   if (loading) {
     return (
@@ -1143,6 +1311,33 @@ export default function SidePanelApp() {
 
   return (
     <div className={`sp-root${focusMode ? ' focus-mode' : ''}`}>
+      {captureFeedback && (
+        <div role="status" className="sp-data-feedback">
+          {captureFeedback}
+          <button
+            type="button"
+            aria-label={t('common.close')}
+            onClick={() => setCaptureFeedback(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {saveError && (
+        <div role="alert" className="sp-data-feedback error">
+          {t('editor.saveFailed')}
+          <button
+            type="button"
+            onClick={() =>
+              void flushPendingSave()
+                .then(() => setSaveError(false))
+                .catch(() => setSaveError(true))
+            }
+          >
+            {t('editor.retrySave')}
+          </button>
+        </div>
+      )}
       {/* ── Header ── */}
       <HeaderBar
         activeWs={activeWs}
@@ -1177,8 +1372,12 @@ export default function SidePanelApp() {
         <CaptureHub
           disabled={isRestrictedUrl || tabLoading}
           onNewNote={addNoteToContext}
-          onCaptureScreenshot={captureScreenshot}
-          onCaptureArea={captureArea}
+          onCaptureScreenshot={(target) => {
+            void startCapture(false, target);
+          }}
+          onCaptureArea={(target) => {
+            void startCapture(true, target);
+          }}
           onClipSelection={clipSelection}
         />
       )}

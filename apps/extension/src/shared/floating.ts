@@ -13,6 +13,10 @@ export type FloatingAction =
 export interface FloatingRequest {
   action: FloatingAction;
   requestedAt: number;
+  id?: string;
+  tabId?: number;
+  windowId?: number;
+  sourceUrl?: string;
 }
 
 export function normalizeFloatingAction(value: unknown): FloatingAction | null {

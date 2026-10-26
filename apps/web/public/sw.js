@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tabnotes-web-shell-v5';
+const CACHE_NAME = 'tabnotes-web-shell-v6';
 const scopeUrl = new URL(self.registration.scope);
 const shellUrl = (path = '') => new URL(path, scopeUrl).toString();
 const SHELL_URLS = [
@@ -13,7 +13,16 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(SHELL_URLS))
+      .then(async (cache) => {
+        await cache.addAll(SHELL_URLS);
+        const index = await cache.match(shellUrl());
+        const html = await index.text();
+        const assets = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)]
+          .map((match) => new URL(match[1], scopeUrl))
+          .filter((url) => url.origin === scopeUrl.origin && url.pathname.includes('/assets/'))
+          .map((url) => url.toString());
+        await cache.addAll(assets);
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -23,7 +32,11 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith('tabnotes-web-shell-') && key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );

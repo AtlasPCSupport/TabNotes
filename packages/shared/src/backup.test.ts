@@ -7,6 +7,8 @@ import {
   mergeDriveBackupEnvelope,
   MAX_BACKUP_IMPORT_NOTES,
   MAX_BACKUP_IMPORT_WORKSPACES,
+  MAX_BACKUP_IMPORT_BYTES,
+  MAX_BACKUP_IMPORT_CONTENT_LENGTH,
   MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES,
   isBackupImportTextWithinLimit,
   isEncryptedManualBackupEnvelope,
@@ -156,7 +158,7 @@ describe('manual backup envelope', () => {
     );
     expect(parseBackupImportJson(JSON.stringify(valid))?.source).toBe('manual');
     expect(parseBackupImportJson('{not json')).toBeNull();
-    expect(isBackupImportTextWithinLimit('x'.repeat(10 * 1024 * 1024 + 1))).toBe(false);
+    expect(isBackupImportTextWithinLimit('x'.repeat(MAX_BACKUP_IMPORT_BYTES + 1))).toBe(false);
     expect(
       parseBackupImport({
         ...valid,
@@ -196,9 +198,7 @@ describe('manual backup envelope', () => {
     expect(isEncryptedManualBackupEnvelope(encrypted)).toBe(true);
     expect(isEncryptedManualBackupTextWithinLimit(JSON.stringify(encrypted))).toBe(true);
     expect(
-      isEncryptedManualBackupTextWithinLimit(
-        'x'.repeat(MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES + 1)
-      )
+      isEncryptedManualBackupTextWithinLimit('x'.repeat(MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES + 1))
     ).toBe(false);
     await expect(
       decryptEncryptedManualBackupEnvelope(
@@ -251,7 +251,13 @@ describe('manual backup envelope', () => {
   it('removes a stale copy when an imported note changed scope', () => {
     const current: StorageData = {
       ...structuredClone(DEFAULT_STORAGE),
-      notes_url: { moved: { ...note('moved', 10, 'old location'), scope: 'url', scopeKey: 'https://old.example' } },
+      notes_url: {
+        moved: {
+          ...note('moved', 10, 'old location'),
+          scope: 'url',
+          scopeKey: 'https://old.example',
+        },
+      },
     };
     const backupStorage: StorageData = {
       ...structuredClone(DEFAULT_STORAGE),
@@ -310,7 +316,9 @@ describe('strict backup import validation', () => {
       ...valid,
       data: {
         ...valid.data,
-        notes: [{ ...valid.data.notes[0], content: 'x'.repeat(1_000_001) }],
+        notes: [
+          { ...valid.data.notes[0], content: 'x'.repeat(MAX_BACKUP_IMPORT_CONTENT_LENGTH + 1) },
+        ],
       },
     };
 
@@ -322,7 +330,7 @@ describe('strict backup import validation', () => {
 
   it('returns categorized JSON import failures', () => {
     expect(parseBackupImportJsonResult('{bad')).toEqual({ ok: false, reason: 'invalid-json' });
-    expect(parseBackupImportJsonResult('x'.repeat(10 * 1024 * 1024 + 1))).toEqual({
+    expect(parseBackupImportJsonResult('x'.repeat(MAX_BACKUP_IMPORT_BYTES + 1))).toEqual({
       ok: false,
       reason: 'too-large',
     });
@@ -394,7 +402,11 @@ describe('mergeDriveBackupEnvelope', () => {
     const local: StorageData = {
       ...structuredClone(DEFAULT_STORAGE),
       notes_url: {
-        moved: { ...note('moved', 100, 'local URL copy'), scope: 'url', scopeKey: 'https://old.example' },
+        moved: {
+          ...note('moved', 100, 'local URL copy'),
+          scope: 'url',
+          scopeKey: 'https://old.example',
+        },
       },
     };
     const remote: StorageData = {
@@ -416,7 +428,11 @@ describe('mergeDriveBackupEnvelope', () => {
     const local: StorageData = {
       ...structuredClone(DEFAULT_STORAGE),
       notes_url: {
-        moved: { ...note('moved', 200, 'local URL copy'), scope: 'url', scopeKey: 'https://newer.example' },
+        moved: {
+          ...note('moved', 200, 'local URL copy'),
+          scope: 'url',
+          scopeKey: 'https://newer.example',
+        },
       },
     };
     const remote: StorageData = {

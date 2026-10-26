@@ -1,0 +1,61 @@
+{
+  "version": 3,
+  "exportedAt": 1700000000000,
+  "workspaces": [
+    {
+      "id": "project-old",
+      "name": "Proyecto antiguo",
+      "color": "#dcae19",
+      "createdAt": 1600000000000
+    }
+  ],
+  "notes": [
+    {
+      "id": "url-old",
+      "workspaceId": null,
+      "scope": "url",
+      "scopeKey": "https://example.com/article",
+      "title": "Artículo",
+      "content": "<p>Texto <b>importante</b> — café</p>",
+      "tags": ["lectura"],
+      "folder": "/Research",
+      "versions": [{ "content": "Primera versión", "savedAt": 1600000000000 }],
+      "reminderAt": 1900000000000,
+      "createdAt": 1600000000000,
+      "updatedAt": 1600000001000
+    },
+    {
+      "id": "domain-old",
+      "workspaceId": null,
+      "scope": "domain",
+      "scopeKey": "example.com",
+      "content": "- [ ] Pendiente\n- [x] Terminado",
+      "tags": [],
+      "createdAt": 1600000000000,
+      "updatedAt": 1600000001000
+    },
+    {
+      "id": "project-note-old",
+      "workspaceId": "project-old",
+      "scope": "workspace",
+      "scopeKey": "project-old",
+      "content": "Nota de proyecto",
+      "tags": [],
+      "createdAt": 1600000000000,
+      "updatedAt": 1600000001000
+    },
+    {
+      "id": "encrypted-old",
+      "workspaceId": null,
+      "scope": "global",
+      "scopeKey": "",
+      "content": "Esta nota está encriptada.",
+      "encrypted": true,
+      "encryptedData": "AQEBAQEBAQEBAQEBAQEBAQICAgICAgICAgICAlQqdB9/uXHCDd1MTVj1pWl80xkCsabfpMjB619oc8SWUoU4wrZlrmcweATBcg==",
+      "versions": [{ "content": "Historia antigua privada", "savedAt": 1600000000000 }],
+      "tags": [],
+      "createdAt": 1600000000000,
+      "updatedAt": 1600000001000
+    }
+  ]
+}

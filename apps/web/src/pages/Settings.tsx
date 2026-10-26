@@ -64,10 +64,8 @@ export default function SettingsPage() {
       'Optional: enter a password to encrypt this backup. Leave blank for a standard JSON backup.'
     );
     if (entered === null) return;
-    const backup = entered
-      ? await createEncryptedManualBackupEnvelope(manual, entered)
-      : manual;
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const backup = entered ? await createEncryptedManualBackupEnvelope(manual, entered) : manual;
+    const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -356,7 +354,8 @@ export default function SettingsPage() {
         {canRestoreImport && (
           <button
             onClick={async () => {
-              if (!window.confirm('Restore the data saved immediately before your last import?')) return;
+              if (!window.confirm('Restore the data saved immediately before your last import?'))
+                return;
               if (await restorePreImportSnapshot()) {
                 setCanRestoreImport(false);
                 setImportStatus('Pre-import data restored.');
@@ -384,12 +383,14 @@ export default function SettingsPage() {
               textAlign: 'center',
               padding: 8,
               borderRadius: 'var(--radius-md)',
-              background: importStatus.includes('success') || importStatus.includes('restored')
-                ? 'var(--color-success-subtle)'
-                : 'var(--color-danger-subtle)',
-              color: importStatus.includes('success') || importStatus.includes('restored')
-                ? 'var(--color-success)'
-                : 'var(--color-danger)',
+              background:
+                importStatus.includes('success') || importStatus.includes('restored')
+                  ? 'var(--color-success-subtle)'
+                  : 'var(--color-danger-subtle)',
+              color:
+                importStatus.includes('success') || importStatus.includes('restored')
+                  ? 'var(--color-success)'
+                  : 'var(--color-danger)',
             }}
           >
             {importStatus}

@@ -1,4 +1,5 @@
 import {
+  withStorageLock,
   DEFAULT_ENTITLEMENTS,
   DEFAULT_STORAGE,
   ENTITLEMENTS_STORAGE_KEY,
@@ -364,25 +365,25 @@ async function saveCurrentBackupWithToken(
     throw new Error('Drive backup is missing or uses an unsupported format.');
   }
   const deviceId = await ensureDeviceId();
-  let local = await getCurrentStorage();
   let tombstones = latestState.tombstones ?? [];
   const now = Date.now();
-
-  if (remoteEnvelope) {
-    const merged = mergeDriveSyncEnvelope(remoteEnvelope, local, {
+  const local = await withStorageLock(async () => {
+    const current = await getCurrentStorage();
+    if (!remoteEnvelope) return current;
+    const merged = mergeDriveSyncEnvelope(remoteEnvelope, current, {
       sourceDeviceId: deviceId,
       localTombstones: tombstones,
       lastSyncedAt: latestState.lastSyncedAt,
       now,
     });
-    local = merged.data;
     tombstones = merged.tombstones;
     await chromeSet({
-      tabnotes_data: local,
+      tabnotes_data: merged.data,
       [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: now, source: 'drive-sync' },
     });
-    await applyBackupPrefs(remoteEnvelope.data.prefs);
-  }
+    return merged.data;
+  });
+  if (remoteEnvelope) await applyBackupPrefs(remoteEnvelope.data.prefs);
 
   const prefs = await collectBackupPrefs(local);
   const envelope = createDriveSyncEnvelope(local, {
@@ -545,7 +546,10 @@ function sourceRequiresEnabledDriveSync(source: DriveSyncSource): boolean {
   return source === 'auto' || source === 'external';
 }
 
-function startDriveBackup(source: DriveSyncSource, existingToken?: string): Promise<DriveBackupOutcome> {
+function startDriveBackup(
+  source: DriveSyncSource,
+  existingToken?: string
+): Promise<DriveBackupOutcome> {
   const inFlight = driveBackupInFlight;
   // Disconnect advances the generation before its state change is serialized.
   // Calls that arrive afterward must queue behind that disconnect rather than
@@ -659,15 +663,19 @@ export function restoreDriveBackup() {
     const envelope = parseAnyDriveSyncEnvelope(remoteBackup.payload);
     if (!envelope) throw new Error('Drive backup is missing or uses an unsupported format.');
 
-    const current = await getCurrentStorage();
-    const merged = mergeDriveSyncEnvelope(envelope, current, {
-      sourceDeviceId: await ensureDeviceId(),
-      localTombstones: state.tombstones ?? [],
-      lastSyncedAt: state.lastSyncedAt,
-    });
-    await chromeSet({
-      tabnotes_data: merged.data,
-      [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: Date.now(), source: 'drive-restore' },
+    const deviceId = await ensureDeviceId();
+    const merged = await withStorageLock(async () => {
+      const current = await getCurrentStorage();
+      const result = mergeDriveSyncEnvelope(envelope, current, {
+        sourceDeviceId: deviceId,
+        localTombstones: state.tombstones ?? [],
+        lastSyncedAt: state.lastSyncedAt,
+      });
+      await chromeSet({
+        tabnotes_data: result.data,
+        [DRIVE_REMOTE_APPLY_STORAGE_KEY]: { at: Date.now(), source: 'drive-restore' },
+      });
+      return result;
     });
     await applyBackupPrefs(envelope.data.prefs);
     const nextState = await setDriveState({

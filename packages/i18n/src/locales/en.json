@@ -80,6 +80,13 @@
     "privacyTipDescription": "Use per-note encryption before you export or sync it."
   },
   "captureHub": {
+    "destination": "Save to",
+    "currentNote": "Current note",
+    "capturing": "Capturing…",
+    "saved": "Capture saved.",
+    "failed": "Capture failed. On this tab, click the TabNotes icon or use its shortcut, then try again.",
+    "permissionDenied": "Page access was not granted.",
+    "noSelection": "Select some text on the page first.",
     "label": "Capture",
     "newNote": "New note",
     "newNoteDesc": "Start writing in this context",
@@ -111,6 +118,9 @@
     "completed": "Completed ({{count}})"
   },
   "editor": {
+    "storageFailed": "Your notes could not be loaded. Reload to try again; your stored notes have not been replaced.",
+    "saveFailed": "Your changes could not be saved. Keep this panel open and try again.",
+    "retrySave": "Retry save",
     "placeholder": "Note for this {{scope}}…",
     "titlePlaceholder": "Title…",
     "tagsPlaceholder": "tag1, tag2, tag3",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@tabnotes/i18n';
 
 export interface OnboardingDialogProps {
@@ -12,6 +12,7 @@ const STEPS = ['scope', 'capture', 'privacy'] as const;
 export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const lastStep = step === STEPS.length - 1;
 
   useEffect(() => {
@@ -20,12 +21,10 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
 
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onComplete();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onComplete, open]);
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, [open]);
 
   if (!open) return null;
 
@@ -36,7 +35,12 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
 
   return (
     <div className="tn-onboarding-overlay" role="presentation">
-      <section
+      <dialog
+        ref={dialogRef}
+        onCancel={(event) => {
+          event.preventDefault();
+          onComplete();
+        }}
         className="tn-onboarding-dialog"
         role="dialog"
         aria-modal="true"
@@ -121,7 +125,7 @@ export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
             {lastStep ? t('onboarding.start') : t('onboarding.next')}
           </button>
         </footer>
-      </section>
+      </dialog>
     </div>
   );
 }

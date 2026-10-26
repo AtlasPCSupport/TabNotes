@@ -42,6 +42,7 @@ interface UseWorkspaceManagerProps {
   scopeRef: React.MutableRefObject<NoteScope>;
   refreshAllNotes: () => Promise<Note[]>;
   loadContextNotes: (url: string, scope: NoteScope, wsId: string | null) => Promise<void>;
+  flushPendingSave: () => Promise<void>;
 }
 
 export function useWorkspaceManager({
@@ -53,6 +54,7 @@ export function useWorkspaceManager({
   scopeRef,
   refreshAllNotes,
   loadContextNotes,
+  flushPendingSave,
 }: UseWorkspaceManagerProps) {
   const { t } = useTranslation();
   const workspaces = useSidePanelStore((s) => s.workspaces);
@@ -93,12 +95,14 @@ export function useWorkspaceManager({
   }, [activeWorkspaceId, workspaces, wsIdRef]);
 
   const onSetActiveWorkspace = async (id: string | null) => {
+    await flushPendingSave();
     await wsSvc.current.setActive(id);
     setActiveWorkspaceId(id);
     wsIdRef.current = id;
   };
 
   const onSwitchWorkspace = async (id: string | null) => {
+    await flushPendingSave();
     await wsSvc.current.setActive(id);
     setActiveWorkspaceId(id);
     wsIdRef.current = id;
@@ -113,6 +117,7 @@ export function useWorkspaceManager({
   };
 
   const onDeleteWorkspace = async (id: string, name: string) => {
+    await flushPendingSave();
     if (confirm(t('settingsSections.deleteWorkspaceConfirm', { name }))) {
       await wsSvc.current.delete(id);
       const list = await wsSvc.current.getAll();

@@ -80,6 +80,13 @@
     "privacyTipDescription": "Usa encriptación por nota antes de exportarla o sincronizarla."
   },
   "captureHub": {
+    "destination": "Guardar en",
+    "currentNote": "Nota actual",
+    "capturing": "Capturando…",
+    "saved": "Captura guardada.",
+    "failed": "No se pudo capturar. En esta pestaña, pulsa el icono de TabNotes o usa su atajo y vuelve a intentarlo.",
+    "permissionDenied": "No se concedió acceso a esta página.",
+    "noSelection": "Selecciona primero un texto en la página.",
     "label": "Capturar",
     "newNote": "Nueva nota",
     "newNoteDesc": "Empieza a escribir en este contexto",
@@ -111,6 +118,9 @@
     "completed": "Completados ({{count}})"
   },
   "editor": {
+    "storageFailed": "No se pudieron cargar tus notas. Recarga para reintentar; no se han reemplazado las notas guardadas.",
+    "saveFailed": "No se pudieron guardar los cambios. Mantén este panel abierto y vuelve a intentarlo.",
+    "retrySave": "Reintentar guardado",
     "placeholder": "Nota para este {{scope}}…",
     "titlePlaceholder": "Título…",
     "tagsPlaceholder": "etiqueta1, etiqueta2, etiqueta3",

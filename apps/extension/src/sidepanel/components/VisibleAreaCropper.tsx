@@ -15,7 +15,7 @@ interface Selection extends Point {
 export interface VisibleAreaCropperProps {
   source: string | null;
   onCancel: () => void;
-  onSave: (dataUrl: string) => void;
+  onSave: (dataUrl: string) => Promise<void>;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -32,11 +32,14 @@ function getSelection(start: Point, current: Point, width: number, height: numbe
 export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCropperProps) {
   const { t } = useTranslation();
   const imageRef = useRef<HTMLImageElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<Point | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     if (!source) return;
@@ -47,12 +50,10 @@ export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCrop
 
   useEffect(() => {
     if (!source) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel, source]);
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, [source]);
 
   if (!source) return null;
 
@@ -88,7 +89,8 @@ export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCrop
     dragStartRef.current = null;
   };
 
-  const saveCrop = () => {
+  const saveCrop = async () => {
+    if (saving) return;
     const image = imageRef.current;
     const viewport = viewportRef.current;
     if (!image || !viewport || !selection || selection.width < 2 || selection.height < 2) return;
@@ -112,12 +114,25 @@ export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCrop
       canvas.width,
       canvas.height
     );
-    onSave(canvas.toDataURL('image/jpeg', 0.84));
+    setSaving(true);
+    setSaveFailed(false);
+    try {
+      await onSave(canvas.toDataURL('image/jpeg', 0.84));
+    } catch {
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="sp-crop-backdrop" role="presentation">
-      <section
+      <dialog
+        ref={dialogRef}
+        onCancel={(event) => {
+          event.preventDefault();
+          onCancel();
+        }}
         className="sp-crop-dialog"
         role="dialog"
         aria-modal="true"
@@ -186,20 +201,21 @@ export function VisibleAreaCropper({ source, onCancel, onSave }: VisibleAreaCrop
         </div>
 
         <footer className="sp-crop-actions">
+          {saveFailed && <span role="alert">{t('editor.saveFailed')}</span>}
           <button type="button" className="sp-crop-btn" onClick={onCancel}>
             {t('common.cancel')}
           </button>
           <button
             type="button"
             className="sp-crop-btn primary"
-            disabled={!selection || selection.width < 2 || selection.height < 2 || error}
+            disabled={saving || !selection || selection.width < 2 || selection.height < 2 || error}
             onClick={saveCrop}
           >
             <AppIcon name="crop" size={15} />
             {t('captureHub.cropSave')}
           </button>
         </footer>
-      </section>
+      </dialog>
     </div>
   );
 }

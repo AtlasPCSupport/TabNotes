@@ -91,22 +91,33 @@ if (window.top === window && !document.getElementById(ROOT_ID)) {
     item.role = 'menuitem';
     item.textContent = label;
     item.addEventListener('click', () => {
-      chrome.runtime.sendMessage({ type: 'FLOATING_ACTION', action });
+      void chrome.runtime.sendMessage({ type: 'FLOATING_ACTION', action }).catch(() => {
+        trigger.title = copy(
+          'floatingOpenFailed',
+          'Click the TabNotes toolbar icon and try again.'
+        );
+      });
       setOpen(false);
     });
     menu.append(item);
   });
 
   trigger.addEventListener('click', () => setOpen(menu.hidden));
-  document.addEventListener('click', (event) => {
+  const closeOnOutsideClick = (event: MouseEvent) => {
     if (!host.contains(event.target as Node)) setOpen(false);
-  });
+  };
+  document.addEventListener('click', closeOnOutsideClick);
 
   shadow.append(root);
   root.append(menu, trigger);
   document.documentElement.append(host);
 
-  chrome.runtime.onMessage.addListener((message: { type?: unknown; enabled?: unknown }) => {
-    if (message?.type === 'FLOATING_SET_ENABLED' && message.enabled === false) host.remove();
-  });
+  const setEnabled = (message: { type?: unknown; enabled?: unknown }) => {
+    if (message?.type === 'FLOATING_SET_ENABLED' && message.enabled === false) {
+      host.remove();
+      document.removeEventListener('click', closeOnOutsideClick);
+      chrome.runtime.onMessage.removeListener(setEnabled);
+    }
+  };
+  chrome.runtime.onMessage.addListener(setEnabled);
 }

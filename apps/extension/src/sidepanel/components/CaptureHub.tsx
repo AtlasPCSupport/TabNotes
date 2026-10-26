@@ -5,8 +5,8 @@ import { AppIcon } from './AppIcon';
 export interface CaptureHubProps {
   disabled: boolean;
   onNewNote: () => Promise<void>;
-  onCaptureScreenshot: () => void;
-  onCaptureArea: () => void;
+  onCaptureScreenshot: (target: 'current' | 'new') => void;
+  onCaptureArea: (target: 'current' | 'new') => void;
   onClipSelection: (target: 'current' | 'new') => Promise<void>;
 }
 
@@ -20,6 +20,7 @@ export function CaptureHub({
 }: CaptureHubProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState<'current' | 'new'>('current');
   const hubRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +48,16 @@ export function CaptureHub({
 
       {open && (
         <div className="sp-capture-menu" role="menu" aria-label={t('captureHub.label')}>
+          <label className="sp-capture-shortcut">
+            {t('captureHub.destination')}
+            <select
+              value={target}
+              onChange={(event) => setTarget(event.target.value as 'current' | 'new')}
+            >
+              <option value="current">{t('captureHub.currentNote')}</option>
+              <option value="new">{t('captureHub.newNote')}</option>
+            </select>
+          </label>
           <button
             type="button"
             className="sp-capture-action"
@@ -71,7 +82,7 @@ export function CaptureHub({
             disabled={disabled}
             onClick={() => {
               setOpen(false);
-              onCaptureArea();
+              onCaptureArea(target);
             }}
           >
             <AppIcon name="crop" size={15} />
@@ -88,7 +99,7 @@ export function CaptureHub({
             disabled={disabled}
             onClick={() => {
               setOpen(false);
-              onCaptureScreenshot();
+              onCaptureScreenshot(target);
             }}
           >
             <AppIcon name="camera" size={15} />

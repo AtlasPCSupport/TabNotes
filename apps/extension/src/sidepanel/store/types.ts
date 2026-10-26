@@ -1,4 +1,4 @@
-import type { ChecklistItem, Note, NoteScope, Workspace } from '@tabnotes/shared';
+import type { ChecklistItem, Note, NoteScope, NoteVersion, Workspace } from '@tabnotes/shared';
 import type { Language } from '@tabnotes/i18n';
 
 /** The side panel's top-level views, mirrored from the existing `view` state. */
@@ -113,6 +113,10 @@ export interface NoteListSlice {
  * unchanged. Timing refs (saveTimer/contentSaved/lastSaveTs) stay in `runtime`.
  */
 export interface EditorSlice {
+  noteUnlocked: boolean;
+  editorVersions: NoteVersion[];
+  setNoteUnlocked: (value: boolean) => void;
+  setEditorVersions: (value: NoteVersion[]) => void;
   activeNoteId: string | null;
   content: string;
   title: string;

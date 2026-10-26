@@ -111,26 +111,28 @@ const EMPTY_IMPORT_SUMMARY: BackupImportSummary = {
   storageSettingsRestored: 0,
 };
 
-export const MAX_BACKUP_IMPORT_BYTES = 10 * 1024 * 1024;
+export const MAX_BACKUP_IMPORT_BYTES = 100 * 1024 * 1024;
 /**
- * A 10 MiB plaintext backup expands after AES-GCM (44 bytes of header/tag) and
+ * A 100 MiB plaintext backup expands after AES-GCM (44 bytes of header/tag) and
  * base64 encoding. Allow its encrypted representation while continuing to cap
  * the decrypted JSON at {@link MAX_BACKUP_IMPORT_BYTES} before parsing it.
  */
 export const MAX_BACKUP_IMPORT_ENCRYPTED_PAYLOAD_LENGTH =
   4 * Math.ceil((MAX_BACKUP_IMPORT_BYTES + 44) / 3);
 /** Maximum on-disk JSON size accepted for a password-encrypted backup. */
-export const MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES = 14 * 1024 * 1024;
+export const MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES = 140 * 1024 * 1024;
 export const MAX_BACKUP_IMPORT_NOTES = 10_000;
 export const MAX_BACKUP_IMPORT_WORKSPACES = 1_000;
 export const MAX_BACKUP_IMPORT_TAGS_PER_NOTE = 100;
 export const MAX_BACKUP_IMPORT_TAG_LENGTH = 100;
 export const MAX_BACKUP_IMPORT_TITLE_LENGTH = 500;
-export const MAX_BACKUP_IMPORT_CONTENT_LENGTH = 1_000_000;
+export const MAX_BACKUP_IMPORT_CONTENT_LENGTH = 16 * 1024 * 1024;
 
 const ENCRYPTED_MANUAL_BACKUP_KIND = 'tabnotes.encryptedBackup';
 const ENCRYPTED_MANUAL_BACKUP_SCHEMA = 1;
-export const MAX_BACKUP_IMPORT_VERSIONS_PER_NOTE = 5;
+// Older builds retained five; allow recovery of an additional leaked draft
+// without discarding any pre-existing history during encryption migration.
+export const MAX_BACKUP_IMPORT_VERSIONS_PER_NOTE = 20;
 
 const MAX_ID_LENGTH = 256;
 const MAX_SCOPE_KEY_LENGTH = 4_096;
@@ -330,7 +332,7 @@ function isValidWorkspace(value: unknown): value is Workspace {
     isString(value.name, MAX_WORKSPACE_NAME_LENGTH, true) &&
     (value.color === undefined || isString(value.color, MAX_COLOR_LENGTH, true)) &&
     isTimestamp(value.createdAt) &&
-    isTimestamp(value.updatedAt)
+    (value.updatedAt === undefined || isTimestamp(value.updatedAt))
   );
 }
 
@@ -489,7 +491,7 @@ export function createManualBackupEnvelope(
     data.prefs = prefs;
   }
 
-  return {
+  const envelope: ManualBackupEnvelope = {
     kind: MANUAL_BACKUP_KIND,
     schema: MANUAL_BACKUP_SCHEMA,
     storageVersion: storage.version ?? STORAGE_VERSION,
@@ -498,6 +500,15 @@ export function createManualBackupEnvelope(
     data,
     storage: createBackupStorageSettings(storage),
   };
+  // Never download a backup that this version cannot restore. Existing formats
+  // remain readable; limits only increase to accommodate captured images.
+  if (
+    !parseBackupImportResult(envelope).ok ||
+    !isBackupImportTextWithinLimit(JSON.stringify(envelope))
+  ) {
+    throw new Error('Backup exceeds supported restore limits or contains invalid note data.');
+  }
+  return envelope;
 }
 
 export async function createEncryptedManualBackupEnvelope(
@@ -517,9 +528,7 @@ export async function decryptEncryptedManualBackupEnvelope(
 ): Promise<ManualBackupEnvelope | null> {
   if (!isEncryptedManualBackupEnvelope(value)) return null;
   const rawBase64 = value.encryptedData.replace(/^tnenc:v\d+:/, '');
-  if (
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(rawBase64)
-  ) {
+  if (rawBase64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(rawBase64)) {
     return null;
   }
   try {

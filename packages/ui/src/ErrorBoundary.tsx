@@ -29,7 +29,6 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     // Surface the error for debugging. Note bodies are never logged here.
-    // eslint-disable-next-line no-console
     console.error('TabNotes render error', error, info.componentStack);
   }
 

@@ -28,3 +28,10 @@ jobs:
         run: pnpm --filter @tabnotes/extension exec playwright install --with-deps chromium
       - name: Extension e2e (Playwright)
         run: pnpm --filter @tabnotes/extension exec playwright test
+      - name: Browser evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-evidence
+          path: apps/extension/test-results
+          if-no-files-found: ignore

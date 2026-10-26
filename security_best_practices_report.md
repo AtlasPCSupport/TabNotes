@@ -2,6 +2,13 @@
 
 ## Executive summary
 
+> Historical phase-7 report. The 2026-10-25 audit supersedes the original
+> clearance below: it found plaintext note history and unsafe encrypted editing,
+> cross-context write races, and non-restorable large exports. These are addressed
+> by the current stability work and compatibility regressions; see WORK_PLAN.md.
+> Legacy encrypted notes require their password to migrate exposed old history.
+> Browser permission and Store OAuth validation remain required before release.
+
 The phase 7 review found no unresolved critical or high-severity issue after the fixes below. The most important finding was an HTML injection risk in the PDF/print export path; it is now mitigated with centralized escaping and a regression test. Optional page access remains a deliberate privacy-sensitive capability and is now limited to HTTP(S), requested per site, and disclosed in the release documentation.
 
 ## Scope

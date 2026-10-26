@@ -1,3 +1,4 @@
+import { normalizeDomain, normalizeUrl } from '@tabnotes/shared';
 import {
   DRIVE_REMOTE_APPLY_STORAGE_KEY,
   driveErrorMessage,
@@ -94,45 +95,6 @@ let alertStopTimer: ReturnType<typeof setTimeout> | null = null;
 let badgeFlashOn = false;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function normalizeDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function normalizeUrl(url: string): string {
-  try {
-    const TRACKING = new Set([
-      'utm_source',
-      'utm_medium',
-      'utm_campaign',
-      'utm_term',
-      'utm_content',
-      'ref',
-      'fbclid',
-      'gclid',
-      'msclkid',
-      'twclid',
-      'mc_cid',
-      'mc_eid',
-      '_ga',
-      '_gl',
-      'igshid',
-    ]);
-    const u = new URL(url);
-    u.hash = '';
-    for (const p of TRACKING) u.searchParams.delete(p);
-    const search = u.searchParams.toString();
-    let out = `${u.origin}${u.pathname}`.replace(/\/$/, '');
-    if (search) out += `?${search}`;
-    return out;
-  } catch {
-    return url;
-  }
-}
 
 function clearAlarm(name: string): Promise<boolean> {
   return new Promise((resolve) => chrome.alarms.clear(name, resolve));
@@ -943,11 +905,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         : domains.filter((entry) => entry !== domain);
       await setLocalStorage({ [FLOATING_DOMAINS_STORAGE_KEY]: nextDomains });
 
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (activeTab?.id && floatingDomainFromUrl(activeTab.url) === domain) {
-        if (enabled) await injectFloatingButton(activeTab.id);
-        else removeFloatingButton(activeTab.id);
-      }
+      const tabs = await chrome.tabs.query({});
+      await Promise.all(
+        tabs
+          .filter((tab) => typeof tab.id === 'number' && floatingDomainFromUrl(tab.url) === domain)
+          .map((tab) => (enabled ? injectFloatingButton(tab.id!) : removeFloatingButton(tab.id!)))
+      );
       sendResponse({ ok: true, enabled });
     })().catch((error) => sendResponse({ ok: false, error: String(error) }));
     return true;
@@ -982,7 +945,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       await setLocalStorage({
-        [FLOATING_REQUEST_STORAGE_KEY]: { action, requestedAt: Date.now() },
+        [FLOATING_REQUEST_STORAGE_KEY]: {
+          action,
+          requestedAt: Date.now(),
+          id: crypto.randomUUID(),
+          tabId,
+          windowId: sender.tab?.windowId,
+          sourceUrl: sender.tab?.url,
+        },
       });
       await sidePanelOpen;
       sendResponse({ ok: true });
@@ -992,21 +962,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // CAPTURE_TAB: take a screenshot of the active tab
   if (msg.type === 'CAPTURE_TAB') {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (typeof tabs[0]?.windowId !== 'number') {
-        sendResponse({ error: 'No active tab' });
-        return;
+    chrome.tabs.query(
+      typeof msg.windowId === 'number'
+        ? { active: true, windowId: msg.windowId }
+        : { active: true, currentWindow: true },
+      async (tabs) => {
+        if (typeof tabs[0]?.windowId !== 'number') {
+          sendResponse({ error: 'No active tab' });
+          return;
+        }
+        try {
+          const tab = tabs[0];
+          if (
+            (typeof msg.tabId === 'number' && msg.tabId !== tab.id) ||
+            (typeof msg.sourceUrl === 'string' && msg.sourceUrl !== tab.url)
+          ) {
+            sendResponse({ error: 'PAGE_CHANGED' });
+            return;
+          }
+          const dataUrl = await chrome.tabs.captureVisibleTab(tabs[0].windowId, {
+            format: 'jpeg',
+            quality: 80,
+          });
+          sendResponse({ dataUrl });
+        } catch (e) {
+          sendResponse({ error: String(e) });
+        }
       }
-      try {
-        const dataUrl = await chrome.tabs.captureVisibleTab(tabs[0].windowId, {
-          format: 'jpeg',
-          quality: 40,
-        });
-        sendResponse({ dataUrl });
-      } catch (e) {
-        sendResponse({ error: String(e) });
-      }
-    });
+    );
     return true;
   }
 
@@ -1014,24 +997,36 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // floating-button clip actions. The side panel requests the host permission
   // before sending this message when the page has not been granted yet.
   if (msg.type === 'GET_SELECTED_TEXT') {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
-      if (typeof tab?.id !== 'number' || !tab.url || !/^https?:\/\//i.test(tab.url)) {
-        sendResponse({ error: 'No selectable web page' });
-        return;
-      }
+    chrome.tabs.query(
+      typeof msg.windowId === 'number'
+        ? { active: true, windowId: msg.windowId }
+        : { active: true, currentWindow: true },
+      async (tabs) => {
+        const tab = tabs[0];
+        if (typeof tab?.id !== 'number' || !tab.url || !/^https?:\/\//i.test(tab.url)) {
+          sendResponse({ error: 'No selectable web page' });
+          return;
+        }
 
-      try {
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => window.getSelection()?.toString() ?? '',
-        });
-        const text = typeof results[0]?.result === 'string' ? results[0].result.trim() : '';
-        sendResponse({ text, sourceUrl: tab.url, sourceTitle: tab.title || tab.url });
-      } catch (error) {
-        sendResponse({ error: String(error) });
+        try {
+          if (
+            (typeof msg.tabId === 'number' && msg.tabId !== tab.id) ||
+            (typeof msg.sourceUrl === 'string' && msg.sourceUrl !== tab.url)
+          ) {
+            sendResponse({ error: 'PAGE_CHANGED' });
+            return;
+          }
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => window.getSelection()?.toString() ?? '',
+          });
+          const text = typeof results[0]?.result === 'string' ? results[0].result.trim() : '';
+          sendResponse({ text, sourceUrl: tab.url, sourceTitle: tab.title || tab.url });
+        } catch (error) {
+          sendResponse({ error: String(error) });
+        }
       }
-    });
+    );
     return true;
   }
 

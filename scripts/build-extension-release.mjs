@@ -9,8 +9,11 @@ const storeDir = path.join(root, 'store');
 
 const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
 const version = process.argv[2] ?? manifest.version;
-manifest.version = version;
-await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+if (version !== manifest.version) {
+  throw new Error(
+    `Requested version ${version} differs from manifest ${manifest.version}. Update source metadata before packaging.`
+  );
+}
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options });
@@ -26,7 +29,7 @@ if (process.platform === 'win32') {
     '-ExecutionPolicy',
     'Bypass',
     '-Command',
-    '$ErrorActionPreference = "Stop"; pnpm build:extension',
+    '$ErrorActionPreference = "Stop"; pnpm build:extension; exit $LASTEXITCODE',
   ]);
 } else {
   run('pnpm', ['build:extension']);

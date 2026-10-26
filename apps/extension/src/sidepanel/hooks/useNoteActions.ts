@@ -9,9 +9,7 @@ import {
   createEncryptedManualBackupEnvelope,
   createManualBackupEnvelope,
   decryptEncryptedManualBackupEnvelope,
-  decryptText,
   escapeHtml,
-  encryptText,
   isBackupImportTextWithinLimit,
   isEncryptedManualBackupEnvelope,
   isEncryptedManualBackupTextWithinLimit,
@@ -72,6 +70,8 @@ function countPrefs(prefs: ExportPrefs | undefined): number {
 }
 
 interface UseNoteActionsProps {
+  flushPendingSave: () => Promise<void>;
+  contentSavedRef: React.MutableRefObject<string>;
   adapter: React.MutableRefObject<ChromeStorageAdapter>;
   noteSvc: React.MutableRefObject<NotesService>;
   wsSvc: React.MutableRefObject<WorkspacesService>;
@@ -86,6 +86,8 @@ interface UseNoteActionsProps {
 }
 
 export function useNoteActions({
+  flushPendingSave,
+  contentSavedRef,
   adapter,
   noteSvc,
   wsSvc,
@@ -187,15 +189,21 @@ export function useNoteActions({
 ${title ? `<h1>${safeTitle}</h1>` : ''}
 <div class="meta">${new Date().toLocaleString()}${currentDomain ? ` · ${safeDomain}` : ''}${tags ? ` · Tags: ${safeTags}` : ''}</div>
 ${renderMarkdown(content)}
-<script>window.addEventListener('load',()=>window.print());</script>
 </body></html>`;
     if (cr?.tabs?.create) {
-      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      cr.tabs.create({ url });
+      const key = `tn_print:${crypto.randomUUID()}`;
+      void cr.storage.session
+        .set({ [key]: html })
+        .then(() =>
+          cr.tabs.create({
+            url: `${cr.runtime.getURL('print/index.html')}?id=${encodeURIComponent(key)}`,
+          })
+        )
+        .catch(() => showFeedback('error', t('backup.exportFailed')));
     } else {
-      const w = window.open('', '_blank');
-      w?.document.write(html);
-      w?.document.close();
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     }
   };
 
@@ -203,13 +211,15 @@ ${renderMarkdown(content)}
     const id = activeNoteIdRef.current;
     if (!id || !password) return false;
     try {
-      const encrypted = await encryptText(content, password);
-      await noteSvc.current.updateNote(id, {
-        content: t('encryption.encryptedPlaceholder'),
-        encrypted: true,
-        encryptedData: encrypted,
-      });
-      setContent(t('encryption.encryptedPlaceholder'));
+      await flushPendingSave();
+      const locked = await noteSvc.current.lockNote(
+        id,
+        password,
+        useSidePanelStore.getState().content
+      );
+      setContent(locked.content);
+      contentSavedRef.current = locked.content;
+      useSidePanelStore.setState({ noteUnlocked: false, editorVersions: [] });
       const notes = await noteSvc.current.getNotesByScope(
         scopeRef.current,
         currentUrlRef.current,
@@ -228,8 +238,12 @@ ${renderMarkdown(content)}
     const note = allNotes.find((n) => n.id === id);
     if (!id || !password || !note?.encryptedData) return false;
     try {
-      const decrypted = await decryptText(note.encryptedData, password);
-      setContent(decrypted);
+      await flushPendingSave();
+      const unlocked = await noteSvc.current.unlockNote(id, password);
+      await refreshAllNotes();
+      setContent(unlocked.content);
+      contentSavedRef.current = unlocked.content;
+      useSidePanelStore.setState({ noteUnlocked: true, editorVersions: unlocked.versions ?? [] });
       return true;
     } catch {
       return false;
@@ -238,6 +252,7 @@ ${renderMarkdown(content)}
 
   const handleExport = async () => {
     try {
+      await flushPendingSave();
       const data = await adapter.current.get();
       const prefs: ExportPrefs = {};
       const colors = localStorage.getItem('tn_colors');
@@ -267,6 +282,12 @@ ${renderMarkdown(content)}
       });
 
       const backup = createManualBackupEnvelope(data, prefs);
+      if (
+        !parseBackupImportResult(backup).ok ||
+        !isBackupImportTextWithinLimit(JSON.stringify(backup))
+      ) {
+        throw new Error('Backup exceeds supported restore limits.');
+      }
       const password = window.prompt(t('backup.passwordPrompt'));
       if (password === null) return;
       const payload = password
@@ -274,7 +295,7 @@ ${renderMarkdown(content)}
         : backup;
       cr?.storage?.local?.set({ tn_last_export: Date.now() });
 
-      const json = JSON.stringify(payload, null, 2);
+      const json = JSON.stringify(payload);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -293,6 +314,7 @@ ${renderMarkdown(content)}
     const file = e.target.files?.[0];
     if (!file) return;
     try {
+      await flushPendingSave();
       if (file.size > MAX_ENCRYPTED_MANUAL_BACKUP_FILE_BYTES) {
         throw new Error(t('backup.invalidFormat'));
       }
@@ -348,10 +370,14 @@ ${renderMarkdown(content)}
         );
       });
 
-      const restored = applyBackupImport(parsed, current);
-      await adapter.current.createRecoverySnapshot('before-import', Date.now(), currentPrefs);
+      let restored = applyBackupImport(parsed, current);
+      await adapter.current.importWithSnapshot((latest) => {
+        restored = applyBackupImport(parsed, latest);
+        return restored.data;
+      }, currentPrefs);
+      noteSvc.current.forgetPasswords();
+      useSidePanelStore.setState({ noteUnlocked: false, editorVersions: [] });
       setCanRestoreImport(true);
-      await adapter.current.set(restored.data);
       const reminderAlarms = await restoreReminderAlarms();
 
       if (parsed.data.prefs) {
@@ -461,12 +487,15 @@ ${renderMarkdown(content)}
 
   const restorePreImportSnapshot = async () => {
     try {
+      await flushPendingSave();
       const snapshot = await adapter.current.restoreRecoverySnapshot();
       if (!snapshot) {
         setCanRestoreImport(false);
         showFeedback('error', t('backup.recoveryUnavailable'));
         return;
       }
+      noteSvc.current.forgetPasswords();
+      useSidePanelStore.setState({ noteUnlocked: false, editorVersions: [] });
 
       if (snapshot.prefs) {
         const localKeys = [

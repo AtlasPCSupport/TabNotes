@@ -253,7 +253,8 @@ export function AllNotesView(props: {
                               setBulkDeleteConfirm(false);
                               setBulkSelectedIds((prev) => {
                                 const next = new Set(prev);
-                                next.has(n.id) ? next.delete(n.id) : next.add(n.id);
+                                if (next.has(n.id)) next.delete(n.id);
+                                else next.add(n.id);
                                 return next;
                               });
                               return;
