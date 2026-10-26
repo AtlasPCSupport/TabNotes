@@ -9,7 +9,7 @@ historial y lectura de backups existentes. No modificar perfiles reales de Chrom
 - [x] 3. Implementar capturas con origen/destino, errores y consumo único de solicitudes flotantes (validación real en paso 6).
 - [x] 4. Unificar Ajustes/Opciones, destinos de captura y diálogos accesibles. Inbox continúa significando notas sin carpeta.
 - [x] 5. Actualizar dependencias aplicables y retirar código obsoleto/sin uso.
-- [ ] 6. Validación: regresión y compatibilidad automatizadas completas; importación y captura confirmadas por el usuario. Restan Drive oficial y comprobaciones manuales indicadas en `MANUAL_QA.md`.
+- [ ] 6. Validación: regresión y compatibilidad automatizadas completas; importación y captura confirmadas por el usuario; ciclo Drive oficial comprobado con nota sintética. Restan conflictos entre clientes y comprobaciones de `MANUAL_QA.md`.
 - [ ] 7. Documentación y paquete preparados; publicación bloqueada hasta completar las comprobaciones manuales.
 
 ## Reglas de compatibilidad
@@ -127,8 +127,12 @@ comprobar estos resultados; la aprobación de Store no garantiza por sí sola OA
 - PWA: edición y recarga offline aprobadas con datos sintéticos. La actualización
   de caché conserva cachés ajenas, pero su recarga offline inmediata requiere más
   validación por una pantalla vacía observada. No afecta al ZIP de la extensión.
-- Copia OAuth con identidad oficial preparada fuera del repo, en el escritorio;
-  la carga en el perfil nuevo y la autorización Google requieren al usuario.
+- Copia OAuth con identidad oficial cargada en el perfil nuevo y autorizada por el
+  usuario, quien confirmó que la cuenta es de pruebas. Verificado 2026-10-26: 2.12.0,
+  conexión, subida manual de versiones 1/2, restauración real sobre una copia local
+  antigua, subida automática de versión 3 y restauración repetida sin duplicados.
+  Las lecturas del archivo real de Drive confirman contenido exacto e ID. Estado
+  final: una nota ficticia, `ok`, sin errores y sincronización periódica activa.
   No se cambió el cliente OAuth ni se eludió la comprobación de identidad.
 - ZIP actualizado y comprobado: 202239 bytes, SHA-256
   `0808eccb83c6816d2b8ef62f05f4fc3b713a3dc3900b1adaf411e929155fce0f`.

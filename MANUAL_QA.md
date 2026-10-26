@@ -44,11 +44,34 @@ verificar ambos errores sin escribir notas. CI del candidato aprobada:
   automáticamente; no se ha establecido la causa de ese cambio entre pruebas.
 - Copia separada para probar OAuth: escritorio `TabNotes-2.12.0-Prueba-Drive`.
   Solo esa copia contiene la clave pública de la extensión oficial. Su ID calculado
-  coincide con `pniapenkdphjolncppcichbahomfiffj`; falta comprobar carga y conexión
-  reales en Chrome. No subir esa carpeta como paquete de publicación.
+  coincide con `pniapenkdphjolncppcichbahomfiffj`. Carga 2.12.0 y autorización Google
+  completadas por el usuario. Primer backup vacío confirmado a las 12:52 del
+  2026-10-26 (America/Lima). El usuario confirmó que es una cuenta de pruebas.
+  No subir esa carpeta como paquete de publicación.
 - ZIP de publicación: escritorio `TabNotes-2.12.0-actualizacion.zip`, 202239 bytes,
   manifest 2.12.0 en la raíz, 28 entradas, sin sourcemaps ni clave de QA.
   SHA-256: `0808eccb83c6816d2b8ef62f05f4fc3b713a3dc3900b1adaf411e929155fce0f`.
+
+### Drive real con identidad oficial — 2026-10-26
+
+- Perfil y cuenta de pruebas autorizados por el usuario; al empezar, cero notas.
+- Crear una nota desde el editor, sincronizar con «Sync now» y leer el archivo real
+  de Drive: contenido de la versión 1 e ID coinciden exactamente.
+- Editar y sincronizar versión 2: nueva lectura remota confirma contenido e ID.
+- Preparar una copia local antigua de esa única nota sintética. Solo durante esta
+  preparación se pausa la sincronización automática y se conservan las versiones
+  en memoria; no se simula una eliminación ni se crean tombstones.
+- Usar «Restore / merge» y aceptar su confirmación: recupera la versión 2 real de
+  Drive. Una nota, mismo ID, estado `ok`, sin error; sincronización reactivada.
+- Editar versión 3 sin pulsar «Sync now»: una nueva lectura de Drive confirma la
+  subida automática del texto exacto, incluidos acentos, y mantiene el ID.
+- Repetir «Restore / merge»: no duplica la nota ni cambia su contenido. El editor
+  muestra el texto recuperado; queda activa la alarma periódica de sincronización.
+- Estado final: una nota ficticia local/remota, Drive activo, `status: ok`, sin error.
+  Se deja esa nota para inspección; no se borró ningún backup de la cuenta.
+- Evidencia local, fuera de git: `tmp/drive-qa-20261026/sync-restored.png`.
+- Esto valida el ciclo de una nota en la extensión oficial de QA. No sustituye las
+  pruebas de conflictos entre web/extensión, varias cuentas o todos los tipos de nota.
 
 ## Compatibilidad y recuperación
 
@@ -102,7 +125,8 @@ verificar ambos errores sin escribir notas. CI del candidato aprobada:
 ## Drive y publicación
 
 - [ ] Build desempaquetado: aviso de identidad OAuth local esperado.
-- [ ] Identidad oficial de Store: conectar, sincronizar, modificar y volver a sincronizar.
+- [x] Identidad oficial de Store: conectar y completar primer backup vacío (2.12.0).
+- [x] Identidad oficial de Store: modificar una nota sintética, sincronizar y recuperar.
 - [ ] Comprobar conflicto entre web/extensión sin perder una de las versiones.
 - [ ] Actualizar capturas promocionales con la interfaz validada.
 - [ ] ZIP generado desde la revisión comprobada, manifest 2.12.0 y sin mapas de código.
