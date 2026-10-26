@@ -5,7 +5,12 @@ import { useSidePanelStore } from '../store';
 import { AppIcon } from './AppIcon';
 
 const USFlag = () => (
-  <svg viewBox="0 0 19 13" width="16" height="11" style={{ borderRadius: '1.5px', display: 'block' }}>
+  <svg
+    viewBox="0 0 19 13"
+    width="16"
+    height="11"
+    style={{ borderRadius: '1.5px', display: 'block' }}
+  >
     <rect width="19" height="13" fill="#ffffff" />
     <rect width="19" height="1" fill="#b22234" />
     <rect y="2" width="19" height="1" fill="#b22234" />
@@ -55,6 +60,7 @@ export function HeaderBar({
   syncedToast,
   language,
   setLanguage,
+  onOpenOnboarding,
 }: {
   activeWs: Workspace | undefined;
   wsDropdown: boolean;
@@ -69,8 +75,11 @@ export function HeaderBar({
   syncedToast: boolean;
   language: Language;
   setLanguage: (lng: Language) => Promise<void>;
+  onOpenOnboarding: () => void;
 }) {
   const { t } = useTranslation();
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const helpMenuRef = React.useRef<HTMLDivElement>(null);
   const view = useSidePanelStore((s) => s.view);
   const setView = useSidePanelStore((s) => s.setView);
   const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
@@ -78,6 +87,15 @@ export function HeaderBar({
   const workspaces = useSidePanelStore((s) => s.workspaces);
   const activeWorkspaceId = useSidePanelStore((s) => s.activeWorkspaceId);
   const features = useSidePanelStore((s) => s.features);
+
+  React.useEffect(() => {
+    if (!helpOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!helpMenuRef.current?.contains(event.target as Node)) setHelpOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [helpOpen]);
 
   return (
     <div className="sp-header">
@@ -215,11 +233,7 @@ export function HeaderBar({
             <AppIcon name="graph" size={15} />
           </button>
         )}
-          <button
-          className="sp-icon-btn"
-          onClick={onToggleTheme}
-          title={t('header.toggleTheme')}
-        >
+        <button className="sp-icon-btn" onClick={onToggleTheme} title={t('header.toggleTheme')}>
           <AppIcon name={theme === 'dark' ? 'light' : 'dark'} size={15} />
         </button>
         <button
@@ -232,6 +246,34 @@ export function HeaderBar({
         >
           <AppIcon name="settings" size={15} />
         </button>
+        <div className="tn-help-menu-wrap" ref={helpMenuRef}>
+          <button
+            className="sp-icon-btn tn-help-trigger"
+            aria-label={t('header.help')}
+            aria-expanded={helpOpen}
+            aria-haspopup="menu"
+            onClick={() => setHelpOpen((open) => !open)}
+            title={t('header.help')}
+          >
+            ?
+          </button>
+          {helpOpen && (
+            <div className="tn-help-menu" role="menu" aria-label={t('header.help')}>
+              <div className="tn-help-menu-title">{t('header.help')}</div>
+              <button
+                type="button"
+                className="tn-help-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setHelpOpen(false);
+                  onOpenOnboarding();
+                }}
+              >
+                {t('header.viewOnboarding')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

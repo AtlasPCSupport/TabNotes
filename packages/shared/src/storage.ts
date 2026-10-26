@@ -1,5 +1,16 @@
 import type { Note, NoteVersion, Workspace, StorageData, ExportData, NoteScope } from './types';
 import { generateId, getScopeKey } from './utils';
+import { withStorageLock } from './storageLock';
+import { encryptText, decryptText } from './crypto';
+
+export const ENCRYPTED_NOTE_PLACEHOLDER = 'This note is encrypted.';
+const LEGACY_ENCRYPTED_VERSION_PREFIX = 'tnenc:legacy:';
+
+function encryptedVersionPayload(value: string): string | null {
+  if (value.startsWith(LEGACY_ENCRYPTED_VERSION_PREFIX))
+    return value.slice(LEGACY_ENCRYPTED_VERSION_PREFIX.length);
+  return value.startsWith('tnenc:v2:') ? value : null;
+}
 
 export const STORAGE_VERSION = 3;
 const NOTE_SCOPES = [
@@ -301,31 +312,33 @@ export class ChromeStorageAdapter implements StorageAdapter {
   async get(): Promise<StorageData> {
     const result = await this.getLocal(ChromeStorageAdapter.dataKey);
     const parsed = result[ChromeStorageAdapter.dataKey] as Record<string, unknown> | undefined;
-    const storage = this.normalizeStorage(parsed);
-    if (parsed && JSON.stringify(parsed) !== JSON.stringify(storage)) {
-      await this.setLocal({ [ChromeStorageAdapter.dataKey]: storage });
-    }
-    return storage;
+    // Reads must never write a stale migration over a concurrent edit. The next
+    // explicit write persists normalization under the shared origin lock.
+    return this.normalizeStorage(parsed);
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
     // Queue this write behind any in-flight write so the read-modify-write is
     // atomic relative to other writes (prevents last-write-wins clobbering).
-    const run = this.writeChain.then(async () => {
-      const current = await this.get();
-      await this.setLocal({ [ChromeStorageAdapter.dataKey]: { ...current, ...data } });
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.get();
+        await this.setLocal({ [ChromeStorageAdapter.dataKey]: { ...current, ...data } });
+      })
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }
 
   async update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData> {
-    const run = this.writeChain.then(async () => {
-      const current = await this.get();
-      const next = { ...current, ...mutator(current) };
-      await this.setLocal({ [ChromeStorageAdapter.dataKey]: next });
-      return next;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.get();
+        const next = { ...current, ...mutator(current) };
+        await this.setLocal({ [ChromeStorageAdapter.dataKey]: next });
+        return next;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
@@ -335,23 +348,52 @@ export class ChromeStorageAdapter implements StorageAdapter {
     now = Date.now(),
     prefs?: Record<string, unknown>
   ): Promise<RecoverySnapshot> {
-    const run = this.writeChain.then(async () => {
-      const snapshot: RecoverySnapshot = {
-        createdAt: now,
-        reason,
-        data: await this.get(),
-        prefs,
-      };
-      await this.setLocal({ [ChromeStorageAdapter.recoverySnapshotKey]: snapshot });
-      return snapshot;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const snapshot: RecoverySnapshot = {
+          createdAt: now,
+          reason,
+          data: await this.get(),
+          prefs,
+        };
+        await this.setLocal({ [ChromeStorageAdapter.recoverySnapshotKey]: snapshot });
+        return snapshot;
+      })
+    );
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
+  }
+
+  /** Snapshot and import share one lock and one Chrome write. */
+  async importWithSnapshot(
+    merge: (current: StorageData) => StorageData,
+    prefs?: Record<string, unknown>
+  ): Promise<StorageData> {
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.get();
+        const next = merge(current);
+        await this.setLocal({
+          [ChromeStorageAdapter.recoverySnapshotKey]: {
+            createdAt: Date.now(),
+            reason: 'before-import',
+            data: current,
+            prefs,
+          },
+          [ChromeStorageAdapter.dataKey]: next,
+        });
+        return next;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
 
   async getRecoverySnapshot(): Promise<RecoverySnapshot | undefined> {
     const result = await this.getLocal(ChromeStorageAdapter.recoverySnapshotKey);
-    const snapshot = result[ChromeStorageAdapter.recoverySnapshotKey] as RecoverySnapshot | undefined;
+    const snapshot = result[ChromeStorageAdapter.recoverySnapshotKey] as
+      | RecoverySnapshot
+      | undefined;
     if (
       !snapshot ||
       typeof snapshot.createdAt !== 'number' ||
@@ -367,31 +409,159 @@ export class ChromeStorageAdapter implements StorageAdapter {
   }
 
   async restoreRecoverySnapshot(): Promise<RecoverySnapshot | undefined> {
-    const run = this.writeChain.then(async () => {
-      const snapshot = await this.getRecoverySnapshot();
-      if (!snapshot) return undefined;
-      await this.setLocal({ [ChromeStorageAdapter.dataKey]: snapshot.data });
-      return snapshot;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const snapshot = await this.getRecoverySnapshot();
+        if (!snapshot) return undefined;
+        await this.setLocal({ [ChromeStorageAdapter.dataKey]: snapshot.data });
+        return snapshot;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
 
   async clearRecoverySnapshot(): Promise<void> {
-    const run = this.writeChain.then(() => this.removeLocal(ChromeStorageAdapter.recoverySnapshotKey));
+    const run = this.writeChain.then(() =>
+      withStorageLock(() => this.removeLocal(ChromeStorageAdapter.recoverySnapshotKey))
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }
 
   async clear(): Promise<void> {
-    const run = this.writeChain.then(() => this.removeLocal(ChromeStorageAdapter.dataKey));
+    const run = this.writeChain.then(() =>
+      withStorageLock(() => this.removeLocal(ChromeStorageAdapter.dataKey))
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }
 }
 
 export class NotesService {
+  // Session-only. Passwords and decrypted history are never exported/persisted.
+  private passwords = new Map<string, string>();
   constructor(private adapter: StorageAdapter) {}
+
+  isUnlocked(id: string): boolean {
+    return this.passwords.has(id);
+  }
+
+  forgetPasswords(): void {
+    this.passwords.clear();
+  }
+
+  async getEditorNote(note: Note): Promise<Note> {
+    const password = this.passwords.get(note.id);
+    if (!note.encrypted) return note;
+    if (!password || !note.encryptedData)
+      return { ...note, content: ENCRYPTED_NOTE_PLACEHOLDER, versions: [] };
+    return {
+      ...note,
+      content: await decryptText(note.encryptedData, password),
+      versions: await Promise.all(
+        (note.versions ?? []).map(async (version) => ({
+          ...version,
+          content: encryptedVersionPayload(version.content)
+            ? await decryptText(encryptedVersionPayload(version.content)!, password)
+            : version.content,
+        }))
+      ),
+    };
+  }
+
+  async lockNote(id: string, password: string, content?: string): Promise<Note> {
+    const note = (await this.getAllNotes()).find((entry) => entry.id === id);
+    if (!note) throw new Error('Note not found.');
+    // An already encrypted note must first be authenticated with its own password.
+    if (note.encrypted && !this.passwords.has(id)) throw new Error('Unlock the note first.');
+    const editor = await this.getEditorNote(note);
+    const body = content ?? editor.content;
+    const encryptedData = await encryptText(body, password);
+    const versions = await Promise.all(
+      (editor.versions ?? []).map(async (version) => ({
+        ...version,
+        content: await encryptText(version.content, password),
+      }))
+    );
+    const locked = await this.replaceEncryptedNote(note, encryptedData, versions);
+    this.passwords.delete(id);
+    return locked;
+  }
+
+  async unlockNote(id: string, password: string): Promise<Note> {
+    const note = (await this.getAllNotes()).find((entry) => entry.id === id);
+    if (!note?.encryptedData) throw new Error('Encrypted note not found.');
+    const decrypted = await decryptText(note.encryptedData, password);
+    // Preserve edits leaked by old builds as the latest content, rather than
+    // silently reverting them to the older encrypted copy.
+    const leakedBody =
+      note.content !== ENCRYPTED_NOTE_PLACEHOLDER &&
+      note.content !== 'Esta nota está encriptada.' &&
+      Boolean(note.content);
+    const content = leakedBody ? note.content : decrypted;
+    const history = [...(note.versions ?? [])];
+    if (leakedBody && content !== decrypted)
+      history.push({
+        content: note.encryptedData.startsWith('tnenc:')
+          ? note.encryptedData
+          : LEGACY_ENCRYPTED_VERSION_PREFIX + note.encryptedData,
+        title: note.title,
+        savedAt: note.updatedAt,
+      });
+    const versions = await Promise.all(
+      history.map(async (version) => ({
+        ...version,
+        content: encryptedVersionPayload(version.content)
+          ? version.content
+          : await encryptText(version.content, password),
+      }))
+    );
+    // Authenticate the entire history before changing anything. A corrupt
+    // historical payload must not produce a partial migration or lose a note.
+    await Promise.all(
+      versions.map((version) => decryptText(encryptedVersionPayload(version.content)!, password))
+    );
+    const encryptedData = leakedBody ? await encryptText(content, password) : note.encryptedData;
+    const unchanged =
+      note.content === ENCRYPTED_NOTE_PLACEHOLDER &&
+      encryptedData === note.encryptedData &&
+      JSON.stringify(versions) === JSON.stringify(note.versions ?? []);
+    const migrated = unchanged
+      ? note
+      : await this.replaceEncryptedNote(note, encryptedData, versions);
+    this.passwords.set(id, password);
+    return this.getEditorNote(migrated);
+  }
+
+  private async replaceEncryptedNote(
+    note: Note,
+    encryptedData: string,
+    versions: NoteVersion[]
+  ): Promise<Note> {
+    let result: Note | undefined;
+    await this.adapter.update((data) => {
+      const key = getScopeCollectionKey(note.scope);
+      const current = data[key]?.[note.id];
+      if (
+        !current ||
+        current.updatedAt !== note.updatedAt ||
+        current.content !== note.content ||
+        current.encryptedData !== note.encryptedData
+      )
+        throw new Error('Note changed. Please try again.');
+      result = {
+        ...current,
+        content: ENCRYPTED_NOTE_PLACEHOLDER,
+        encrypted: true,
+        encryptedData,
+        versions,
+        updatedAt: Date.now(),
+      };
+      return { [key]: { ...data[key], [note.id]: result } };
+    });
+    return result!;
+  }
 
   async getAllNotes(): Promise<Note[]> {
     const data = await this.adapter.get();
@@ -469,6 +639,17 @@ export class NotesService {
       >
     >
   ): Promise<Note | null> {
+    const before = (await this.getAllNotes()).find((note) => note.id === id);
+    if (before?.encrypted && updates.content !== undefined && updates.content !== before.content) {
+      const password = this.passwords.get(id);
+      if (!password) throw new Error('Unlock the note before editing it.');
+      const payload = before.encryptedData;
+      const encryptedData = await encryptText(updates.content, password);
+      updates = { ...updates, content: ENCRYPTED_NOTE_PLACEHOLDER, encryptedData };
+      // The ciphertext check below prevents overwriting an edit made while
+      // PBKDF2 was running in this or another window.
+      if (payload === undefined) throw new Error('Encrypted note has no payload.');
+    }
     let result: Note | null = null;
     await this.adapter.update((data) => {
       let foundScope: NoteScope | null = null;
@@ -482,10 +663,32 @@ export class NotesService {
         }
       }
       if (!foundScope || !note) return {};
+      if (note.encrypted && (!before?.encrypted || updates.encrypted === false)) {
+        throw new Error('Encrypted notes must remain encrypted.');
+      }
+      if (before?.encrypted && note.encryptedData !== before.encryptedData) {
+        throw new Error('Note changed. Please try again.');
+      }
+      if (updates.encrypted === true && !note.encrypted) {
+        throw new Error('Use lockNote to encrypt content and history together.');
+      }
 
       // Snapshot version before content changes (keep max 5)
       const versions: NoteVersion[] = [...(note.versions ?? [])];
-      if (updates.content !== undefined && updates.content !== note.content) {
+      if (note.encrypted && updates.encryptedData && updates.encryptedData !== note.encryptedData) {
+        versions.push({
+          content: note.encryptedData!.startsWith('tnenc:')
+            ? note.encryptedData!
+            : LEGACY_ENCRYPTED_VERSION_PREFIX + note.encryptedData!,
+          title: note.title,
+          savedAt: note.updatedAt,
+        });
+        if (versions.length > 5) versions.splice(0, versions.length - 5);
+      } else if (
+        !note.encrypted &&
+        updates.content !== undefined &&
+        updates.content !== note.content
+      ) {
         versions.push({ content: note.content, title: note.title, savedAt: note.updatedAt });
         if (versions.length > 5) versions.splice(0, versions.length - 5);
       }

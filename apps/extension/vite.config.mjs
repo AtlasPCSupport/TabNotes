@@ -13,17 +13,19 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, 'popup/index.html'),
         options: resolve(__dirname, 'options/index.html'),
+        print: resolve(__dirname, 'print/index.html'),
         sidepanel: resolve(__dirname, 'sidepanel/index.html'),
         offscreen: resolve(__dirname, 'offscreen/index.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
         webSyncBridge: resolve(__dirname, 'src/contentScript/webSyncBridge.ts'),
+        floatingButton: resolve(__dirname, 'src/contentScript/floatingButton.ts'),
       },
       output: {
         entryFileNames: (chunk) => {
           if (chunk.name === 'background') return 'background/index.js';
           if (chunk.name === 'webSyncBridge') return 'contentScript/webSyncBridge.js';
+          if (chunk.name === 'floatingButton') return 'contentScript/floatingButton.js';
           return '[name]/index.js';
         },
         chunkFileNames: 'chunks/[name]-[hash].js',

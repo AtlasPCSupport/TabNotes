@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeHtml, htmlToPlainText } from './sanitize';
+import { escapeHtml, sanitizeHtml, htmlToPlainText } from './sanitize';
+
+describe('escapeHtml', () => {
+  it('escapes text embedded in generated HTML documents', () => {
+    expect(escapeHtml(`<img src=x onerror='alert(1)'> &`)).toBe(
+      '&lt;img src=x onerror=&#39;alert(1)&#39;&gt; &amp;'
+    );
+  });
+});
 
 describe('sanitizeHtml', () => {
   it('strips <script> tags', () => {
@@ -19,6 +27,24 @@ describe('sanitizeHtml', () => {
     const out = sanitizeHtml('<img src=x onerror="alert(1)">');
     expect(out.toLowerCase()).not.toContain('onerror');
     expect(out.toLowerCase()).not.toContain('alert');
+  });
+
+  it('keeps local screenshot data URLs and rejects remote images', () => {
+    const out = sanitizeHtml(
+      '<img src="data:image/jpeg;base64,SGVsbG8=" alt="Screenshot">' +
+        '<img src="https://example.com/remote.jpg" alt="Remote">'
+    );
+    expect(out).toContain('src="data:image/jpeg;base64,SGVsbG8="');
+    expect(out).toContain('alt="Screenshot"');
+    expect(out).not.toContain('https://example.com/remote.jpg');
+  });
+
+  it('migrates legacy local screenshot markdown to an image', () => {
+    const out = sanitizeHtml('![Old screenshot](data:image/jpeg;base64,SGVsbG8=)');
+    expect(out).toContain('<img');
+    expect(out).toContain('alt="Old screenshot"');
+    expect(out).toContain('data:image/jpeg;base64,SGVsbG8=');
+    expect(out).not.toContain('![Old screenshot]');
   });
 
   it('neutralizes javascript: hrefs', () => {

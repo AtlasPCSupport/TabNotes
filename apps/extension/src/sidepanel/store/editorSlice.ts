@@ -12,6 +12,10 @@ function resolve<T>(prev: T, next: Updater<T>): T {
  * slice only owns the reactive editor state.
  */
 export const createEditorSlice: StateCreator<SidePanelState, [], [], EditorSlice> = (set) => ({
+  noteUnlocked: false,
+  editorVersions: [],
+  setNoteUnlocked: (noteUnlocked) => set({ noteUnlocked }),
+  setEditorVersions: (editorVersions) => set({ editorVersions }),
   activeNoteId: null,
   content: '',
   title: '',

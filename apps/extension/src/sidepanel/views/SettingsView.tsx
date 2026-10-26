@@ -14,6 +14,7 @@ import { StatsSettings } from '../components/settings/StatsSettings';
 import { DataSettings } from '../components/settings/DataSettings';
 import { SupportSettings } from '../components/settings/SupportSettings';
 import { LanguageSettings } from '../components/settings/LanguageSettings';
+import { FloatingButtonSettings } from '../components/settings/FloatingButtonSettings';
 
 const SCOPE_OPTIONS: { value: NoteScope; label: string; icon: AppIconName; desc: string }[] = [
   { value: 'url', label: 'URL', icon: 'url', desc: 'Exact page URL' },
@@ -224,6 +225,15 @@ export function SettingsView({
             ))}
           </div>
         </div>
+      </div>
+
+      <div
+        ref={registerSection('floating')}
+        className={sectionClassName('floating')}
+        data-settings-section="floating"
+        tabIndex={-1}
+      >
+        <FloatingButtonSettings />
       </div>
 
       <div

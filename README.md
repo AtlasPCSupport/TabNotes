@@ -10,7 +10,7 @@
 </p>
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Published-ffd84d?logo=googlechrome&logoColor=111215)](https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj)
-[![Version](https://img.shields.io/badge/version-2.11.5-79a7ff)](https://github.com/AtlasPCSupport/TabNotes/releases/tag/v2.11.5)
+[![Version](https://img.shields.io/badge/version-2.12.0-79a7ff)](https://github.com/AtlasPCSupport/TabNotes/releases/tag/v2.12.0)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ffffff)](LICENSE)
 [![Invítame a un café](https://img.shields.io/badge/PayPal-Inv%C3%ADtame%20a%20un%20caf%C3%A9-ffdd00?logo=paypal&logoColor=111215)](https://www.paypal.me/atlaspcsupport)
@@ -27,15 +27,15 @@
 
 ## Current Release
 
-| Item                | Value                                                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Public version      | `2.11.5`                                                                                                                                   |
-| Chrome Web Store ID | `pniapenkdphjolncppcichbahomfiffj`                                                                                                         |
-| Store package       | [`tabnotes-extension-v2.11.5.zip`](https://github.com/AtlasPCSupport/TabNotes/releases/download/v2.11.5/tabnotes-extension-v2.11.5.zip) |
-| Product site        | `https://tabnotes.atlaspcsupport.com/`                                                                                                     |
-| Privacy policy      | `https://tabnotes.atlaspcsupport.com/privacy/`                                                                                             |
-| Terms               | `https://tabnotes.atlaspcsupport.com/terms/`                                                                                               |
-| Mobile PWA route    | `/app` in `apps/web`                                                                                                                       |
+| Item                | Value                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Public version      | `2.12.0`                                                                                                                                |
+| Chrome Web Store ID | `pniapenkdphjolncppcichbahomfiffj`                                                                                                      |
+| Store package       | [`tabnotes-extension-v2.12.0.zip`](https://github.com/AtlasPCSupport/TabNotes/releases/download/v2.12.0/tabnotes-extension-v2.12.0.zip) |
+| Product site        | `https://tabnotes.atlaspcsupport.com/`                                                                                                  |
+| Privacy policy      | `https://tabnotes.atlaspcsupport.com/privacy/`                                                                                          |
+| Terms               | `https://tabnotes.atlaspcsupport.com/terms/`                                                                                            |
+| Mobile PWA route    | `/app` in `apps/web`                                                                                                                    |
 
 ## What TabNotes Does
 
@@ -50,13 +50,13 @@ The extension runs in Chrome's side panel, autosaves notes locally, supports mul
 
 ## Highlights
 
-| Area         | Features                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------- |
-| Writing      | Rich text, Markdown preview, templates, checklist mode, text alignment, colors, note history         |
-| Organization | Workspaces, folders, tags, pinned notes, note colors, search, note graph                             |
-| Productivity | Command palette, contextual clipping, reminders, daily digest, backup reminders                      |
-| Privacy      | Local-first storage, JSON export/restore, optional Drive appData sync, per-note encryption, PIN lock |
-| Languages    | English and Spanish interface support                                                                |
+| Area         | Features                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| Writing      | Rich text, Markdown preview, templates, checklist mode, text alignment, colors, note history          |
+| Organization | Workspaces, folders, tags, pinned notes, note colors, search, note graph                              |
+| Productivity | Capture Hub, floating capture button, screenshots, crop, contextual clipping, reminders, daily digest |
+| Privacy      | Local-first storage, JSON export/restore, optional Drive appData sync, per-note encryption, PIN lock  |
+| Languages    | English and Spanish interface support                                                                 |
 
 ## Mobile PWA
 
@@ -92,7 +92,7 @@ TabNotes does not use a TabNotes server for your notes.
 
 The recommended install path is the Chrome Web Store. For local testing:
 
-1. Download [`tabnotes-extension-v2.11.5.zip`](https://github.com/AtlasPCSupport/TabNotes/releases/download/v2.11.5/tabnotes-extension-v2.11.5.zip).
+1. Download [`tabnotes-extension-v2.12.0.zip`](https://github.com/AtlasPCSupport/TabNotes/releases/download/v2.12.0/tabnotes-extension-v2.12.0.zip).
 2. Unzip it.
 3. Open Chrome and go to `chrome://extensions`.
 4. Enable **Developer mode**.

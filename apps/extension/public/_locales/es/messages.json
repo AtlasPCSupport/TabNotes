@@ -5,6 +5,33 @@
   "appDesc": {
     "message": "Notas contextuales por pestaña, dominio o proyecto. Varias notas por página. Local primero, sin cuenta."
   },
+  "floatingLabel": {
+    "message": "Capturas de TabNotes"
+  },
+  "floatingOpenFailed": {
+    "message": "No se pudo completar la acción. Abre TabNotes desde su icono en la barra de Chrome y vuelve a intentarlo. Si actualizaste la extensión, recarga esta página."
+  },
+  "floatingNewNote": {
+    "message": "Nueva nota"
+  },
+  "floatingScreenshotCurrent": {
+    "message": "Captura → nota actual"
+  },
+  "floatingScreenshotNew": {
+    "message": "Captura → nota nueva"
+  },
+  "floatingCropCurrent": {
+    "message": "Recorte → nota actual"
+  },
+  "floatingCropNew": {
+    "message": "Recorte → nota nueva"
+  },
+  "floatingClipCurrent": {
+    "message": "Selección → nota actual"
+  },
+  "floatingClipNew": {
+    "message": "Selección → nota nueva"
+  },
   "actionTitle": {
     "message": "Abrir TabNotes"
   },

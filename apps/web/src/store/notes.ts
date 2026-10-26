@@ -300,15 +300,16 @@ async function syncWebDriveOnce(
     const now = Date.now();
 
     if (remoteEnvelope) {
-      const merged = mergeDriveSyncEnvelope(remoteEnvelope, local, {
-        sourceDeviceId: meta.deviceId,
-        localTombstones: meta.tombstones,
-        lastSyncedAt: meta.lastSyncAt,
-        now,
+      local = await adapter.update((current) => {
+        const merged = mergeDriveSyncEnvelope(remoteEnvelope, current, {
+          sourceDeviceId: meta.deviceId,
+          localTombstones: meta.tombstones,
+          lastSyncedAt: meta.lastSyncAt,
+          now,
+        });
+        tombstones = merged.tombstones;
+        return merged.data;
       });
-      local = merged.data;
-      tombstones = merged.tombstones;
-      await adapter.set(local);
     }
 
     const envelope = createDriveSyncEnvelope(local, {
@@ -317,9 +318,9 @@ async function syncWebDriveOnce(
       tombstones,
       now: now + 1,
     });
-    const file = await retryTransientDriveOperation(() =>
-      saveWebBackupFile(token, envelope, remoteFile?.id ?? meta.fileId)
-    );
+    // An interrupted write may have succeeded remotely. Do not replay it over
+    // a newer backup from another device.
+    const file = await saveWebBackupFile(token, envelope, remoteFile?.id ?? meta.fileId);
     const nextMeta = await setSyncMeta({
       fileId: file.id,
       remoteModifiedTime: file.modifiedTime,
@@ -515,12 +516,10 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     }
     const backup = result.value;
 
-    const current = await adapter.get();
     // Finish all deterministic processing before taking the checkpoint, so a
     // rejected backup never changes the available recovery snapshot.
-    const restored = applyBackupImport(backup, current);
-    await adapter.createRecoverySnapshot?.('before-backup-import');
-    await adapter.set(restored.data);
+    await adapter.importWithSnapshot((current) => applyBackupImport(backup, current).data);
+    notesService.forgetPasswords();
     await get().load();
     set({ sync: markLocalChanges(get().sync) });
     scheduleAutoSync(() => get().syncWithDrive(false));

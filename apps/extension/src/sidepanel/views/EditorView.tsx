@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useSidePanelStore, runtime } from '../store';
+import { useSidePanelStore } from '../store';
 import {
   Note,
   NoteScope,
@@ -208,9 +208,12 @@ export function EditorView({
     currentUrl.startsWith('chrome-extension://');
 
   const activeNote = contextNotes.find((n) => n.id === activeNoteId) ?? null;
+  const noteUnlocked = useSidePanelStore((s) => s.noteUnlocked);
+  const editorVersions = useSidePanelStore((s) => s.editorVersions);
+  const noteLocked = Boolean(activeNote?.encrypted && !noteUnlocked);
   const activeNoteColor = activeNoteId ? (noteColors[activeNoteId] ?? '') : '';
   const hasNoteBody = Boolean(content || title);
-  const hasHistory = (activeNote?.versions?.length ?? 0) > 0;
+  const hasHistory = !noteLocked && editorVersions.length > 0;
   const reminderNow = Date.now();
   const reminderMinValue = formatDateTimeLocal(getMinimumReminderTimestamp(reminderNow));
   const parsedReminderAt = parseDateTimeLocalInput(reminderInput);
@@ -582,10 +585,9 @@ export function EditorView({
                   if (editorRef) {
                     (editorRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
                   }
-                  runtime.editorEl = el;
                 }}
                 className="sp-note-textarea sp-rich-editor"
-                contentEditable={!tabLoading}
+                contentEditable={!tabLoading && !noteLocked}
                 suppressContentEditableWarning
                 autoFocus={!tabLoading}
                 data-placeholder={t('editor.placeholder', {
@@ -1063,7 +1065,7 @@ export function EditorView({
                   {activeNoteId && hasHistory && showHistory && (
                     <div className="sp-history-panel">
                       <div className="sp-history-header">{t('editor.historyTooltip')}</div>
-                      {[...(activeNote!.versions ?? [])].reverse().map((v, i) => (
+                      {[...editorVersions].reverse().map((v, i) => (
                         <button
                           key={i}
                           className="sp-history-item"

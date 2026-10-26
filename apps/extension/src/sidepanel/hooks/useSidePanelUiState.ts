@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type { NoteContentFilter } from '@tabnotes/shared';
 import type { PendingNoteReminder } from '../../shared/reminders';
 
 /**
@@ -10,6 +11,8 @@ export function useSidePanelUiState() {
   const [deletePillConfirmId, setDeletePillConfirmId] = useState<string | null>(null);
   const [deleteCardConfirmId, setDeleteCardConfirmId] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState('');
+  const [inboxOnly, setInboxOnly] = useState(false);
+  const [contentFilter, setContentFilter] = useState<NoteContentFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
@@ -47,6 +50,10 @@ export function useSidePanelUiState() {
     setDeleteCardConfirmId,
     searchQ,
     setSearchQ,
+    inboxOnly,
+    setInboxOnly,
+    contentFilter,
+    setContentFilter,
     selectedId,
     setSelectedId,
     selectMode,

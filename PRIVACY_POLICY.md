@@ -1,6 +1,6 @@
 # Privacy Policy — TabNotes
 
-**Last updated: June 20, 2026**
+**Last updated: August 22, 2026**
 
 ## Overview
 
@@ -55,6 +55,8 @@ When enabled:
 | `offscreen`                    | Play local reminder audio when a note reminder fires                                   |
 | `alarms`                       | Schedule reminders and periodic Drive sync checks                                      |
 | `notifications`                | Show reminders and daily digest notifications                                          |
+| `scripting`                    | Read a user-selected page selection or inject the optional floating capture button     |
+| `http://*/*`, `https://*/*`    | Optional per-site access requested only for selection clipping or the floating button  |
 | `https://www.googleapis.com/*` | Optional Google Drive sync API calls                                                   |
 
 No permission is used for data collection or tracking.

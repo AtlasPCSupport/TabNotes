@@ -187,15 +187,26 @@ describe('mergeDriveSyncEnvelope', () => {
     });
     const second = mergeDriveSyncEnvelope(remote, first.data, {
       sourceDeviceId: 'desktop',
-      lastSyncedAt: 200,
+      // A real successful restore advances this checkpoint before the next restore.
+      lastSyncedAt: 400,
       now: 500,
     });
 
     const conflictIds = Object.keys(second.data.notes_global).filter((id) => id.includes('__conflict__'));
 
     expect(first.data.notes_global.n.content).toBe('local edit');
+    expect(second.data.notes_global.n.content).toBe('local edit');
     expect(conflictIds).toHaveLength(1);
     expect(second.summary.noteConflictsCreated).toBe(0);
+
+    const newerRemote = createDriveSyncEnvelope(
+      storage({ notes_global: { n: note('n', 600, 'new remote edit') } }),
+      { sourceDeviceId: 'mobile', now: 650 },
+    );
+    const third = mergeDriveSyncEnvelope(newerRemote, second.data, {
+      sourceDeviceId: 'desktop', lastSyncedAt: 500, now: 700,
+    });
+    expect(third.data.notes_global.n.content).toBe('new remote edit');
   });
 
   it('does not create conflicts for notes with equivalent visible content', () => {

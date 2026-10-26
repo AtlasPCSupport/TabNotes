@@ -2,6 +2,7 @@ import type { Note, StorageData } from './types';
 import type { RecoverySnapshot } from './storage';
 import { DEFAULT_STORAGE, getScopeCollectionKey, type StorageAdapter } from './storage';
 import { generateId } from './utils';
+import { withStorageLock } from './storageLock';
 
 const DEFAULT_DB_NAME = 'tabnotes-mobile';
 const DEFAULT_STORE_NAME = 'kv';
@@ -178,54 +179,54 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   private async ensureData(): Promise<StorageData> {
     const raw = await this.getRaw<StorageData>(STORAGE_KEY);
     if (raw) {
-      const normalized = normalizeStorage(raw);
-      if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
-        await this.setRaw(STORAGE_KEY, normalized);
-      }
-      return normalized;
+      return normalizeStorage(raw);
     }
 
     return (await this.migrateLegacyLocalStorage()) ?? structuredClone(DEFAULT_STORAGE);
   }
 
   async get(): Promise<StorageData> {
-    try {
-      return await this.ensureData();
-    } catch {
-      return structuredClone(DEFAULT_STORAGE);
-    }
+    // A failed read is not an empty database. Propagate it so no caller can
+    // overwrite existing notes with defaults after a temporary storage error.
+    return withStorageLock(() => this.ensureData());
   }
 
   async set(data: Partial<StorageData>): Promise<void> {
-    const run = this.writeChain.then(async () => {
-      const current = await this.get();
-      await this.setRaw(STORAGE_KEY, { ...current, ...data });
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.ensureData();
+        await this.setRaw(STORAGE_KEY, { ...current, ...data });
+      })
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }
 
   async update(mutator: (current: StorageData) => Partial<StorageData>): Promise<StorageData> {
-    const run = this.writeChain.then(async () => {
-      const current = await this.get();
-      const next = { ...current, ...mutator(current) };
-      await this.setRaw(STORAGE_KEY, next);
-      return next;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.ensureData();
+        const next = { ...current, ...mutator(current) };
+        await this.setRaw(STORAGE_KEY, next);
+        return next;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
 
   async createRecoverySnapshot(reason: string, now = Date.now()): Promise<RecoverySnapshot> {
-    const run = this.writeChain.then(async () => {
-      const snapshot: RecoverySnapshot = {
-        createdAt: now,
-        reason,
-        data: await this.get(),
-      };
-      await this.setRaw(RECOVERY_SNAPSHOT_KEY, snapshot);
-      return snapshot;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const snapshot: RecoverySnapshot = {
+          createdAt: now,
+          reason,
+          data: await this.ensureData(),
+        };
+        await this.setRaw(RECOVERY_SNAPSHOT_KEY, snapshot);
+        return snapshot;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
@@ -242,35 +243,62 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     return { ...snapshot, data: normalizeStorage(snapshot.data) };
   }
 
+  async importWithSnapshot(merge: (current: StorageData) => StorageData): Promise<StorageData> {
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const current = await this.ensureData();
+        const next = merge(current);
+        const db = await this.open();
+        const transaction = db.transaction(this.storeName, 'readwrite');
+        const store = transaction.objectStore(this.storeName);
+        store.put(
+          { createdAt: Date.now(), reason: 'before-import', data: current },
+          RECOVERY_SNAPSHOT_KEY
+        );
+        store.put(next, STORAGE_KEY);
+        await transactionDone(transaction);
+        return next;
+      })
+    );
+    this.writeChain = run.then(() => undefined).catch(() => undefined);
+    return run;
+  }
+
   async restoreRecoverySnapshot(): Promise<RecoverySnapshot | undefined> {
-    const run = this.writeChain.then(async () => {
-      const snapshot = await this.getRecoverySnapshot();
-      if (!snapshot) return undefined;
-      await this.setRaw(STORAGE_KEY, snapshot.data);
-      return snapshot;
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const snapshot = await this.getRecoverySnapshot();
+        if (!snapshot) return undefined;
+        await this.setRaw(STORAGE_KEY, snapshot.data);
+        return snapshot;
+      })
+    );
     this.writeChain = run.then(() => undefined).catch(() => undefined);
     return run;
   }
 
   async clearRecoverySnapshot(): Promise<void> {
-    const run = this.writeChain.then(async () => {
-      const db = await this.open();
-      const transaction = db.transaction(this.storeName, 'readwrite');
-      transaction.objectStore(this.storeName).delete(RECOVERY_SNAPSHOT_KEY);
-      await transactionDone(transaction);
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const db = await this.open();
+        const transaction = db.transaction(this.storeName, 'readwrite');
+        transaction.objectStore(this.storeName).delete(RECOVERY_SNAPSHOT_KEY);
+        await transactionDone(transaction);
+      })
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }
 
   async clear(): Promise<void> {
-    const run = this.writeChain.then(async () => {
-      const db = await this.open();
-      const transaction = db.transaction(this.storeName, 'readwrite');
-      transaction.objectStore(this.storeName).delete(STORAGE_KEY);
-      await transactionDone(transaction);
-    });
+    const run = this.writeChain.then(() =>
+      withStorageLock(async () => {
+        const db = await this.open();
+        const transaction = db.transaction(this.storeName, 'readwrite');
+        transaction.objectStore(this.storeName).delete(STORAGE_KEY);
+        await transactionDone(transaction);
+      })
+    );
     this.writeChain = run.catch(() => undefined);
     return run;
   }

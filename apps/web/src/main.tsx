@@ -32,10 +32,7 @@ reportStorageCapability();
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary label="app">
-      <BrowserRouter
-        basename={routerBaseName}
-        future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
-      >
+      <BrowserRouter basename={routerBaseName}>
         <App />
       </BrowserRouter>
     </ErrorBoundary>

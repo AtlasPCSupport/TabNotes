@@ -7,7 +7,7 @@ import { AppIcon, type AppIconName } from './AppIcon';
 export interface CommandPaletteProps {
   // Local states/handlers in parent
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
-  
+
   // Callback/service functions from SidePanelApp
   addNoteToContext: (folder?: string) => Promise<void>;
   selectNote: (n: Note) => void;
@@ -15,7 +15,7 @@ export interface CommandPaletteProps {
   exportToPDF: () => void;
   handleScopeChange: (scope: NoteScope) => void;
   loadContextNotes: (url: string, scope: NoteScope, wsId: string | null) => Promise<void>;
-  
+
   // Refs from parent needed for functions
   currentUrlRef: React.RefObject<string>;
   scopeRef: React.RefObject<NoteScope>;
@@ -61,8 +61,7 @@ export function CommandPalette({
   useEffect(() => {
     const handleGlobalKeydown = (e: KeyboardEvent) => {
       if (!features.cmdPalette) return;
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const ctrl = isMac ? e.metaKey : e.ctrlKey;
+      const ctrl = e.metaKey || e.ctrlKey;
       if (ctrl && e.key === 'k') {
         e.preventDefault();
         setCmdQuery('');
@@ -127,14 +126,22 @@ export function CommandPalette({
           setView('settings');
         },
       },
-      { label: t('commandPalette.toggleMarkdown'), icon: 'markdown', run: () => setMdState((p) => !p) },
+      {
+        label: t('commandPalette.toggleMarkdown'),
+        icon: 'markdown',
+        run: () => setMdState((p) => !p),
+      },
       {
         label: t('commandPalette.toggleFocus'),
         icon: 'focus',
         shortcut: 'Ctrl+Shift+F',
         run: () => setFocusMode((p) => !p),
       },
-      { label: t('commandPalette.captureScreenshot'), icon: 'camera', run: () => captureScreenshot() },
+      {
+        label: t('commandPalette.captureScreenshot'),
+        icon: 'camera',
+        run: () => captureScreenshot(),
+      },
       { label: t('commandPalette.exportPdf'), icon: 'print', run: () => exportToPDF() },
       {
         label: t('commandPalette.scope', { scope: t('scope.url') }),
@@ -174,7 +181,19 @@ export function CommandPalette({
 
     return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cmdQuery, allNotes, workspaces, activeWorkspaceId, addNoteToContext, selectNote, captureScreenshot, exportToPDF, handleScopeChange, loadContextNotes, t]);
+  }, [
+    cmdQuery,
+    allNotes,
+    workspaces,
+    activeWorkspaceId,
+    addNoteToContext,
+    selectNote,
+    captureScreenshot,
+    exportToPDF,
+    handleScopeChange,
+    loadContextNotes,
+    t,
+  ]);
 
   const paletteItemsRef = useRef(paletteItems);
   paletteItemsRef.current = paletteItems;

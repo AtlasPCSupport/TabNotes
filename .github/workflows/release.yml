@@ -23,6 +23,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-release-metadata.mjs --tag "$GITHUB_REF_NAME"
+      - run: pnpm check:repo-hygiene
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --filter @tabnotes/extension exec playwright install --with-deps chromium
+      - run: pnpm --filter @tabnotes/extension exec playwright test
 
   build-extension:
     name: Build extension artifact

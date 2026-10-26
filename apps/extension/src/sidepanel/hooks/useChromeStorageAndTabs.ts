@@ -11,9 +11,16 @@ import {
   editorHtmlToPlainText,
   isChecklistContent,
   parseChecklistItems,
+  withStorageLock,
 } from '@tabnotes/shared';
 import { useSidePanelStore } from '../store';
 import i18n, { resolveLanguage } from '@tabnotes/i18n';
+import {
+  FLOATING_REQUEST_STORAGE_KEY,
+  normalizeFloatingAction,
+  type FloatingAction,
+  type FloatingRequest,
+} from '../../shared/floating';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cr: any =
@@ -28,6 +35,7 @@ interface PendingClip {
   text: string;
   sourceUrl?: string;
   sourceTitle?: string;
+  target?: 'current' | 'new';
 }
 
 function normalizePendingClip(value: unknown): PendingClip | null {
@@ -39,6 +47,7 @@ function normalizePendingClip(value: unknown): PendingClip | null {
     text,
     sourceUrl: typeof clip.sourceUrl === 'string' ? clip.sourceUrl : undefined,
     sourceTitle: typeof clip.sourceTitle === 'string' ? clip.sourceTitle : undefined,
+    target: clip.target === 'new' ? 'new' : 'current',
   };
 }
 
@@ -57,7 +66,6 @@ interface UseChromeStorageAndTabsProps {
   adapter: React.MutableRefObject<ChromeStorageAdapter>;
   noteSvc: React.MutableRefObject<NotesService>;
   wsSvc: React.MutableRefObject<WorkspacesService>;
-  saveTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | undefined>;
   contentSavedRef: React.MutableRefObject<string>;
   lastSaveTs: React.MutableRefObject<number>;
   editorRef: React.RefObject<HTMLDivElement>;
@@ -68,13 +76,18 @@ interface UseChromeStorageAndTabsProps {
   currentUrlRef: React.MutableRefObject<string>;
   wsIdRef: React.MutableRefObject<string | null>;
   addNoteToContextRef: React.MutableRefObject<() => Promise<void>>;
+  floatingRequestRef: React.MutableRefObject<
+    (action: FloatingAction, request?: FloatingRequest) => Promise<void>
+  >;
+  flushPendingSave: () => Promise<void>;
+  isDraftDirty: () => boolean;
+  onCaptureFailure: () => void;
 }
 
 export function useChromeStorageAndTabs({
   adapter,
   noteSvc,
   wsSvc,
-  saveTimer,
   contentSavedRef,
   lastSaveTs,
   editorRef,
@@ -83,8 +96,13 @@ export function useChromeStorageAndTabs({
   currentUrlRef,
   wsIdRef,
   addNoteToContextRef,
+  floatingRequestRef,
+  flushPendingSave,
+  isDraftDirty,
+  onCaptureFailure,
 }: UseChromeStorageAndTabsProps) {
   const [loading, setLoading] = useState(true);
+  const [storageError, setStorageError] = useState(false);
   const [tabLoading, setTabLoading] = useState(false);
   const [streak, setStreak] = useState(0);
   const [digestEnabled, setDigestEnabled] = useState(false);
@@ -97,6 +115,27 @@ export function useChromeStorageAndTabs({
   const [syncedToast, setSyncedToast] = useState(false);
   const [clipFeedback, setClipFeedback] = useState(false);
   const lastDriveSyncRequestRef = React.useRef(0);
+  const ownerWindowRef = React.useRef<number | null>(null);
+
+  const consumeFloatingRequest = useCallback(async () => {
+    // Options and standalone panel tabs share storage, but must not steal the
+    // request from Chrome's real side panel. getCurrent() is undefined there.
+    if (await cr.tabs.getCurrent()) return;
+    if (document.visibilityState !== 'visible') return;
+    const request = await withStorageLock(async () => {
+      const data = await cr.storage.local.get(FLOATING_REQUEST_STORAGE_KEY);
+      const value = data[FLOATING_REQUEST_STORAGE_KEY] as FloatingRequest | undefined;
+      if (!value || !normalizeFloatingAction(value.action)) return null;
+      if (typeof value.windowId === 'number') {
+        const window = await cr.windows.getCurrent();
+        if (window.id !== value.windowId) return null;
+      }
+      if (value.sourceUrl && currentUrlRef.current !== value.sourceUrl) return null;
+      await cr.storage.local.remove(FLOATING_REQUEST_STORAGE_KEY);
+      return Date.now() - value.requestedAt > 30_000 ? null : value;
+    });
+    if (request) await floatingRequestRef.current(request.action, request);
+  }, [currentUrlRef, floatingRequestRef]);
 
   // Store setters
   const setView = useSidePanelStore((s) => s.setView);
@@ -122,13 +161,19 @@ export function useChromeStorageAndTabs({
   const setChecklistItems = useSidePanelStore((s) => s.setChecklistItems);
 
   const applyCleanNoteToEditor = useCallback(
-    (note: Note | null) => {
+    async (note: Note | null) => {
+      if (note) note = await noteSvc.current.getEditorNote(note);
+      useSidePanelStore.setState({
+        noteUnlocked: Boolean(note && noteSvc.current.isUnlocked(note.id)),
+        editorVersions:
+          note?.encrypted && !noteSvc.current.isUnlocked(note.id) ? [] : (note?.versions ?? []),
+      });
       const nextContent = note?.content ?? '';
       activeNoteIdRef.current = note?.id ?? null;
       contentSavedRef.current = nextContent;
       setActiveNoteId(note?.id ?? null);
       setContent(nextContent);
-      setTitle(stripFormatting(note?.title ?? ''));
+      setTitle(note?.title ?? '');
       setTags(note?.tags.join(', ') ?? '');
       const plainContent = editorHtmlToPlainText(nextContent);
       const isChecklist = isChecklistContent(plainContent);
@@ -148,6 +193,7 @@ export function useChromeStorageAndTabs({
       setChecklistMode,
       setTags,
       setTitle,
+      noteSvc,
     ]
   );
 
@@ -169,45 +215,76 @@ export function useChromeStorageAndTabs({
   }, [noteSvc, setAllNotes]);
 
   const appendClipToCurrentNote = useCallback(
-    async (rawClip: unknown): Promise<boolean> => {
+    async (rawClip: unknown, requestedTarget?: 'current' | 'new'): Promise<boolean> => {
       const clip = normalizePendingClip(rawClip);
       if (!clip) return false;
+      await flushPendingSave();
 
       const state = useSidePanelStore.getState();
+      const destination = {
+        id: activeNoteIdRef.current,
+        url: currentUrlRef.current,
+        scope: scopeRef.current,
+        workspaceId: wsIdRef.current,
+      };
       const sourceUrl = clip.sourceUrl || currentUrlRef.current;
-      const nextContent = state.content.trim()
-        ? `${state.content}${formatClipMarkdown(clip, currentUrlRef.current)}`
-        : formatClipMarkdown(clip, currentUrlRef.current).trimStart();
-      const parsedTags = state.tags
+      const target = requestedTarget ?? clip.target ?? 'current';
+      const useCurrentNote = target === 'current';
+      const nextContent =
+        useCurrentNote && state.content.trim()
+          ? `${state.content}${formatClipMarkdown(clip, currentUrlRef.current)}`
+          : formatClipMarkdown(clip, currentUrlRef.current).trimStart();
+      const parsedTags = (useCurrentNote ? state.tags : '')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-      const title = stripFormatting(state.title || clip.sourceTitle || sourceUrl || '');
+      const title = stripFormatting(
+        (useCurrentNote ? state.title : '') || clip.sourceTitle || sourceUrl || ''
+      );
 
       setSaved(false);
-      clearTimeout(saveTimer.current);
 
-      const savedNote = activeNoteIdRef.current
-        ? await noteSvc.current.updateNote(activeNoteIdRef.current, {
-            content: nextContent,
-            title: title || undefined,
-            tags: parsedTags,
-          })
-        : await noteSvc.current.createNote({
-            scope: scopeRef.current,
-            url: currentUrlRef.current || sourceUrl,
-            workspaceId: wsIdRef.current,
-            content: nextContent,
-            title: title || undefined,
-            tags: parsedTags,
-          });
+      let savedNote =
+        useCurrentNote && destination.id
+          ? await noteSvc.current.updateNote(destination.id, {
+              content: nextContent,
+              title: title || undefined,
+              tags: parsedTags,
+            })
+          : await noteSvc.current.createNote({
+              scope: destination.scope,
+              url: destination.url || sourceUrl,
+              workspaceId: destination.workspaceId,
+              content: nextContent,
+              title: title || undefined,
+              tags: parsedTags,
+            });
 
       if (!savedNote) return false;
+      if (
+        activeNoteIdRef.current !== destination.id ||
+        currentUrlRef.current !== destination.url ||
+        scopeRef.current !== destination.scope ||
+        wsIdRef.current !== destination.workspaceId
+      ) {
+        await refreshAllNotes();
+        return true;
+      }
+      savedNote = await noteSvc.current.getEditorNote(savedNote);
+      useSidePanelStore.setState({
+        noteUnlocked: noteSvc.current.isUnlocked(savedNote.id),
+        editorVersions: savedNote.versions ?? [],
+      });
 
       activeNoteIdRef.current = savedNote.id;
+      setActiveNoteId(savedNote.id);
       setContent(savedNote.content);
-      setTitle(stripFormatting(savedNote.title ?? ''));
+      setTitle(savedNote.title ?? '');
       setTags(savedNote.tags.join(', '));
+      const plainContent = editorHtmlToPlainText(savedNote.content);
+      const checklist = isChecklistContent(plainContent);
+      setChecklistMode(checklist);
+      setChecklistItems(checklist ? parseChecklistItems(plainContent) : []);
       setContextNotes(
         await noteSvc.current.getNotesByScope(
           scopeRef.current,
@@ -229,16 +306,19 @@ export function useChromeStorageAndTabs({
     },
     [
       activeNoteIdRef,
+      flushPendingSave,
       contentSavedRef,
       currentUrlRef,
       editorRef,
       lastSaveTs,
       noteSvc,
       refreshAllNotes,
-      saveTimer,
       scopeRef,
       setContent,
       setContextNotes,
+      setActiveNoteId,
+      setChecklistItems,
+      setChecklistMode,
       setSaved,
       setTags,
       setTitle,
@@ -247,12 +327,32 @@ export function useChromeStorageAndTabs({
     ]
   );
 
+  const consumePendingClip = useCallback(async () => {
+    const clip = await withStorageLock(async () => {
+      const data = await cr.storage.local.get(PENDING_CLIP_STORAGE_KEY);
+      const request = data[PENDING_CLIP_STORAGE_KEY] as
+        | (PendingClip & { windowId?: number; tabId?: number })
+        | undefined;
+      if (!normalizePendingClip(request)) return null;
+      if (typeof request?.windowId === 'number') {
+        const window = await cr.windows.getCurrent();
+        if (window.id !== request.windowId) return null;
+      }
+      if (typeof request?.tabId === 'number' && request.sourceUrl !== currentUrlRef.current)
+        return null;
+      await cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
+      return request;
+    });
+    if (clip) await appendClipToCurrentNote(clip);
+  }, [appendClipToCurrentNote, currentUrlRef]);
+
   const loadContextNotes = useCallback(
     async (url: string, sc: NoteScope, wsId: string | null, preferNoteId?: string | null) => {
+      await flushPendingSave();
       if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
         setContextNotes([]);
         setActiveWorkspaceId(wsId);
-        applyCleanNoteToEditor(null);
+        await applyCleanNoteToEditor(null);
         return;
       }
 
@@ -263,13 +363,14 @@ export function useChromeStorageAndTabs({
         ? (notes.find((n) => n.id === preferNoteId) ?? notes[0] ?? null)
         : (notes[0] ?? null);
 
-      applyCleanNoteToEditor(pick);
+      await applyCleanNoteToEditor(pick);
     },
-    [noteSvc, setContextNotes, setActiveWorkspaceId, applyCleanNoteToEditor]
+    [noteSvc, setContextNotes, setActiveWorkspaceId, applyCleanNoteToEditor, flushPendingSave]
   );
 
   const switchToTab = useCallback(
     async (url: string) => {
+      await flushPendingSave();
       setTabLoading(true);
       setCurrentUrl(url);
       setCurrentDomain(normalizeDomain(url));
@@ -280,8 +381,12 @@ export function useChromeStorageAndTabs({
         loadContextNotes(url, scopeRef.current, wsIdRef.current),
       ]);
       setTabLoading(false);
+      // The click may arrive while this panel is still switching to its source tab.
+      await consumeFloatingRequest().catch(onCaptureFailure);
     },
     [
+      consumeFloatingRequest,
+      onCaptureFailure,
       loadContextNotes,
       refreshAllNotes,
       setCurrentDomain,
@@ -289,6 +394,7 @@ export function useChromeStorageAndTabs({
       currentUrlRef,
       scopeRef,
       wsIdRef,
+      flushPendingSave,
     ]
   );
 
@@ -339,11 +445,11 @@ export function useChromeStorageAndTabs({
       area: string
     ) => {
       if (area === 'local' && changes[PENDING_CLIP_STORAGE_KEY]?.newValue) {
-        void appendClipToCurrentNote(changes[PENDING_CLIP_STORAGE_KEY].newValue).then(
-          (consumed) => {
-            if (consumed) cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
-          }
-        );
+        void consumePendingClip().catch(onCaptureFailure);
+        return;
+      }
+      if (area === 'local' && changes[FLOATING_REQUEST_STORAGE_KEY]?.newValue) {
+        void consumeFloatingRequest().catch(onCaptureFailure);
         return;
       }
       if (area === 'local' && changes['tn_quick_capture']?.newValue) {
@@ -391,21 +497,9 @@ export function useChromeStorageAndTabs({
         if (id) {
           const remote = ctxUpdated.find((n) => n.id === id) ?? allUpdated.find((n) => n.id === id);
           const nextNote = remote ?? ctxUpdated[0] ?? null;
-          setContent((localContent) => {
-            if (localContent !== contentSavedRef.current) return localContent;
-            activeNoteIdRef.current = nextNote?.id ?? null;
-            setActiveNoteId(nextNote?.id ?? null);
-            contentSavedRef.current = nextNote?.content ?? '';
-            const nextContent = nextNote?.content ?? '';
-            const plainContent = editorHtmlToPlainText(nextContent);
-            const isChecklist = isChecklistContent(plainContent);
-            setTitle(stripFormatting(nextNote?.title ?? ''));
-            setTags(nextNote?.tags.join(', ') ?? '');
-            setChecklistMode(isChecklist);
-            setChecklistItems(isChecklist ? parseChecklistItems(plainContent) : []);
-            setSaved(false);
-            return nextContent;
-          });
+          if (!isDraftDirty() && useSidePanelStore.getState().content === contentSavedRef.current) {
+            await applyCleanNoteToEditor(nextNote);
+          }
         }
       }, 250);
     };
@@ -416,7 +510,13 @@ export function useChromeStorageAndTabs({
       clearTimeout(t);
     };
   }, [
+    consumeFloatingRequest,
+    consumePendingClip,
+    onCaptureFailure,
+    applyCleanNoteToEditor,
+    isDraftDirty,
     addNoteToContextRef,
+    floatingRequestRef,
     appendClipToCurrentNote,
     setView,
     editorRef,
@@ -501,38 +601,44 @@ export function useChromeStorageAndTabs({
 
       await refreshAllNotes();
 
-      cr.tabs.query({ active: true, currentWindow: true }, async (tabs: { url?: string }[]) => {
-        const url = tabs[0]?.url ?? '';
-        setCurrentUrl(url);
-        setCurrentDomain(normalizeDomain(url));
-        currentUrlRef.current = url;
-        await loadContextNotes(url, sc, wsId);
+      const ownerWindow = await cr.windows.getCurrent();
+      ownerWindowRef.current = ownerWindow.id;
+      const tabs = await new Promise<{ url?: string }[]>((resolve) =>
+        cr.tabs.query({ active: true, currentWindow: true }, resolve)
+      );
+      const url = tabs[0]?.url ?? '';
+      setCurrentUrl(url);
+      setCurrentDomain(normalizeDomain(url));
+      currentUrlRef.current = url;
+      await loadContextNotes(url, sc, wsId);
 
-        const pendingClipData = await new Promise<Record<string, unknown>>((res) =>
-          cr.storage.local.get(PENDING_CLIP_STORAGE_KEY, res)
-        );
-        if (await appendClipToCurrentNote(pendingClipData[PENDING_CLIP_STORAGE_KEY])) {
-          cr.storage.local.remove(PENDING_CLIP_STORAGE_KEY);
-        }
+      await consumePendingClip().catch(onCaptureFailure);
 
-        const qcData = await new Promise<Record<string, unknown>>((res) =>
-          cr.storage.local.get('tn_quick_capture', res)
-        );
-        if (qcData['tn_quick_capture']) {
-          cr.storage.local.remove('tn_quick_capture');
-          await addNoteToContextRef.current();
-          setView('note');
-          setTimeout(() => editorRef.current?.focus(), 120);
-        }
+      const qcData = await new Promise<Record<string, unknown>>((res) =>
+        cr.storage.local.get('tn_quick_capture', res)
+      );
+      if (qcData['tn_quick_capture']) {
+        cr.storage.local.remove('tn_quick_capture');
+        await addNoteToContextRef.current();
+        setView('note');
+        setTimeout(() => editorRef.current?.focus(), 120);
+      }
 
-        setLoading(false);
-        requestDriveSyncIfEnabled();
-      });
+      await consumeFloatingRequest();
+
+      setLoading(false);
+      requestDriveSyncIfEnabled();
     };
 
-    init();
+    void init().catch(() => {
+      setStorageError(true);
+      setLoading(false);
+    });
   }, [
     adapter,
+    consumeFloatingRequest,
+    consumePendingClip,
+    onCaptureFailure,
     wsSvc,
     setDefaultScopeState,
     setScope,
@@ -550,6 +656,7 @@ export function useChromeStorageAndTabs({
     loadContextNotes,
     appendClipToCurrentNote,
     addNoteToContextRef,
+    floatingRequestRef,
     setView,
     editorRef,
     requestDriveSyncIfEnabled,
@@ -573,7 +680,8 @@ export function useChromeStorageAndTabs({
   useEffect(() => {
     if (!cr?.tabs) return;
 
-    const onActivated = (info: { tabId: number }) => {
+    const onActivated = (info: { tabId: number; windowId: number }) => {
+      if (ownerWindowRef.current !== null && info.windowId !== ownerWindowRef.current) return;
       cr.tabs.get(info.tabId, (tab: { url?: string }) => {
         if (cr.runtime.lastError) return;
         const url = tab?.url ?? '';
@@ -584,8 +692,9 @@ export function useChromeStorageAndTabs({
     const onUpdated = (
       _tabId: number,
       changeInfo: { status?: string },
-      tab: { active?: boolean; url?: string }
+      tab: { active?: boolean; url?: string; windowId?: number }
     ) => {
+      if (ownerWindowRef.current !== null && tab.windowId !== ownerWindowRef.current) return;
       if (!tab.active) return;
       if (changeInfo.status === 'complete' && tab.url && tab.url !== currentUrlRef.current) {
         switchToTab(tab.url);
@@ -606,6 +715,7 @@ export function useChromeStorageAndTabs({
 
   return {
     loading,
+    storageError,
     tabLoading,
     setTabLoading,
     streak,
@@ -626,5 +736,6 @@ export function useChromeStorageAndTabs({
     loadContextNotes,
     switchToTab,
     saveDigest,
+    appendClipToCurrentNote,
   };
 }

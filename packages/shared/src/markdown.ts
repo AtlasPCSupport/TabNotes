@@ -15,7 +15,11 @@ export function renderMarkdown(text: string): string {
   const htmlChunks: string[] = [];
   const PH = '\x01';
   const safe = text
-    .replace(/<(span|u|s|b|i|strong|em|mark|div)\b([^>]*)>([\s\S]*?)<\/\1>/g, (full) => {
+    .replace(/<(p|span|u|s|b|i|strong|em|mark|div)\b([^>]*)>([\s\S]*?)<\/\1>/g, (full) => {
+      htmlChunks.push(full);
+      return `${PH}${htmlChunks.length - 1}${PH}`;
+    })
+    .replace(/<img\b[^>]*>/gi, (full) => {
       htmlChunks.push(full);
       return `${PH}${htmlChunks.length - 1}${PH}`;
     })
@@ -38,6 +42,10 @@ export function renderMarkdown(text: string): string {
     .replace(/__(.+?)__/g, '<u>$1</u>')
     .replace(/==(.+?)==/g, '<mark>$1</mark>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(
+      /!\[([^\]]+)\]\((data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2})\)/gi,
+      '<img src="$2" alt="$1">'
+    )
     .replace(
       /^- \[x\] (.+)$/gim,
       '<li class="tn-task tn-done"><input type="checkbox" checked data-task="true" /><span>$1</span></li>'

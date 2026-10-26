@@ -8,7 +8,7 @@ shared UI and domain state. It replaces the flat `useState`/`useRef` surface of 
 
 - `index.ts` — `create()`s the store by spreading all slice creators; exports `useSidePanelStore`.
 - `types.ts` — `View`, each slice interface, and the composed `SidePanelState` intersection.
-- `runtime.ts` — **non-reactive** registry for timers, timestamps, and the editor DOM node.
+- `../utils/autosave.ts` — pending drafts, serialized saves and explicit flush/retry.
 - `*Slice.ts` — one slice creator per concern (context, editor, noteList, commandPalette,
   settings, checklist). Added incrementally as the monolith is decomposed.
 
@@ -20,10 +20,10 @@ shared UI and domain state. It replaces the flat `useState`/`useRef` surface of 
    This is exactly why the monolith needed mirror-refs (`activeNoteIdRef`, `scopeRef`, …); with
    the store, `getState()` returns the current value and those refs disappear.
 
-2. **Timers, timestamps, and DOM nodes go in `runtime`, not the store.** `saveTimer`,
-   `contentSaved`, `lastSaveTs`, and `editorEl` are not UI state. Keeping them reactive would
-   cause needless re-renders and could shift autosave/sync timing. They live in `runtime.ts` and
-   are read/written directly.
+2. **Timers, timestamps, and DOM nodes stay in component refs or Autosave.**
+   UI changes flush drafts before replacing context. A scheduled write captures
+   its note ID, URL, scope and workspace; it never looks up a new destination later.
+   Decrypted note/history state is session-only and never persisted by this store.
 
 ## Slices
 

@@ -1,6 +1,7 @@
 export * from './types';
 export * from './utils';
 export * from './storage';
+export * from './storageLock';
 export * from './indexedDbStorage';
 export * from './sanitize';
 export * from './markdown';

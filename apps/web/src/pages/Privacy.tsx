@@ -160,6 +160,10 @@ export default function PrivacyPage() {
               perm: 'contextMenus',
               why: 'To let you clip selected text into a note from the browser context menu.',
             },
+            {
+              perm: 'scripting and optional HTTP(S) site access',
+              why: 'For selection clips and the floating capture button, granted only for a site you explicitly enable.',
+            },
             { perm: 'identity', why: 'For optional Google sign-in used by Google Drive sync.' },
             { perm: 'offscreen', why: 'To play local reminder audio when a reminder fires.' },
             {

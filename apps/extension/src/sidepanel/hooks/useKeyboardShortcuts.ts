@@ -8,7 +8,6 @@ interface UseKeyboardShortcutsProps {
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>;
   saveNote: (c: string, t: string, tg: string) => Promise<void>;
   insertDatetime: () => void;
-  saveTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | undefined>;
 }
 
 export function useKeyboardShortcuts({
@@ -19,17 +18,14 @@ export function useKeyboardShortcuts({
   setFocusMode,
   saveNote,
   insertDatetime,
-  saveTimer,
 }: UseKeyboardShortcutsProps) {
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const ctrl = isMac ? e.metaKey : e.ctrlKey;
+      const ctrl = e.metaKey || e.ctrlKey;
       if (!ctrl) return;
 
       if (e.key === 's') {
         e.preventDefault();
-        clearTimeout(saveTimer.current);
         saveNote(content, title, tags);
       } else if (e.key === 'd') {
         e.preventDefault();
@@ -43,6 +39,5 @@ export function useKeyboardShortcuts({
     };
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, title, tags, focusMode, setFocusMode, saveNote, insertDatetime]);
 }

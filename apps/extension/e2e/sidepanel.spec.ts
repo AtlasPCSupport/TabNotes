@@ -1,4 +1,4 @@
-import { test, expect, openPanelWithRealTab } from './fixtures';
+import { test, expect, openPanelWithRealTab, ONBOARDING_STORAGE_KEY } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -116,6 +116,309 @@ async function seedPendingReminder(panel: Page, note: { id: string; content: str
 }
 
 test.describe('TabNotes side panel — baseline', () => {
+  test('first-run onboarding explains scopes and persists completion', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const page = await context.newPage();
+    await page.goto(sidePanelUrl);
+    await page.evaluate((key) => chrome.storage.local.remove(key), ONBOARDING_STORAGE_KEY);
+    await page.reload();
+
+    const dialog = page.getByTestId('onboarding-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Choose how far a note should reach');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath('onboarding.png') });
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(dialog).toContainText('Save the useful part while you browse');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(dialog).toContainText('Your notes stay in this browser');
+    await page.getByRole('button', { name: 'Start writing' }).click();
+    await expect(dialog).toBeHidden();
+
+    const completedVersion = await page.evaluate<Promise<number | undefined>, string>((key) => {
+      return chrome.storage.local.get(key).then((result) => result[key] as number | undefined);
+    }, ONBOARDING_STORAGE_KEY);
+    expect(completedVersion).toBe(1);
+  });
+
+  test('help menu reopens the onboarding', async ({ context, sidePanelUrl }) => {
+    const page = await context.newPage();
+    await page.goto(sidePanelUrl);
+
+    await page.getByRole('button', { name: 'Help' }).click();
+    await expect(page.getByRole('menu', { name: 'Help' })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'View introduction' }).click();
+    await expect(page.getByTestId('onboarding-dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Skip intro' }).click();
+    await expect(page.getByTestId('onboarding-dialog')).toBeHidden();
+  });
+
+  test('capture hub exposes the existing capture actions', async ({ context, sidePanelUrl }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const hub = panel.getByTestId('capture-hub');
+
+    await expect(hub.getByRole('button', { name: /Capture|Capturar/ })).toBeVisible();
+    await hub.getByRole('button', { name: /Capture|Capturar/ }).click();
+    await expect(hub.getByRole('menu')).toBeVisible();
+    await expect(hub.getByRole('menuitem', { name: /New note|Nueva nota/ })).toBeVisible();
+    await expect(
+      hub.getByRole('menuitem', { name: /Screenshot|Captura de pantalla/ })
+    ).toBeVisible();
+    await expect(
+      hub.getByRole('menuitem', {
+        name: /Clip selection.*current note|Recortar selección.*nota actual/,
+      })
+    ).toBeVisible();
+    await expect(
+      hub.getByRole('menuitem', { name: /Clip selection.*new note|Recortar selección.*nota nueva/ })
+    ).toBeVisible();
+    await expect(hub).toContainText(/Clip selected text|Recortar texto seleccionado/);
+    await expect(hub).toContainText('Ctrl+Shift+N');
+    await panel.setViewportSize({ width: 390, height: 844 });
+    await panel.screenshot({ path: test.info().outputPath('capture-hub.png') });
+  });
+
+  test('visible-area cropper saves only the selected screenshot area', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const hub = panel.getByTestId('capture-hub');
+    await hub.getByRole('button', { name: /Capture|Capturar/ }).click();
+    await panel.evaluate(() => {
+      // The headless fixture has no activeTab grant. Keep this test focused on
+      // the crop interaction by supplying a deterministic captured image.
+      const runtime = chrome.runtime as typeof chrome.runtime & {
+        sendMessage: (message: unknown, callback?: (response: unknown) => void) => void;
+      };
+      runtime.sendMessage = ((message: unknown, callback?: (response: unknown) => void) => {
+        if ((message as { type?: string }).type === 'CAPTURE_TAB') {
+          callback?.({
+            dataUrl:
+              'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22240%22 height=%22160%22%3E%3Crect width=%22240%22 height=%22160%22 fill=%22%23dcae19%22/%3E%3C/svg%3E',
+          });
+          return;
+        }
+      }) as typeof runtime.sendMessage;
+    });
+    await hub.getByRole('menuitem', { name: /Crop an area|Recortar un área/ }).click();
+
+    const cropper = panel.getByTestId('visible-area-cropper');
+    await expect(cropper).toBeVisible({ timeout: 8000 });
+    const viewport = cropper.locator('.sp-crop-viewport');
+    const box = await viewport.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+
+    await panel.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.15);
+    await panel.mouse.down();
+    await panel.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.72);
+    await panel.mouse.up();
+
+    const save = cropper.getByRole('button', { name: /Add crop to note|Añadir recorte a la nota/ });
+    await expect(save).toBeEnabled();
+    await panel.screenshot({ path: test.info().outputPath('crop-selection.png') });
+    await save.click();
+    await expect(cropper).toHaveCount(0);
+    await expect(panel.locator('.sp-rich-editor img[alt^="Cropped screenshot"]')).toHaveCount(1);
+    await expect(panel.locator('.sp-rich-editor')).not.toContainText('data:image');
+    await panel.waitForTimeout(900);
+    const persistedContents = await panel.evaluate(async () => {
+      const result = await chrome.storage.local.get('tabnotes_data');
+      const data = result.tabnotes_data as Record<string, unknown> | undefined;
+      return Object.values(data ?? {})
+        .filter((collection): collection is Record<string, { content?: string }> => {
+          return Boolean(collection && typeof collection === 'object');
+        })
+        .flatMap((collection) => Object.values(collection).map((note) => note.content ?? ''));
+    });
+    expect(persistedContents.some((content) => content.includes('<img'))).toBe(true);
+    expect(persistedContents.some((content) => content.includes('![Cropped screenshot'))).toBe(
+      false
+    );
+  });
+
+  for (const error of ["Either the '<all_urls>' or 'activeTab' permission is required.", 'PAGE_CHANGED']) {
+    test(`capture failure explains ${error.includes('activeTab') ? 'activation' : 'page change'} without writing notes`, async ({
+      context,
+      sidePanelUrl,
+    }) => {
+      const panel = await openPanelWithRealTab(context, sidePanelUrl);
+      await panel.evaluate((captureError) => {
+        const original = chrome.runtime.sendMessage.bind(chrome.runtime);
+        chrome.runtime.sendMessage = ((message: { type?: string }, callback: (response: unknown) => void) => {
+          if (message.type === 'CAPTURE_TAB') callback({ error: captureError });
+          else original(message, callback);
+        }) as typeof chrome.runtime.sendMessage;
+      }, error);
+      const before = await panel.evaluate(async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data);
+      const hub = panel.getByTestId('capture-hub');
+      await hub.getByRole('button', { name: /Capture|Capturar/ }).click();
+      await hub.getByRole('menuitem', { name: /Screenshot|Captura de pantalla/ }).click();
+      await expect(panel.getByText(error.includes('activeTab') ? /puzzle icon|icono de puzle/ : /original page|página original/)).toBeVisible();
+      const after = await panel.evaluate(async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data);
+      expect(after).toEqual(before);
+      await expect(panel.locator('.sp-rich-editor img')).toHaveCount(0);
+    });
+  }
+
+  test('standalone tabs do not steal floating actions from the real side panel', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await panel.evaluate(() => chrome.storage.local.set({
+      tn_floating_request: { action: 'new-note', requestedAt: Date.now(), id: 'routing-regression' },
+    }));
+    await panel.waitForTimeout(500);
+    const result = await panel.evaluate(async () => {
+      const data = await chrome.storage.local.get(['tn_floating_request', 'tabnotes_data']);
+      return { request: data.tn_floating_request, notes: data.tabnotes_data?.notes_domain };
+    });
+    expect(result.request?.id).toBe('routing-regression');
+    expect(Object.keys(result.notes ?? {})).toHaveLength(0);
+  });
+
+  test('reopening and editing a note preserves literal title characters', async ({ context, sidePanelUrl }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const title = 'Research <capture> & "quotes" **literal**';
+    await panel.locator('.sp-note-title-input').fill(title);
+    await panel.locator('.sp-rich-editor').fill('Title compatibility fixture');
+    await expect.poll(() => panel.evaluate(async () => {
+      const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+      return Object.values(data?.notes_domain ?? {}).map((note) => (note as { title?: string }).title);
+    })).toContain(title);
+    await panel.reload();
+    await expect(panel.locator('.sp-note-title-input')).toHaveValue(title);
+    await panel.locator('.sp-rich-editor').fill('Edited body, unchanged title');
+    await expect.poll(() => panel.evaluate(async () => {
+      const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+      return Object.values(data?.notes_domain ?? {}).find((note) => (note as { content?: string }).content?.includes('Edited body'));
+    })).toMatchObject({ title });
+  });
+
+  test('floating screenshot request is consumed by the side panel', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await panel.evaluate(() => {
+      // This fixture opens a regular tab; emulate the real side-panel identity.
+      chrome.tabs.getCurrent = (() => Promise.resolve(undefined)) as typeof chrome.tabs.getCurrent;
+      const runtime = chrome.runtime as typeof chrome.runtime & {
+        sendMessage: (message: unknown, callback?: (response: unknown) => void) => void;
+      };
+      runtime.sendMessage = ((message: unknown, callback?: (response: unknown) => void) => {
+        if ((message as { type?: string }).type === 'CAPTURE_TAB') {
+          callback?.({ dataUrl: 'data:image/jpeg;base64,SGVsbG8=' });
+          return;
+        }
+      }) as typeof runtime.sendMessage;
+    });
+    await panel.evaluate(() =>
+      chrome.storage.local.set({
+        tn_floating_request: { action: 'screenshot-current', requestedAt: Date.now() },
+      })
+    );
+    await expect(panel.locator('.sp-rich-editor img[alt^="Screenshot"]')).toHaveCount(1, {
+      timeout: 8000,
+    });
+  });
+
+  test('All Notes exposes an Inbox filter for unfiled captures', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const hub = panel.getByTestId('capture-hub');
+    await hub.getByRole('button', { name: /Capture|Capturar/ }).click();
+    await hub.getByRole('menuitem', { name: /New note|Nueva nota/ }).click();
+    await panel.waitForTimeout(500);
+
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
+    const inbox = panel.getByTestId('inbox-switch');
+    await expect(inbox).toBeVisible();
+    await expect(inbox.getByRole('button', { name: /Inbox/ })).toContainText('1');
+    await inbox.getByRole('button', { name: /Inbox/ }).click();
+    await panel.locator('.sp-group-header', { hasText: /Domain|Dominio/ }).click();
+    await expect(panel.locator('.sp-note-card')).toHaveCount(1);
+  });
+
+  test('All Notes filters text, images, tasks, and keeps Inbox state visible', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+
+    await panel.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chromeApi = (globalThis as any).chrome;
+        const now = Date.now();
+        const note = (id: string, content: string, folder?: string): Record<string, unknown> => ({
+          id,
+          workspaceId: null,
+          scope: 'global',
+          scopeKey: '',
+          content,
+          tags: [],
+          ...(folder ? { folder } : {}),
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        chromeApi.storage.local.get('tabnotes_data', (result: Record<string, unknown>) => {
+          const data = result.tabnotes_data as Record<string, unknown>;
+          chromeApi.storage.local.set(
+            {
+              tabnotes_data: {
+                ...data,
+                notes_url: {},
+                notes_domain: {},
+                notes_workspace: {},
+                notes_global: {
+                  text: note('text', '<p>Plain text capture</p>'),
+                  image: note('image', '<p>Screenshot reference</p><img src="data:image/png;base64,AA==">![Legacy screenshot](data:image/png;base64,' + 'A'.repeat(1000) + ')'),
+                  task: note('task', '- [ ] Review captured task'),
+                  filed: note('filed', '<img src="data:image/png;base64,BB==">', '/organized'),
+                },
+              },
+            },
+            () => resolve()
+          );
+        });
+      });
+    });
+
+    await panel.waitForTimeout(500);
+    await panel.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
+    const filters = panel.getByTestId('note-content-filters');
+    await expect(filters).toBeVisible();
+    await expect(filters.getByRole('button', { name: /All/ })).toContainText('4');
+    // The image fixture now also has a readable caption; filters can overlap.
+    await expect(filters.getByRole('button', { name: /Text/ })).toContainText('2');
+    await expect(filters.getByRole('button', { name: /Images/ })).toContainText('2');
+    await expect(filters.getByRole('button', { name: /Tasks/ })).toContainText('1');
+
+    await panel.getByTestId('inbox-switch').getByRole('button', { name: /Inbox/ }).click();
+    await expect(filters.getByRole('button', { name: /All/ })).toContainText('3');
+    await expect(filters.getByRole('button', { name: /Images/ })).toContainText('1');
+    await filters.getByRole('button', { name: /Images/ }).click();
+    await panel.locator('.sp-group-header', { hasText: /Global/ }).click();
+    await expect(panel.locator('.sp-note-card')).toHaveCount(1);
+
+    const imageExcerpt = panel.locator('.sp-card-excerpt');
+    await expect(imageExcerpt).toContainText('Screenshot reference');
+    await expect(imageExcerpt).not.toContainText('data:image');
+    await expect(imageExcerpt).not.toContainText('<img');
+    expect((await imageExcerpt.innerText()).length).toBeLessThanOrEqual(240);
+
+    await filters.getByRole('button', { name: /Tasks/ }).click();
+    await expect(panel.locator('.sp-note-card')).toHaveCount(1);
+  });
+
   test('boots and renders the root shell with persistent chrome', async ({
     context,
     sidePanelUrl,
@@ -279,6 +582,10 @@ test.describe('TabNotes side panel — baseline', () => {
     await expect(page.locator('.sp-drive-sync-badge')).toContainText(
       /Setup required|Not connected/
     );
+    const floatingSettings = page.getByTestId('floating-button-settings');
+    await expect(floatingSettings).toBeVisible();
+    await expect(floatingSettings).toContainText(/Floating capture button|Botón flotante/);
+    await expect(floatingSettings.getByRole('button')).toBeDisabled();
   });
 
   test('manual backup export/import restores settings, workspace UI, and reminders', async ({
@@ -388,8 +695,10 @@ test.describe('TabNotes side panel — baseline', () => {
     await panel.evaluate(() => {
       return new Promise<void>((resolve) => {
         localStorage.clear();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (globalThis as any).chrome.storage.local.clear(() => resolve());
+        const chromeApi = globalThis as typeof globalThis & { chrome: typeof chrome };
+        chromeApi.chrome.storage.local.clear(() => {
+          chromeApi.chrome.storage.local.set({ tn_onboarding_version: 1 }, resolve);
+        });
       });
     });
     await panel.reload();
@@ -575,6 +884,76 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
         { timeout: 5000 }
       )
       .toEqual({ hasClip: true, pendingClipExists: false });
+  });
+
+  test('context-menu clip can create a separate note without mutating the current note', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const originalText = `Keep current note ${Date.now()}`;
+    const original = await createSavedNote(panel, originalText);
+    const clipText = `New note clip ${Date.now()}`;
+
+    await panel.evaluate((text) => {
+      return new Promise<void>((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (globalThis as any).chrome.storage.local.set(
+          {
+            tn_pending_clip: {
+              id: `test-new-${Date.now()}`,
+              text,
+              sourceUrl: 'https://example.test/new-note',
+              sourceTitle: 'New note source',
+              target: 'new',
+              createdAt: Date.now(),
+            },
+          },
+          () => resolve()
+        );
+      });
+    }, clipText);
+
+    await expect
+      .poll(() =>
+        panel.evaluate<
+          Promise<{ noteCount: number; originalHasClip: boolean; newNoteExists: boolean }>,
+          { originalId: string; clipText: string }
+        >(
+          ({ originalId, clipText: selectedText }) => {
+            return new Promise((resolve) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const chromeApi = (globalThis as any).chrome;
+              chromeApi.storage.local.get(
+                ['tabnotes_data', 'tn_pending_clip'],
+                (result: Record<string, unknown>) => {
+                  const data = result.tabnotes_data as Record<
+                    string,
+                    Record<string, { id?: string; content?: string }>
+                  >;
+                  const notes = [
+                    'notes_url',
+                    'notes_domain',
+                    'notes_workspace',
+                    'notes_global',
+                  ].flatMap((key) => Object.values(data?.[key] ?? {}));
+                  resolve({
+                    noteCount: notes.length,
+                    originalHasClip: Boolean(
+                      notes.find((note) => note.id === originalId)?.content?.includes(selectedText)
+                    ),
+                    newNoteExists: notes.some(
+                      (note) => note.id !== originalId && note.content?.includes(selectedText)
+                    ),
+                  });
+                }
+              );
+            });
+          },
+          { originalId: original.id, clipText }
+        )
+      )
+      .toEqual({ noteCount: 2, originalHasClip: false, newNoteExists: true });
   });
 
   test('Spanish language switch translates the main visible surfaces', async ({
@@ -1199,17 +1578,140 @@ test.describe('TabNotes side panel — editor (real tab context)', () => {
   });
 });
 
+test.describe('TabNotes compatibility regressions', () => {
+  test('two panel contexts preserve concurrent new drafts', async ({ context, sidePanelUrl }) => {
+    const first = await openPanelWithRealTab(context, sidePanelUrl);
+    const second = await openPanelWithRealTab(context, sidePanelUrl);
+    await expect(first.locator('.sp-rich-editor')).toBeVisible();
+    await expect(second.locator('.sp-rich-editor')).toBeVisible();
+    await Promise.all(
+      [first, second].map((page, index) =>
+        page.locator('.sp-rich-editor').evaluate((el, value) => {
+          (el as HTMLElement).innerText = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        }, `Concurrent draft ${index}`)
+      )
+    );
+    await expect
+      .poll(() =>
+        first.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .toContain('Concurrent draft 0');
+    await expect
+      .poll(() =>
+        first.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .toContain('Concurrent draft 1');
+  });
+
+  test('switching scope immediately flushes the pending draft to its original note', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    const editor = panel.locator('.sp-rich-editor');
+    await expect(editor).toBeVisible();
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Draft before immediate switch';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Scope change is deliberately inside the autosave debounce.
+    await panel.locator('.sp-scope-btn').last().click();
+    await expect
+      .poll(() =>
+        panel.evaluate(async () => {
+          const result = await chrome.storage.local.get('tabnotes_data');
+          return JSON.stringify(result.tabnotes_data);
+        })
+      )
+      .toContain('Draft before immediate switch');
+    const data = await panel.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    expect(JSON.stringify(data.notes_global)).not.toContain('Draft before immediate switch');
+  });
+
+  test('Options uses the same backup and Drive settings as the side panel', async ({
+    context,
+    extensionId,
+  }) => {
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/options/index.html`);
+    await expect(options.locator('[data-settings-section="data"]')).toBeVisible();
+    await expect(options.locator('[data-testid="floating-button-settings"]')).toBeAttached();
+    await expect(options.getByText('Google Drive backup', { exact: true })).toBeAttached();
+    await options.setViewportSize({ width: 390, height: 844 });
+    await options.screenshot({ path: test.info().outputPath('shared-settings.png') });
+  });
+
+  test('encryption protects history and saved edits after unlock', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const panel = await openPanelWithRealTab(context, sidePanelUrl);
+    await createSavedNote(panel, 'Private body first');
+    const editor = panel.locator('.sp-rich-editor');
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Private body second';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const actions = panel.locator('.sp-note-meta-actions');
+    await actions.hover();
+    await panel
+      .locator('.sp-meta-toggle')
+      .filter({ hasText: /^Encrypt$/ })
+      .click();
+    await panel.locator('.tn-enc-input').fill('test-password');
+    await panel.locator('.tn-enc-confirm').click();
+    await expect(panel.locator('.tn-enc-dialog')).toBeHidden({ timeout: 15000 });
+    await expect(editor).not.toContainText('Private body');
+    const stored = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    expect(stored).not.toContain('Private body first');
+    expect(stored).not.toContain('Private body second');
+    await actions.hover();
+    await panel
+      .locator('.sp-meta-toggle')
+      .filter({ hasText: /^Decrypt$/ })
+      .click();
+    await panel.locator('.tn-enc-input').fill('test-password');
+    await panel.locator('.tn-enc-confirm').click();
+    await expect(editor).toContainText('Private body second', { timeout: 15000 });
+    const beforeEdit = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    await editor.evaluate((el) => {
+      (el as HTMLElement).innerText = 'Private body edited after unlock';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect
+      .poll(() =>
+        panel.evaluate(async () => {
+          const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data;
+          return JSON.stringify(data);
+        })
+      )
+      .not.toBe(beforeEdit);
+    const afterEdit = await panel.evaluate(async () =>
+      JSON.stringify((await chrome.storage.local.get('tabnotes_data')).tabnotes_data)
+    );
+    expect(afterEdit).not.toContain('Private body edited after unlock');
+    await panel.reload();
+    await expect(panel.locator('.sp-rich-editor')).not.toContainText('Private body');
+  });
+});
+
 test.describe('TabNotes side panel — known headless limitations', () => {
   // HTML5 drag-and-drop is unreliable in headless Chromium; verified manually
   // per the testing skill. Kept as a documented fixme.
   test.fixme('folder drag-and-drop sets the note folder', async () => {
     // Drag a note onto a folder; assert the note's `folder` is set in storage.
-  });
-
-  // Per-note encryption correctness is covered by unit tests
-  // (packages/shared/src/crypto.test.ts). The in-editor lock/unlock UI path is
-  // verified manually; its trigger affordance varies and is left as a fixme.
-  test.fixme('encryption lock/unlock hides and restores content in the editor', async () => {
-    // Lock with a password; assert content hidden. Unlock; assert restored.
   });
 });

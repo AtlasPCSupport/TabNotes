@@ -474,6 +474,18 @@ export function mergeDriveSyncEnvelope(
       continue;
     }
 
+    // This exact remote revision was already retained as a conflict copy (or
+    // explicitly dismissed). A later restore must not overwrite the local edit
+    // just because the successful first restore advanced lastSyncedAt.
+    const priorConflictId = conflictNoteId(note, remote.sourceDeviceId);
+    if (
+      findLocalNote(next, priorConflictId) ||
+      newestTombstoneFor(tombstones, 'note', priorConflictId)
+    ) {
+      summary.notesKeptLocal += 1;
+      continue;
+    }
+
     const localChanged = options.lastSyncedAt ? (localNote.updatedAt ?? 0) > options.lastSyncedAt : false;
     const remoteChanged = options.lastSyncedAt ? (note.updatedAt ?? 0) > options.lastSyncedAt : false;
     const shouldCreateConflict =
