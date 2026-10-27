@@ -4,6 +4,22 @@ All notable changes to TabNotes will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.12.2] — 2026-10-27
+
+### Added
+
+- About shows the installed extension version and one bilingual summary combining the 2.12.0 and 2.12.1 highlights, plus this update.
+- A quiet, dismissible notice links to About after an extension version update; new installs, browser updates and same-version development reloads do not trigger it.
+- Notice acknowledgement is synchronized between panels and persists locally, separately from notes and backups.
+
+### Fixed
+
+- About links to the current AtlasPCSupport GitHub repository.
+
+### Compatibility
+
+- No changes to note storage, backup formats, encryption, permissions or Google Drive OAuth.
+
 ## [2.12.1] — 2026-10-26
 
 ### Changed

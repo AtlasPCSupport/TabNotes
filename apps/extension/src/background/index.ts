@@ -1,4 +1,5 @@
 import { normalizeDomain, normalizeUrl } from '@tabnotes/shared';
+import { recordUpdateNotice } from '../shared/updateNotice';
 import {
   DRIVE_REMOTE_APPLY_STORAGE_KEY,
   driveErrorMessage,
@@ -782,7 +783,8 @@ async function restoreNoteReminderAlarms(): Promise<{
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+  void recordUpdateNotice(details).catch(() => console.warn('Unable to save update notice.'));
   chrome.sidePanel.setOptions({ enabled: true });
   createClipContextMenu();
   updateBadgeForActiveTab();

@@ -2,15 +2,21 @@
 
 ## Next update package (not yet published)
 
-- Version: `2.12.1`
+- Version: `2.12.2`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: locally generated `tabnotes-extension-v2.12.1.zip`; GitHub Release asset not yet published.
+- ZIP: locally generated `tabnotes-extension-v2.12.2.zip`; GitHub Release asset not yet published.
 
-## What's new in 2.12.1
+## What's new in 2.12.2
+
+- About now shows your installed version and one summary of recent improvements in English and Spanish.
+- A small, dismissible update notice opens What's new without interrupting your work.
+- Includes the previous capture and interface improvements below; notes and backups remain compatible.
+
+### Included improvements from 2.12.0 and 2.12.1
 
 - Clearer capture workflow: choose your destination, then select text, screenshot or crop.
 - Easier-to-understand Page, Site, Project and Global scopes with contextual explanations.

@@ -116,6 +116,79 @@ async function seedPendingReminder(panel: Page, note: { id: string; content: str
 }
 
 test.describe('TabNotes side panel — baseline', () => {
+  test('release notes show the installed version and combined highlights without changing notes', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const page = await openPanelWithRealTab(context, sidePanelUrl);
+    await createSavedNote(page, 'Release summary compatibility: keep this note unchanged.');
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByTestId('update-notice')).toHaveCount(0);
+    const before = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await page.getByRole('menuitem', { name: "What's new" }).click();
+    await expect(page.getByTestId('installed-version')).toContainText('2.12.2');
+    const summary = page.locator('.sp-release-notes');
+    await expect(summary).toHaveCount(1);
+    await expect(summary).toContainText('2.12.0 and 2.12.1');
+    await expect(summary.locator('li')).toHaveCount(5);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath('about-en-dark-390.png') });
+    await expectWithinViewport(summary);
+    await page.getByRole('button', { name: 'Español', exact: true }).click();
+    await expect(summary).toContainText('Lo más importante de 2.12.0 y 2.12.1');
+    await expect(page.getByTestId('installed-version')).toContainText('Versión instalada');
+    await page.screenshot({ path: test.info().outputPath('about-es-dark-390.png') });
+    await page.getByRole('button', { name: 'Cambiar tema' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.screenshot({ path: test.info().outputPath('about-es-light-390.png') });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: test.info().outputPath('about-es-light-1440.png') });
+    const after = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    // Language/theme are intentionally changed above; compare the actual note collections.
+    for (const collection of ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']) {
+      expect(after[collection]).toEqual(before[collection]);
+    }
+  });
+
+  test('update notice opens About, synchronizes dismissal and stays dismissed after reopening', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const first = await context.newPage();
+    await first.goto(sidePanelUrl);
+    const second = await context.newPage();
+    await second.goto(sidePanelUrl);
+    await first.evaluate(async () =>
+      chrome.storage.local.set({ tn_update_notice_version: chrome.runtime.getManifest().version })
+    );
+    await expect(first.getByTestId('update-notice')).toBeVisible();
+    await expect(second.getByTestId('update-notice')).toBeVisible();
+    await first.setViewportSize({ width: 390, height: 844 });
+    await expectWithinViewport(first.getByTestId('update-notice'));
+    await first.screenshot({ path: test.info().outputPath('update-notice-390.png') });
+    await first.getByRole('button', { name: "What's new", exact: true }).click();
+    await expect(first.locator('.sp-release-notes')).toBeVisible();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await expect(second.getByTestId('update-notice')).toHaveCount(0);
+    await first.reload();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await first.evaluate(async () =>
+      chrome.storage.local.set({ tn_update_notice_version: chrome.runtime.getManifest().version })
+    );
+    await expect(first.getByTestId('update-notice')).toBeVisible();
+    await first.getByRole('button', { name: 'Dismiss update notice' }).click();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await expect(first.locator('.sp-note-view')).toBeVisible();
+    await first.reload();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+  });
+
   test('first-run onboarding explains scopes and persists completion', async ({
     context,
     sidePanelUrl,

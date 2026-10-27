@@ -261,6 +261,17 @@ export function HeaderBar({
               >
                 {t('header.viewOnboarding')}
               </button>
+              <button
+                type="button"
+                className="tn-help-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setHelpOpen(false);
+                  setView('about');
+                }}
+              >
+                {t('releaseNotes.view')}
+              </button>
             </div>
           )}
         </div>

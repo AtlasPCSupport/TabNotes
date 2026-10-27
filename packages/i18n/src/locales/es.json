@@ -422,6 +422,22 @@
     "recoveryRestored": "Se restauraron los datos previos a la importación.",
     "recoveryUnavailable": "No hay una copia previa a la importación disponible."
   },
+  "releaseNotes": {
+    "installed": "Versión instalada · {{version}}",
+    "updated": "Actualizado a {{version}}",
+    "view": "Ver novedades",
+    "dismiss": "Descartar aviso de actualización",
+    "title": "Novedades",
+    "summary": "Lo más importante de 2.12.0 y 2.12.1, más esta actualización",
+    "date": "27 de octubre de 2026",
+    "highlights": {
+      "capture": "Capture Hub y botón flotante opcional: guarda texto seleccionado, capturas de pantalla o recortes en la nota actual o en una nueva.",
+      "organization": "Introducción breve que puedes volver a abrir, bandeja «Sin organizar» para capturas rápidas y filtros de texto, imágenes y tareas.",
+      "clarity": "Ámbitos Página, Sitio, Proyecto y Global más claros; destino de captura guiado; cabecera despejada y vistas previas de notas y tareas más legibles.",
+      "compatibility": "Capturas, edición de notas y restauraciones repetidas de Drive más fiables, manteniendo la compatibilidad con notas existentes, notas cifradas y copias manuales.",
+      "version": "Consulta aquí tu versión instalada y los cambios recientes. Cada nueva versión muestra un aviso descartable que enlaza a este resumen."
+    }
+  },
   "about": {
     "title": "Acerca de TabNotes",
     "tagline": "Notas premium, locales primero, para cada pestaña, URL, dominio y proyecto.",

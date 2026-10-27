@@ -2,9 +2,10 @@ import { useSidePanelStore } from '../store';
 import { AppIcon, type AppIconName } from '../components/AppIcon';
 import { useTranslation, type TranslationKey } from '@tabnotes/i18n';
 
-/** Static About screen. Extracted verbatim (Task 5.2) — no behavior change. */
+/** Installed version and a single curated summary of recent changes. */
 export function AboutView() {
   const { t } = useTranslation();
+  const version = chrome.runtime.getManifest().version;
   const setView = useSidePanelStore((s) => s.setView);
   const setSettingsTarget = useSidePanelStore((s) => s.setSettingsTarget);
   const categories: {
@@ -126,6 +127,9 @@ export function AboutView() {
         <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.4px', marginBottom: 6 }}>
           TabNotes
         </div>
+        <div className="sp-installed-version" data-testid="installed-version">
+          {t('releaseNotes.installed', { version })}
+        </div>
         <div
           style={{
             fontSize: 12,
@@ -138,6 +142,20 @@ export function AboutView() {
           {t('about.tagline')}
         </div>
       </div>
+
+      <section className="sp-settings-section sp-release-notes" aria-labelledby="sp-release-title">
+        <h2 id="sp-release-title">{t('releaseNotes.title')}</h2>
+        <p className="sp-release-meta">
+          {t('releaseNotes.summary')} · <time dateTime="2026-10-27">{t('releaseNotes.date')}</time>
+        </p>
+        <ul>
+          {(['capture', 'organization', 'clarity', 'compatibility', 'version'] as const).map(
+            (key) => (
+              <li key={key}>{t(`releaseNotes.highlights.${key}`)}</li>
+            )
+          )}
+        </ul>
+      </section>
 
       {categories.map((cat) => (
         <div key={cat.titleKey} className="sp-settings-section">
@@ -190,7 +208,7 @@ export function AboutView() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
         <a
-          href="https://github.com/mikepchelper-spec/TabNotes"
+          href="https://github.com/AtlasPCSupport/TabNotes"
           target="_blank"
           rel="noopener noreferrer"
           style={{

@@ -422,6 +422,22 @@
     "recoveryRestored": "Pre-import data restored.",
     "recoveryUnavailable": "No pre-import backup is available."
   },
+  "releaseNotes": {
+    "installed": "Installed version · {{version}}",
+    "updated": "Updated to {{version}}",
+    "view": "What's new",
+    "dismiss": "Dismiss update notice",
+    "title": "What's new",
+    "summary": "Highlights from 2.12.0 and 2.12.1, plus this update",
+    "date": "October 27, 2026",
+    "highlights": {
+      "capture": "Capture Hub and the optional floating button: save selected text, screenshots or crops to the current note or a new one.",
+      "organization": "A short, replayable introduction, an Inbox for quick captures, and filters for text, images and tasks.",
+      "clarity": "Clearer Page, Site, Project and Global scopes; guided capture destinations; cleaner header and more readable note and checklist previews.",
+      "compatibility": "More reliable capture actions, note editing and repeated Drive restores, with compatibility preserved for existing notes, encrypted notes and manual backups.",
+      "version": "See your installed version and recent changes here. After each new version, a dismissible notice links back to this summary."
+    }
+  },
   "about": {
     "title": "About TabNotes",
     "tagline": "Premium local-first notes for every tab, URL, domain, and workspace.",

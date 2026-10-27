@@ -1,5 +1,18 @@
 # TabNotes — validación y entrega
 
+## Novedades dentro del panel — candidato 2.12.2
+
+Rama: `codex/version-notes`. No se ha enviado este paquete a la Store.
+
+- Ajustes → Acerca de y Ayuda → Ver novedades muestran la versión del manifest instalado.
+- Un único bloque reúne lo más importante de 2.12.0 y 2.12.1, más el aviso de esta actualización, en EN/ES.
+- Al actualizar desde otra versión aparece un aviso discreto; verlo o descartarlo persiste localmente y se refleja en otros paneles.
+- No aparece al instalar de cero, actualizar Chrome o recargar una compilación de la misma versión.
+- Validar a 390 × 844 y 1440 × 900, en modo claro/oscuro; no debe haber desbordamiento horizontal ni cambios en las notas.
+- Antes de cada release, actualizar fecha y resumen de `AboutView.tsx` y `releaseNotes` en ambos catálogos, además del changelog y la versión. La detección es automática; la redacción de novedades es editorial y no se descarga de ningún servidor.
+- La actualización real desde la Store solo se puede confirmar tras su aprobación; las pruebas locales usan perfiles aislados y datos sintéticos.
+- Validación local 2.12.2: 221 unitarias y 46 E2E aprobadas; una E2E de arrastre omitida por la limitación conocida de headless. Lint, tipos, compilación, metadata, higiene y formato aprobados. Las dos pruebas nuevas también pasaron sobre el build empaquetado. Evidencia: `tmp/version-notes-qa/QA.md`.
+
 ## Ajustes de interfaz posteriores al envío — candidato 2.12.1
 
 Rama: `codex/ui-clarity-polish`. Nuevo ZIP local 2.12.1; no es otro envío a la Store.
