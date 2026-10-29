@@ -865,15 +865,24 @@ test.describe('TabNotes side panel — baseline', () => {
   test('OneDrive is explicit opt-in, bilingual and does not alter local notes before connection', async ({
     context,
     sidePanelUrl,
+    extensionId,
   }) => {
     const page = await context.newPage();
     await page.goto(sidePanelUrl);
     await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
     const oneDrive = page.getByTestId('onedrive-settings');
     await expect(oneDrive).toBeVisible();
+    // Unpacked IDs depend on the absolute dist path. Linux CI is intentionally
+    // not an OAuth-registered identity; do not enable its real sign-in button.
+    const registered = [
+      'pniapenkdphjolncppcichbahomfiffj',
+      'noabjgjemigfaimfahmbnlccibmkmaam',
+    ].includes(extensionId);
+    if (!registered)
+      await expect(oneDrive).toContainText('This extension ID is not registered for OneDrive yet.');
     await expect(
       oneDrive.getByRole('button', { name: 'Connect OneDrive', exact: true })
-    ).toBeEnabled();
+    ).toBeEnabled({ enabled: registered });
     await expect(oneDrive).toContainText('Last successful sync: never');
     const initial = await page.evaluate(
       async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
@@ -894,7 +903,11 @@ test.describe('TabNotes side panel — baseline', () => {
     await page.getByTitle('Español', { exact: true }).click();
     await expect(
       oneDrive.getByRole('button', { name: 'Conectar OneDrive', exact: true })
-    ).toBeEnabled();
+    ).toBeEnabled({ enabled: registered });
+    if (!registered)
+      await expect(oneDrive).toContainText(
+        'Este ID de extensión aún no está registrado para OneDrive.'
+      );
     await expect(oneDrive).toContainText('Última sincronización correcta: nunca');
     await oneDrive.scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('onedrive-es-390.png') });

@@ -13,8 +13,9 @@
 - Regresión adicional: las notas borradas no reaparecen desde un perfil inactivo pasado el plazo de 90 días. OneDrive conserva sus marcadores; Google Drive mantiene su retención predeterminada.
 - Validación local: 267 unitarias aprobadas (148 shared, 110 extensión, 8 web, 1 i18n); Chrome completo 48 E2E aprobadas y una omitida por el arrastre conocido. Tras la última corrección de retención, seis regresiones seleccionadas de Edge también pasaron sobre el paquete final. Lint, tipos, metadata, higiene y auditoría de dependencias de producción aprobados.
 - El ZIP 2.13.0 contiene exactamente los 28 archivos de dist, sin clave QA. SHA-256: `3e2db097fb5c23428099d875353d482b9c48c5c377528721d0689470acae28c1`.
-- Al reabrir y recargar el paquete final mediante CDP, el perfil Edge perdió los permisos opcionales Microsoft (`permissions.contains` devolvió false) y mostró Reconectar sin alterar las notas. Se pidió al propietario repetir la autorización para comprobar esta última recarga; no se trata de una actualización oficial desde Store.
-- El acceso al navegador de publicación está desactivado en Work. No se ha subido ni enviado 2.13.0 a revisión; se requiere habilitarlo o subir el ZIP manualmente.
+- Al reabrir y recargar el paquete final mediante CDP, el perfil Edge perdió los permisos opcionales Microsoft (`permissions.contains` devolvió false) y mostró Reconectar sin alterar las notas. El propietario repitió la autorización; se verificaron permisos activos, estado correcto y una nueva sincronización mediante el botón real con checkpoint avanzado. No se trata de una actualización oficial desde Store.
+- CI detectó una expectativa de ID OAuth específica de Windows en la nueva E2E. Se corrige para verificar botón habilitado en IDs registrados y bloqueo con explicación EN/ES en IDs no registrados (como el path de Linux), sin ampliar callbacks ni alterar producción.
+- El propietario eligió subir el ZIP manualmente. No se ha subido ni enviado 2.13.0 a revisión desde el agente.
 - Google Drive conserva su cliente y formato en Chrome. Su inicio de sesión en Edge sigue sin estar implementado: no anunciarlo como compatible en esta versión.
 - Edge Add-ons es una publicación aparte. Antes de distribuir allí hay que obtener su ID real y registrar su callback de Microsoft; no subir el ZIP afirmando soporte de una identidad aún desconocida.
 
