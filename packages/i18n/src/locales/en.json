@@ -422,6 +422,42 @@
     "recoveryRestored": "Pre-import data restored.",
     "recoveryUnavailable": "No pre-import backup is available."
   },
+  "oneDrive": {
+    "title": "OneDrive sync",
+    "description": "Automatically sync notes between Chrome and Edge through your OneDrive app folder. No TabNotes server.",
+    "connect": "Connect OneDrive",
+    "reconnect": "Reconnect OneDrive",
+    "connected": "Auto sync on",
+    "disconnected": "Not connected",
+    "disconnect": "Disconnect",
+    "syncNow": "Sync now",
+    "working": "Working…",
+    "attention": "Sync needs attention",
+    "lastSync": "Last successful sync: {{time}}",
+    "encryption": "Cloud sync is not end-to-end encrypted by default. Encrypt sensitive notes first. Disconnecting keeps your local notes and cloud files.",
+    "googleFirst": "Use one cloud provider per profile. Disconnect Google Drive before connecting OneDrive; your local notes are kept. No automatic cloud-to-cloud migration.",
+    "reconnectInfo": "Microsoft authorization expired or was revoked. Reconnect to resume automatic sync; local notes remain available.",
+    "permissionDenied": "Microsoft site access was not granted. No notes were uploaded. Try Connect again when ready.",
+    "cancelled": "Sign-in was cancelled or could not finish. Local notes are unchanged.",
+    "identity": "This extension ID is not registered for OneDrive yet. Use the Store build or the approved local test build.",
+    "failed": "OneDrive could not complete the action. Your local notes are kept. Check your connection and retry; reconnect if Microsoft access has expired."
+  },
+  "releaseNotes": {
+    "installed": "Installed version · {{version}}",
+    "updated": "Updated to {{version}}",
+    "view": "What's new",
+    "dismiss": "Dismiss update notice",
+    "title": "What's new",
+    "summary": "Highlights from 2.12.2 and 2.13.0",
+    "date": "October 29, 2026",
+    "highlights": {
+      "oneDrive": "Optional OneDrive auto sync between Chrome and Edge. Choose Connect OneDrive in Settings and authorize your account.",
+      "privacy": "OneDrive uses only the TabNotes app folder. No TabNotes server. Cloud sync is not end-to-end encrypted by default; encrypt sensitive notes first.",
+      "reliability": "Conflicting edits retain both versions, deletions sync across profiles, and disconnected sessions keep local notes. The last note's actions are easier to reach.",
+      "compatibility": "Existing notes, encrypted notes, manual backups and Google Drive in Chrome remain compatible. Google Drive sign-in in Edge is not included yet.",
+      "version": "Your installed version and recent changes are always available here. A dismissible update notice and Help → What's new bring you back."
+    }
+  },
   "about": {
     "title": "About TabNotes",
     "tagline": "Premium local-first notes for every tab, URL, domain, and workspace.",
@@ -541,6 +577,8 @@
     "driveNotConnected": "Not connected",
     "driveSetupRequired": "Setup required",
     "driveSetupMissing": "Configure the Google OAuth client ID before enabling Drive backup.",
+    "driveEdgeAuthRequired": "Google Drive sign-in is not available in this Edge build yet. You can keep using local notes and Export/Import backup. Google Drive in Chrome is unaffected.",
+    "driveBrowserAuthUnavailable": "This browser does not support the current Google Drive sign-in method. Local notes and Export/Import backup remain available.",
     "driveSyncing": "Syncing",
     "driveWorking": "Working…",
     "driveLastSync": "Last sync: {{time}}",

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@tabnotes/i18n';
+import type { OAuthSetupReasonCode } from '../../../background/driveAuth';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cr: any =
@@ -21,6 +22,7 @@ interface DriveSyncState {
   connected?: boolean;
   setupRequired?: boolean;
   setupReason?: string;
+  setupReasonCode?: OAuthSetupReasonCode;
   featureAllowed?: boolean;
   entitlementMode?: 'launch_free' | 'license';
   status?: DriveStatus;
@@ -175,9 +177,15 @@ export function DriveSyncSettings() {
   const lastSync = formatTimestamp(state.lastSyncAt, t('settingsSections.driveNever'));
   const canUse = state.featureAllowed !== false && !state.setupRequired;
   const isConnected = Boolean(state.connected || state.enabled);
+  const setupReason =
+    state.setupReasonCode === 'edge_auth_required'
+      ? t('settingsSections.driveEdgeAuthRequired')
+      : state.setupReasonCode === 'identity_unavailable'
+        ? t('settingsSections.driveBrowserAuthUnavailable')
+        : (state.setupReason ?? t('settingsSections.driveSetupMissing'));
 
   return (
-    <div className="sp-drive-sync">
+    <div className="sp-drive-sync" data-testid="google-drive-settings">
       <div className="sp-drive-sync-header">
         <div>
           <div className="sp-drive-sync-title">{t('settingsSections.driveSync')}</div>
@@ -195,11 +203,7 @@ export function DriveSyncSettings() {
 
       <div className="sp-drive-sync-warning">{t('settingsSections.driveEncryptionWarning')}</div>
 
-      {state.setupRequired && (
-        <div className="sp-drive-sync-warning">
-          {state.setupReason ?? t('settingsSections.driveSetupMissing')}
-        </div>
-      )}
+      {state.setupRequired && <div className="sp-drive-sync-warning">{setupReason}</div>}
 
       {state.lastError && !state.setupRequired && (
         <div className="sp-drive-sync-warning">{state.lastError}</div>

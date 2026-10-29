@@ -34,6 +34,7 @@ import { NoteTree, type Template } from './components/NoteTree';
 import { CommandPalette } from './components/CommandPalette';
 import { EncryptionPrompt } from './components/EncryptionPrompt';
 import { OnboardingDialog } from './components/OnboardingDialog';
+import { UpdateNotice } from './components/UpdateNotice';
 import { VisibleAreaCropper } from './components/VisibleAreaCropper';
 import { PendingReminders } from './components/PendingReminders';
 import { AppIcon } from './components/AppIcon';
@@ -120,7 +121,10 @@ export default function SidePanelApp() {
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [cropSource, setCropSource] = React.useState<string | null>(null);
   const [captureFeedback, setCaptureFeedback] = React.useState<string | null>(null);
-  const onCaptureFailure = useCallback(() => setCaptureFeedback(i18n.t('captureHub.failed')), [i18n]);
+  const onCaptureFailure = useCallback(
+    () => setCaptureFeedback(i18n.t('captureHub.failed')),
+    [i18n]
+  );
   const captureSourceRef = useRef<FloatingRequest | undefined>();
   type CaptureDestination = {
     id: string | null;
@@ -997,7 +1001,9 @@ export default function SidePanelApp() {
       } else await appendScreenshot(response.dataUrl, 'Screenshot', destination);
     } catch (error) {
       const needsActivation = error instanceof Error && /activeTab|<all_urls>/.test(error.message);
-      setCaptureFeedback(t(needsActivation ? 'captureHub.activationRequired' : 'captureHub.failed'));
+      setCaptureFeedback(
+        t(needsActivation ? 'captureHub.activationRequired' : 'captureHub.failed')
+      );
     }
   };
   const captureScreenshot = () => {
@@ -1360,6 +1366,8 @@ export default function SidePanelApp() {
         setLanguage={setLanguage}
         onOpenOnboarding={() => setShowOnboarding(true)}
       />
+
+      <UpdateNotice />
 
       {/* ── Scope bar ── */}
       {view === 'note' && (

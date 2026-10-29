@@ -4,6 +4,43 @@ All notable changes to TabNotes will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.13.0] — 2026-10-29
+
+### Added
+
+- Optional OneDrive bidirectional automatic note sync for Chrome and Edge using Microsoft code + PKCE and delegated app-folder access, without a TabNotes server or client secret.
+- Separate bilingual Connect, Sync now, Reconnect and Disconnect controls. Only one cloud provider can be enabled per profile; provider changes do not migrate or delete cloud files.
+- Independent per-profile OneDrive snapshots prevent devices overwriting one shared backup file; local/cloud conflicts preserve both edits and deletion markers prevent resurrection.
+- Microsoft credentials remain local, restricted to trusted extension contexts, and excluded from note exports and cloud snapshots. Permissions are requested only on Connect.
+
+### Fixed
+
+- Edge no longer attempts the unsupported native Google token API. Google Drive in Chrome is preserved; Google Drive sign-in in Edge is not implemented in this release.
+- OneDrive propagates both original conflict edits after a later sync checkpoint instead of presenting two copies of one edit on another device.
+- The final note card can be scrolled clear of the floating new-note button, and cloud status headers wrap in narrow panels.
+
+### Compatibility
+
+- Existing note schema, Google Drive wire format, manual backups, note encryption and OAuth client remain unchanged.
+- OneDrive does not replace local language, theme, default scope or active project preferences with those of another device.
+- Automatic sync runs while the browser is running; expired Microsoft authorization can require reconnect. Separate Edge Add-ons publication requires registering its actual extension identity before distribution.
+
+## [2.12.2] — 2026-10-27
+
+### Added
+
+- About shows the installed extension version and one bilingual summary combining the 2.12.0 and 2.12.1 highlights, plus this update.
+- A quiet, dismissible notice links to About after an extension version update; new installs, browser updates and same-version development reloads do not trigger it.
+- Notice acknowledgement is synchronized between panels and persists locally, separately from notes and backups.
+
+### Fixed
+
+- About links to the current AtlasPCSupport GitHub repository.
+
+### Compatibility
+
+- No changes to note storage, backup formats, encryption, permissions or Google Drive OAuth.
+
 ## [2.12.1] — 2026-10-26
 
 ### Changed

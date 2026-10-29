@@ -10,7 +10,7 @@
 </p>
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Publicada-ffd84d?logo=googlechrome&logoColor=111215)](https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.12.1-79a7ff)](apps/extension/public/manifest.json)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-2.13.0-79a7ff)](apps/extension/public/manifest.json)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-7ee0a1)](apps/extension/public/manifest.json)
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-ffffff)](LICENSE)
 [![Invítame a un café](https://img.shields.io/badge/PayPal-Inv%C3%ADtame%20a%20un%20caf%C3%A9-ffdd00?logo=paypal&logoColor=111215)](https://www.paypal.me/atlaspcsupport)
@@ -27,14 +27,14 @@
 
 ## Código actual / candidato de actualización
 
-La versión 2.12.1 es el siguiente candidato de actualización. El envío 2.12.0 a la Store
+La versión 2.13.0 es el siguiente candidato de actualización. El envío 2.12.0 a la Store
 es independiente: este repositorio no implica aprobación de Chrome ni publicación de una GitHub Release.
 
 | Elemento               | Valor                                                                                           |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Versión pública        | `2.12.1`                                                                                        |
+| Versión pública        | `2.13.0`                                                                                        |
 | ID de Chrome Web Store | `pniapenkdphjolncppcichbahomfiffj`                                                              |
-| Paquete ZIP            | `tabnotes-extension-v2.12.1.zip` — generado localmente; todavía no publicado en GitHub Releases |
+| Paquete ZIP            | `tabnotes-extension-v2.13.0.zip` — generado localmente; todavía no publicado en GitHub Releases |
 | Sitio del producto     | `https://tabnotes.atlaspcsupport.com/`                                                          |
 | Política de privacidad | `https://tabnotes.atlaspcsupport.com/privacy/`                                                  |
 | Términos               | `https://tabnotes.atlaspcsupport.com/terms/`                                                    |
@@ -95,7 +95,7 @@ TabNotes no usa un servidor propio para tus notas.
 
 La instalación recomendada es Chrome Web Store. Para pruebas locales:
 
-1. Genera `tabnotes-extension-v2.12.1.zip` con `node scripts/build-extension-release.mjs`.
+1. Genera `tabnotes-extension-v2.13.0.zip` con `node scripts/build-extension-release.mjs`.
 2. Descomprime el archivo.
 3. Abre Chrome y entra a `chrome://extensions`.
 4. Activa **Modo de desarrollador**.

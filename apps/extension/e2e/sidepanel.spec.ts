@@ -116,6 +116,82 @@ async function seedPendingReminder(panel: Page, note: { id: string; content: str
 }
 
 test.describe('TabNotes side panel — baseline', () => {
+  test('release notes show the installed version and combined highlights without changing notes', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const page = await openPanelWithRealTab(context, sidePanelUrl);
+    await createSavedNote(page, 'Release summary compatibility: keep this note unchanged.');
+    await page.getByRole('button', { name: 'Toggle theme' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByTestId('update-notice')).toHaveCount(0);
+    const before = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await page.getByRole('menuitem', { name: "What's new" }).click();
+    const manifest = JSON.parse(await readFile('public/manifest.json', 'utf8')) as {
+      version: string;
+    };
+    await expect(page.getByTestId('installed-version')).toContainText(manifest.version);
+    const summary = page.locator('.sp-release-notes');
+    await expect(summary).toHaveCount(1);
+    await expect(summary).toContainText('2.12.2 and 2.13.0');
+    await expect(summary.locator('li')).toHaveCount(5);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath('about-en-dark-390.png') });
+    await expectWithinViewport(summary);
+    await page.getByRole('button', { name: 'Español', exact: true }).click();
+    await expect(summary).toContainText('Lo más importante de 2.12.2 y 2.13.0');
+    await expect(page.getByTestId('installed-version')).toContainText('Versión instalada');
+    await page.screenshot({ path: test.info().outputPath('about-es-dark-390.png') });
+    await page.getByRole('button', { name: 'Cambiar tema' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.screenshot({ path: test.info().outputPath('about-es-light-390.png') });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: test.info().outputPath('about-es-light-1440.png') });
+    const after = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    // Language/theme are intentionally changed above; compare the actual note collections.
+    for (const collection of ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global']) {
+      expect(after[collection]).toEqual(before[collection]);
+    }
+  });
+
+  test('update notice opens About, synchronizes dismissal and stays dismissed after reopening', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const first = await context.newPage();
+    await first.goto(sidePanelUrl);
+    const second = await context.newPage();
+    await second.goto(sidePanelUrl);
+    await first.evaluate(async () =>
+      chrome.storage.local.set({ tn_update_notice_version: chrome.runtime.getManifest().version })
+    );
+    await expect(first.getByTestId('update-notice')).toBeVisible();
+    await expect(second.getByTestId('update-notice')).toBeVisible();
+    await first.setViewportSize({ width: 390, height: 844 });
+    await expectWithinViewport(first.getByTestId('update-notice'));
+    await first.screenshot({ path: test.info().outputPath('update-notice-390.png') });
+    await first.getByRole('button', { name: "What's new", exact: true }).click();
+    await expect(first.locator('.sp-release-notes')).toBeVisible();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await expect(second.getByTestId('update-notice')).toHaveCount(0);
+    await first.reload();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await first.evaluate(async () =>
+      chrome.storage.local.set({ tn_update_notice_version: chrome.runtime.getManifest().version })
+    );
+    await expect(first.getByTestId('update-notice')).toBeVisible();
+    await first.getByRole('button', { name: 'Dismiss update notice' }).click();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+    await expect(first.locator('.sp-note-view')).toBeVisible();
+    await first.reload();
+    await expect(first.getByTestId('update-notice')).toHaveCount(0);
+  });
+
   test('first-run onboarding explains scopes and persists completion', async ({
     context,
     sidePanelUrl,
@@ -761,15 +837,130 @@ test.describe('TabNotes side panel — baseline', () => {
     const page = await context.newPage();
     await page.goto(sidePanelUrl);
     await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
-    await expect(page.locator('.sp-drive-sync')).toBeVisible();
+    const googleDrive = page.getByTestId('google-drive-settings');
+    await expect(googleDrive).toBeVisible();
     await expect(page.getByText('Google Drive backup')).toBeVisible();
-    await expect(page.locator('.sp-drive-sync-badge')).toContainText(
+    await expect(googleDrive.locator('.sp-drive-sync-badge')).toContainText(
       /Setup required|Not connected/
     );
+    const isEdge = await page.evaluate(() => /\bEdg\//.test(navigator.userAgent));
+    if (isEdge) {
+      await expect(googleDrive).toContainText(
+        'Google Drive sign-in is not available in this Edge build yet.'
+      );
+      await expect(page.getByRole('button', { name: 'Connect Google Drive' })).toBeDisabled();
+      await expect(page.locator('.sp-data-btn.export')).toBeEnabled();
+      await expect(page.locator('.sp-data-btn.import')).toBeEnabled();
+      await page.getByTitle('Español', { exact: true }).click();
+      await expect(googleDrive).toContainText(
+        'El inicio de sesión en Google Drive aún no está disponible en esta versión para Edge.'
+      );
+    }
     const floatingSettings = page.getByTestId('floating-button-settings');
     await expect(floatingSettings).toBeVisible();
     await expect(floatingSettings).toContainText(/Floating capture button|Botón flotante/);
     await expect(floatingSettings.getByRole('button')).toBeDisabled();
+  });
+
+  test('OneDrive is explicit opt-in, bilingual and does not alter local notes before connection', async ({
+    context,
+    sidePanelUrl,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await page.goto(sidePanelUrl);
+    await page.locator('.sp-bottom-nav .sp-nav-btn').last().click();
+    const oneDrive = page.getByTestId('onedrive-settings');
+    await expect(oneDrive).toBeVisible();
+    // Unpacked IDs depend on the absolute dist path. Linux CI is intentionally
+    // not an OAuth-registered identity; do not enable its real sign-in button.
+    const registered = [
+      'pniapenkdphjolncppcichbahomfiffj',
+      'noabjgjemigfaimfahmbnlccibmkmaam',
+    ].includes(extensionId);
+    if (!registered)
+      await expect(oneDrive).toContainText('This extension ID is not registered for OneDrive yet.');
+    await expect(
+      oneDrive.getByRole('button', { name: 'Connect OneDrive', exact: true })
+    ).toBeEnabled({ enabled: registered });
+    await expect(oneDrive).toContainText('Last successful sync: never');
+    const initial = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    await expect
+      .poll(async () =>
+        page.evaluate(async () =>
+          Boolean((await chrome.storage.local.get('tn_onedrive_auth')).tn_onedrive_auth)
+        )
+      )
+      .toBe(false);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await oneDrive.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath('onedrive-en-390.png') });
+    await expectWithinViewport(
+      oneDrive.getByRole('button', { name: 'Connect OneDrive', exact: true })
+    );
+    await page.getByTitle('Español', { exact: true }).click();
+    await expect(
+      oneDrive.getByRole('button', { name: 'Conectar OneDrive', exact: true })
+    ).toBeEnabled({ enabled: registered });
+    if (!registered)
+      await expect(oneDrive).toContainText(
+        'Este ID de extensión aún no está registrado para OneDrive.'
+      );
+    await expect(oneDrive).toContainText('Última sincronización correcta: nunca');
+    await oneDrive.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath('onedrive-es-390.png') });
+    const after = await page.evaluate(
+      async () => (await chrome.storage.local.get('tabnotes_data')).tabnotes_data
+    );
+    for (const key of ['notes_url', 'notes_domain', 'notes_workspace', 'notes_global'])
+      expect(after?.[key] ?? {}).toEqual(initial?.[key] ?? {});
+  });
+
+  test('last note actions remain reachable above the floating new-note button', async ({
+    context,
+    sidePanelUrl,
+  }) => {
+    const page = await context.newPage();
+    await page.goto(sidePanelUrl);
+    await page.evaluate(async () => {
+      const now = Date.now();
+      const data = (await chrome.storage.local.get('tabnotes_data')).tabnotes_data ?? {};
+      await chrome.storage.local.set({
+        tabnotes_data: {
+          ...data,
+          notes_global: Object.fromEntries(
+            Array.from({ length: 12 }, (_, i) => {
+              const id = `fab-qa-${i}`;
+              return [
+                id,
+                {
+                  id,
+                  scope: 'global',
+                  scopeKey: '',
+                  workspaceId: null,
+                  title: `QA card ${i}`,
+                  content: 'Synthetic note for last-card action verification.',
+                  tags: [],
+                  createdAt: now + i,
+                  updatedAt: now + i,
+                },
+              ];
+            })
+          ),
+        },
+      });
+    });
+    await page.reload();
+    await page.setViewportSize({ width: 390, height: 640 });
+    await page.locator('.sp-bottom-nav .sp-nav-btn').nth(1).click();
+    await page.getByRole('button', { name: 'Global 12', exact: true }).click();
+    const lastCard = page.locator('.sp-note-card').last();
+    await lastCard.scrollIntoViewIfNeeded();
+    const deleteButton = lastCard.locator('.sp-card-delete');
+    await deleteButton.click();
+    await expect(deleteButton).toHaveClass(/confirming/);
   });
 
   test('manual backup export/import restores settings, workspace UI, and reminders', async ({

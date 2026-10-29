@@ -422,6 +422,42 @@
     "recoveryRestored": "Se restauraron los datos previos a la importación.",
     "recoveryUnavailable": "No hay una copia previa a la importación disponible."
   },
+  "oneDrive": {
+    "title": "Sincronización con OneDrive",
+    "description": "Sincroniza automáticamente tus notas entre Chrome y Edge mediante la carpeta de la aplicación en tu OneDrive. Sin servidor de TabNotes.",
+    "connect": "Conectar OneDrive",
+    "reconnect": "Reconectar OneDrive",
+    "connected": "Sincronización automática activa",
+    "disconnected": "Sin conectar",
+    "disconnect": "Desconectar",
+    "syncNow": "Sincronizar ahora",
+    "working": "Procesando…",
+    "attention": "Revisar sincronización",
+    "lastSync": "Última sincronización correcta: {{time}}",
+    "encryption": "La sincronización en la nube no está cifrada de extremo a extremo por defecto. Cifra primero las notas sensibles. Desconectar conserva tus notas locales y los archivos de la nube.",
+    "googleFirst": "Usa un proveedor de nube por perfil. Desconecta Google Drive antes de conectar OneDrive; tus notas locales se conservan. No se migra automáticamente de una nube a otra.",
+    "reconnectInfo": "La autorización de Microsoft ha caducado o se ha revocado. Reconecta para reanudar la sincronización; tus notas locales siguen disponibles.",
+    "permissionDenied": "No se concedió acceso a los sitios de Microsoft. No se subieron notas. Puedes volver a conectar cuando quieras.",
+    "cancelled": "El inicio de sesión se canceló o no pudo completarse. Tus notas locales no cambian.",
+    "identity": "Este ID de extensión aún no está registrado para OneDrive. Usa la versión de la Store o la compilación local de pruebas autorizada.",
+    "failed": "OneDrive no pudo completar la acción. Tus notas locales se conservan. Comprueba tu conexión y reintenta; reconecta si ha caducado el acceso a Microsoft."
+  },
+  "releaseNotes": {
+    "installed": "Versión instalada · {{version}}",
+    "updated": "Actualizado a {{version}}",
+    "view": "Ver novedades",
+    "dismiss": "Descartar aviso de actualización",
+    "title": "Novedades",
+    "summary": "Lo más importante de 2.12.2 y 2.13.0",
+    "date": "29 de octubre de 2026",
+    "highlights": {
+      "oneDrive": "Sincronización automática opcional con OneDrive entre Chrome y Edge. Elige Conectar OneDrive en Ajustes y autoriza tu cuenta.",
+      "privacy": "OneDrive usa solo la carpeta de TabNotes. Sin servidor de TabNotes. La sincronización no está cifrada de extremo a extremo por defecto; cifra antes las notas sensibles.",
+      "reliability": "Los conflictos conservan ambas ediciones, los borrados se sincronizan entre perfiles y desconectar conserva las notas locales. Las acciones de la última nota son más accesibles.",
+      "compatibility": "Se mantiene la compatibilidad con notas existentes, notas cifradas, backups manuales y Google Drive en Chrome. El acceso a Google Drive en Edge aún no está incluido.",
+      "version": "Consulta aquí tu versión instalada y los cambios recientes. El aviso descartable de actualización y Ayuda → Ver novedades te traen de vuelta."
+    }
+  },
   "about": {
     "title": "Acerca de TabNotes",
     "tagline": "Notas premium, locales primero, para cada pestaña, URL, dominio y proyecto.",
@@ -541,6 +577,8 @@
     "driveNotConnected": "No conectado",
     "driveSetupRequired": "Configuración requerida",
     "driveSetupMissing": "Configura el OAuth client ID de Google antes de activar la copia en Drive.",
+    "driveEdgeAuthRequired": "El inicio de sesión en Google Drive aún no está disponible en esta versión para Edge. Puedes seguir usando las notas locales y Exportar/Importar backup. Google Drive en Chrome no cambia.",
+    "driveBrowserAuthUnavailable": "Este navegador no admite el método actual de conexión a Google Drive. Las notas locales y Exportar/Importar backup siguen disponibles.",
     "driveSyncing": "Sincronizando",
     "driveWorking": "Procesando…",
     "driveLastSync": "Última copia: {{time}}",

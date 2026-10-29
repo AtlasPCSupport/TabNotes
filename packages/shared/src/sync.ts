@@ -36,6 +36,8 @@ export interface CreateDriveSyncOptions {
   tombstones?: SyncTombstone[];
   prefs?: ExportPrefs;
   now?: number;
+  /** Separate persistent profile snapshots need non-expiring deletion markers. */
+  tombstoneRetentionMs?: number;
 }
 
 export interface DriveSyncMergeOptions {
@@ -43,6 +45,7 @@ export interface DriveSyncMergeOptions {
   localTombstones?: SyncTombstone[];
   lastSyncedAt?: number;
   now?: number;
+  tombstoneRetentionMs?: number;
 }
 
 export interface DriveSyncMergeSummary {
@@ -153,7 +156,8 @@ function parseStorageSettings(value: unknown): DriveBackupStorageSettings | null
   ) {
     return null;
   }
-  if (value.language !== undefined && value.language !== 'en' && value.language !== 'es') return null;
+  if (value.language !== undefined && value.language !== 'en' && value.language !== 'es')
+    return null;
 
   return {
     activeWorkspaceId: value.activeWorkspaceId ?? null,
@@ -172,8 +176,9 @@ function mergeTombstones(
   left: SyncTombstone[],
   right: SyncTombstone[],
   now: number,
+  retentionMs = TOMBSTONE_RETENTION_MS
 ): { tombstones: SyncTombstone[]; added: number; kept: number } {
-  const cutoff = now - TOMBSTONE_RETENTION_MS;
+  const cutoff = now - retentionMs;
   const merged = new Map<string, SyncTombstone>();
   let added = 0;
   let kept = 0;
@@ -256,7 +261,7 @@ function putWorkspace(data: StorageData, workspace: Workspace): void {
 
 function normalizeTags(tags: string[] | undefined): string[] {
   return [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b),
+    a.localeCompare(b)
   );
 }
 
@@ -311,7 +316,7 @@ function createConflictNote(remote: Note, sourceDeviceId: string, now: number): 
 function newestTombstoneFor(
   tombstones: SyncTombstone[],
   entityType: SyncEntityType,
-  id: string,
+  id: string
 ): SyncTombstone | null {
   let result: SyncTombstone | null = null;
   for (const tombstone of tombstones) {
@@ -323,7 +328,7 @@ function newestTombstoneFor(
 
 export function createDriveSyncEnvelope(
   storage: StorageData,
-  options: CreateDriveSyncOptions,
+  options: CreateDriveSyncOptions
 ): DriveSyncEnvelope {
   const now = options.now ?? Date.now();
   const data = exportData(storage, now);
@@ -335,6 +340,7 @@ export function createDriveSyncEnvelope(
     options.previous?.tombstones ?? [],
     options.tombstones ?? [],
     now,
+    options.tombstoneRetentionMs
   ).tombstones;
 
   return {
@@ -404,7 +410,7 @@ export function parseAnyDriveSyncEnvelope(value: unknown): DriveSyncEnvelope | n
 export function createDeleteTombstone(
   entity: Pick<SyncTombstone, 'entityType' | 'id' | 'scope' | 'workspaceId'>,
   sourceDeviceId: string,
-  deletedAt = Date.now(),
+  deletedAt = Date.now()
 ): SyncTombstone {
   return {
     entityType: entity.entityType,
@@ -419,12 +425,17 @@ export function createDeleteTombstone(
 export function mergeDriveSyncEnvelope(
   remote: DriveSyncEnvelope,
   local: StorageData,
-  options: DriveSyncMergeOptions,
+  options: DriveSyncMergeOptions
 ): DriveSyncMergeResult {
   const now = options.now ?? Date.now();
   const next = cloneStorage(local);
   const summary = { ...EMPTY_SUMMARY };
-  const mergedTombstones = mergeTombstones(options.localTombstones ?? [], remote.tombstones, now);
+  const mergedTombstones = mergeTombstones(
+    options.localTombstones ?? [],
+    remote.tombstones,
+    now,
+    options.tombstoneRetentionMs
+  );
   const tombstones = mergedTombstones.tombstones;
   summary.tombstonesAdded = mergedTombstones.added;
   summary.tombstonesKept = mergedTombstones.kept;
@@ -486,8 +497,12 @@ export function mergeDriveSyncEnvelope(
       continue;
     }
 
-    const localChanged = options.lastSyncedAt ? (localNote.updatedAt ?? 0) > options.lastSyncedAt : false;
-    const remoteChanged = options.lastSyncedAt ? (note.updatedAt ?? 0) > options.lastSyncedAt : false;
+    const localChanged = options.lastSyncedAt
+      ? (localNote.updatedAt ?? 0) > options.lastSyncedAt
+      : false;
+    const remoteChanged = options.lastSyncedAt
+      ? (note.updatedAt ?? 0) > options.lastSyncedAt
+      : false;
     const shouldCreateConflict =
       localChanged &&
       remoteChanged &&
