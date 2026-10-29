@@ -2,19 +2,24 @@
 
 ## Next update package (not yet published)
 
-- Version: `2.12.2`
+- Version: `2.13.0`
 - Chrome Web Store ID: `pniapenkdphjolncppcichbahomfiffj`
 - Public listing: `https://chromewebstore.google.com/detail/tabnotes/pniapenkdphjolncppcichbahomfiffj`
 - Website: `https://tabnotes.atlaspcsupport.com/`
 - Privacy policy: `https://tabnotes.atlaspcsupport.com/privacy/`
 - Terms: `https://tabnotes.atlaspcsupport.com/terms/`
-- ZIP: locally generated `tabnotes-extension-v2.12.2.zip`; GitHub Release asset not yet published.
+- ZIP: locally generated `tabnotes-extension-v2.13.0.zip`; GitHub Release asset not yet published.
 
-## What's new in 2.12.2
+## What's new in 2.13.0
 
-- About now shows your installed version and one summary of recent improvements in English and Spanish.
-- A small, dismissible update notice opens What's new without interrupting your work.
-- Includes the previous capture and interface improvements below; notes and backups remain compatible.
+- Optional OneDrive automatic two-way note sync between Chrome and Edge, with a separate Connect OneDrive button.
+- Your notes sync directly to the TabNotes app folder in your Microsoft account. No TabNotes server and no automatic opt-in.
+- Conflicting edits keep both versions, deletions sync between profiles, and disconnecting preserves your notes and cloud files.
+- About shows the installed version and a combined summary of the latest two releases in English and Spanish.
+- Existing notes, encryption, manual backups and Google Drive in Chrome remain compatible. Google Drive sign-in in Edge is not included yet.
+- Improved narrow-panel status labels and access to the last note's actions.
+
+Cloud sync is not end-to-end encrypted by default. Encrypt sensitive notes first. Automatic sync runs while the browser is running; Microsoft authorization can expire and require reconnecting. One cloud provider can be enabled per browser profile.
 
 ### Included improvements from 2.12.0 and 2.12.1
 
@@ -53,6 +58,7 @@ Key features:
 - Reminders: create note reminders and receive browser notifications.
 - Export and restore: back up notes manually with JSON export and restore.
 - Optional Google Drive sync: if enabled, TabNotes stores sync data in your private Google Drive app data folder using the limited drive.appdata scope.
+- Optional OneDrive sync in the browser extension: connect explicitly to sync notes between Chrome and Edge using only the Microsoft app folder. One provider can be enabled per profile. Cloud sync is not end-to-end encrypted by default.
 - Themes and language support: light mode, dark mode, and multilingual interface support.
 
 Privacy:
@@ -74,11 +80,12 @@ Work and planning / Productivity
 - `sidePanel`: provides the main TabNotes interface inside Chrome's side panel.
 - `alarms`: schedules user-created reminders and background sync checks.
 - `notifications`: shows browser notifications when reminders or backup reminders are due.
-- `identity`: enables optional Google OAuth authentication for Google Drive sync and restore.
+- `identity`: enables optional Google OAuth authentication for Drive and Microsoft code+PKCE authorization for OneDrive. The user chooses and authorizes a provider.
 - `offscreen`: plays local reminder audio when a reminder fires.
 - `contextMenus`: adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
 - `scripting`: reads selected text after an explicit capture action and injects the optional floating capture button.
-- `http://*/*`, `https://*/*`: optional per-site access requested only when the user enables clipping or the floating button for that site.
+- `http://*/*`, `https://*/*`: optional per-site capture access. Also covers the specific Microsoft login and Graph origins requested when the user clicks Connect OneDrive; those origins are not granted at installation.
+- `https://login.microsoftonline.com/*`, `https://graph.microsoft.com/*`: requested optionally at OneDrive connection for Microsoft sign-in, token renewal and access to the user's TabNotes app folder. No general file access, tracking or server is used.
 - `https://www.googleapis.com/*`: used only for optional Google Drive appData sync and restore after the user enables Drive sync.
 
 ## Data usage disclosure

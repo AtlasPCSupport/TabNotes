@@ -30,6 +30,8 @@ TabNotes follows these security practices:
 - Notes are stored locally in `chrome.storage.local` (extension) or IndexedDB (web app)
 - No data is sent to any TabNotes server — there is no TabNotes server
 - Google Drive sync is optional and uses the user's own Drive `appDataFolder`
+- OneDrive sync is optional and uses delegated `Files.ReadWrite.AppFolder`, no application secret and a separate JSON snapshot per profile. It never overwrites another profile's file.
+- Microsoft tokens are local-only with `TRUSTED_CONTEXTS` storage access, excluded from exports/remote backups. Exact callback/state/PKCE validation precedes persistence. Cancellation and disconnect invalidate late token responses.
 
 ### Encryption
 
@@ -47,7 +49,8 @@ TabNotes follows these security practices:
 ### Chrome Permissions
 
 - Required host permissions are limited to `https://www.googleapis.com/*` for Drive sync
-- Optional `http://*/*` and `https://*/*` access is requested only for the current site when the user enables the floating button or clips a selection; it is not granted by default
+- Optional `http://*/*` and `https://*/*` capture access is requested only for the current site when the user enables the floating button or clips a selection; it is not granted by default
+- Optional Microsoft login and Graph origins are requested when the user connects OneDrive, not at installation. Google and OneDrive are never enabled simultaneously in one profile.
 - The `scripting` permission is used only after that user-initiated, per-site permission flow to read selected text or inject the floating capture button
 - Content scripts are restricted to the TabNotes web app domain only
 - Each permission is documented in `PRIVACY_POLICY.md`

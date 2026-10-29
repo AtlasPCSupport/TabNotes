@@ -3,6 +3,21 @@ const PUBLISHED_EXTENSION_ID = 'pniapenkdphjolncppcichbahomfiffj';
 const UNPACKED_BUILD_REASON =
   'Google Drive sync is available in the Chrome Web Store build. This unpacked build has a different extension ID.';
 
+export type OAuthSetupReasonCode = 'edge_auth_required' | 'identity_unavailable';
+
+function isMicrosoftEdge(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const brands = (
+    navigator as Navigator & {
+      userAgentData?: { brands?: Array<{ brand: string }> };
+    }
+  ).userAgentData?.brands;
+  return (
+    brands?.some(({ brand }) => brand === 'Microsoft Edge') === true ||
+    /\bEdg(?:A|iOS)?\//.test(navigator.userAgent)
+  );
+}
+
 function runtimeErrorMessage(): string | null {
   return chrome.runtime.lastError?.message ?? null;
 }
@@ -16,12 +31,39 @@ function normalizeToken(result: unknown): string | null {
   return null;
 }
 
-export function getOAuthSetupStatus(): { configured: boolean; clientId?: string; reason?: string } {
+export function getOAuthSetupStatus(): {
+  configured: boolean;
+  clientId?: string;
+  reason?: string;
+  reasonCode?: OAuthSetupReasonCode;
+} {
   const manifest = chrome.runtime.getManifest() as chrome.runtime.Manifest & {
     oauth2?: { client_id?: string; scopes?: string[] };
   };
   const clientId = manifest.oauth2?.client_id;
   const scopes = manifest.oauth2?.scopes ?? [];
+
+  // Edge exposes getAuthToken in some versions but rejects every invocation.
+  // Keep this guard until a separately registered web-auth flow is validated.
+  if (isMicrosoftEdge()) {
+    return {
+      configured: false,
+      clientId,
+      reasonCode: 'edge_auth_required',
+      reason:
+        'Google Drive sign-in in Microsoft Edge requires a separate authentication integration. Local notes and manual backups remain available. Google Drive in Chrome is unaffected.',
+    };
+  }
+
+  if (typeof chrome.identity?.getAuthToken !== 'function') {
+    return {
+      configured: false,
+      clientId,
+      reasonCode: 'identity_unavailable',
+      reason:
+        'This browser cannot use the current Google Drive sign-in method. Local notes and manual backups remain available.',
+    };
+  }
 
   if (chrome.runtime.id && chrome.runtime.id !== PUBLISHED_EXTENSION_ID) {
     return {
@@ -85,6 +127,8 @@ export async function isGoogleConnected(): Promise<boolean> {
 }
 
 export async function refreshGoogleAuthToken(previousToken?: string): Promise<string> {
+  const setup = getOAuthSetupStatus();
+  if (!setup.configured) throw new Error(setup.reason ?? 'Google OAuth is not configured.');
   if (previousToken) {
     await new Promise<void>((resolve) => {
       chrome.identity.removeCachedAuthToken({ token: previousToken }, () => resolve());

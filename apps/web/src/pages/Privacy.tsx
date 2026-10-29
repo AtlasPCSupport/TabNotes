@@ -40,7 +40,7 @@ export default function PrivacyPage() {
             marginBottom: 'var(--space-5)',
           }}
         >
-          Last updated: June 2026
+          Last updated: October 29, 2026
         </div>
         <h1
           style={{
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           style={{ fontSize: 'var(--text-lg)', color: 'var(--color-text-muted)', lineHeight: 1.6 }}
         >
           TabNotes is local-first: your notes stay on your device unless you explicitly enable
-          Google Drive sync.
+          Google Drive or OneDrive sync.
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
               'We collect zero personal data',
               'Notes stay local by default',
               'No account, no tracking, no analytics',
-              'Google Drive sync is an explicit opt-in',
+              'Cloud sync is an explicit opt-in',
               'No TabNotes server stores your notes',
             ].map((item) => (
               <li key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -120,12 +120,22 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          TabNotes works offline by default. It sends data only when you explicitly use Google Drive
-          sync.
+          TabNotes works offline by default. Notes leave your device only when you export them or
+          enable a cloud provider.
         </p>
       </Section>
 
       <Section title="Optional services">
+        <p>
+          The browser extension also offers optional OneDrive sync through Microsoft authorization
+          code + PKCE and delegated Files.ReadWrite.AppFolder access. Each profile writes its own
+          JSON snapshot and merges notes, workspaces, history and deletion markers from other
+          profiles. The app folder is visible to you. Microsoft tokens are stored locally with
+          trusted-extension-context access and excluded from backups and exports. Disconnect removes
+          local tokens and stops sync without deleting notes or cloud files. One provider is enabled
+          per profile; switching does not migrate data automatically. Authorization may expire and
+          require reconnection.
+        </p>
         <p style={{ marginBottom: 'var(--space-3)' }}>
           Google Drive sync transfers your selected sync data directly to your private Google Drive
           app-data folder. TabNotes does not operate a sync server.
@@ -164,7 +174,10 @@ export default function PrivacyPage() {
               perm: 'scripting and optional HTTP(S) site access',
               why: 'For selection clips and the floating capture button, granted only for a site you explicitly enable.',
             },
-            { perm: 'identity', why: 'For optional Google sign-in used by Google Drive sync.' },
+            {
+              perm: 'identity',
+              why: 'For optional Google or Microsoft authorization for cloud sync.',
+            },
             { perm: 'offscreen', why: 'To play local reminder audio when a reminder fires.' },
             {
               perm: 'alarms and notifications',
@@ -173,6 +186,10 @@ export default function PrivacyPage() {
             {
               perm: 'https://www.googleapis.com/*',
               why: 'For optional Google Drive app-data sync API calls.',
+            },
+            {
+              perm: 'Optional Microsoft login and Graph origins',
+              why: 'Requested only on Connect OneDrive for authorization, token renewal and app-folder synchronization.',
             },
           ].map(({ perm, why }) => (
             <div

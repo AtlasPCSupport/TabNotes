@@ -26,12 +26,12 @@
     </header>
 
     <main class="document">
-      <p class="updated">Effective date: June 20, 2026</p>
+      <p class="updated">Effective date: October 29, 2026</p>
       <h1>Privacy Policy</h1>
       <p class="lead">
         TabNotes is a local-first Chrome extension and companion mobile PWA. We collect no personal
-        data. Your notes stay on your device unless you explicitly enable optional Google Drive
-        sync.
+        data. Your notes stay on your device unless you export them or explicitly enable Google
+        Drive or OneDrive sync.
       </p>
 
       <section>
@@ -70,7 +70,26 @@
       </section>
 
       <section>
-        <h2>Chrome permissions</h2>
+        <h2>Optional OneDrive sync</h2>
+        <p>
+          OneDrive connects using Microsoft authorization code with PKCE and delegated
+          <code>Files.ReadWrite.AppFolder</code> access. Each browser profile writes a separate JSON
+          snapshot in your TabNotes app folder and combines notes, workspaces, history and deletion
+          markers from other profiles. Your folder is visible in OneDrive. Sync is not end-to-end
+          encrypted by default; encrypt sensitive notes first.
+        </p>
+        <p>
+          Microsoft access and refresh tokens are stored locally with access limited to trusted
+          extension contexts. They are excluded from notes, exports and cloud files. You may need to
+          reconnect when authorization expires. Disconnect removes local tokens and stops sync,
+          without deleting your local notes or cloud files. Only one provider is enabled per
+          profile; switching does not automatically migrate data between providers. No TabNotes
+          server is used.
+        </p>
+      </section>
+
+      <section>
+        <h2>Browser permissions</h2>
         <dl class="permission-list">
           <dt>storage</dt>
           <dd>Saves your notes and settings locally on your device.</dd>
@@ -87,7 +106,9 @@
             Adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
           </dd>
           <dt>identity</dt>
-          <dd>Allows optional Google sign-in for Google Drive sync.</dd>
+          <dd>
+            Allows optional Google or Microsoft authorization for your selected sync provider.
+          </dd>
           <dt>offscreen</dt>
           <dd>Plays local reminder audio when a note reminder fires.</dd>
           <dt>alarms and notifications</dt>
@@ -99,11 +120,16 @@
           </dd>
           <dt>http://*/* and https://*/*</dt>
           <dd>
-            Optional per-site access requested only for the site where you use those capture
-            features.
+            Optional per-site capture access, plus Microsoft login and Graph site access requested
+            only when you connect OneDrive.
           </dd>
           <dt>https://www.googleapis.com/*</dt>
           <dd>Calls Google Drive APIs only when the user enables Drive sync.</dd>
+          <dt>https://login.microsoftonline.com/* and https://graph.microsoft.com/*</dt>
+          <dd>
+            Optional sites for Microsoft authorization, token renewal and OneDrive app-folder sync.
+            Requested on Connect OneDrive, not at installation.
+          </dd>
         </dl>
       </section>
 
@@ -119,7 +145,7 @@
         <h2>Third-party services</h2>
         <p>
           TabNotes does not include third-party analytics, advertising, telemetry, or tracking
-          services. Google Drive is contacted only if you enable Drive sync.
+          services. Google or Microsoft cloud sync is contacted only if you enable that provider.
         </p>
       </section>
 

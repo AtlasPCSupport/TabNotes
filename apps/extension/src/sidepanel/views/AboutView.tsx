@@ -146,10 +146,10 @@ export function AboutView() {
       <section className="sp-settings-section sp-release-notes" aria-labelledby="sp-release-title">
         <h2 id="sp-release-title">{t('releaseNotes.title')}</h2>
         <p className="sp-release-meta">
-          {t('releaseNotes.summary')} · <time dateTime="2026-10-27">{t('releaseNotes.date')}</time>
+          {t('releaseNotes.summary')} · <time dateTime="2026-10-29">{t('releaseNotes.date')}</time>
         </p>
         <ul>
-          {(['capture', 'organization', 'clarity', 'compatibility', 'version'] as const).map(
+          {(['oneDrive', 'privacy', 'reliability', 'compatibility', 'version'] as const).map(
             (key) => (
               <li key={key}>{t(`releaseNotes.highlights.${key}`)}</li>
             )

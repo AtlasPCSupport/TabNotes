@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from '@tabnotes/i18n';
 import { DriveSyncSettings } from './DriveSyncSettings';
+import { OneDriveSyncSettings } from './OneDriveSyncSettings';
 import { AppIcon } from '../AppIcon';
 
 /**
@@ -82,6 +83,7 @@ export function DataSettings({
       )}
 
       <DriveSyncSettings />
+      <OneDriveSyncSettings />
 
       {/* Backup reminder interval */}
       <div

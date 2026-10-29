@@ -479,6 +479,7 @@ export async function getDriveSyncStatus() {
     connected,
     setupRequired: !setup.configured,
     setupReason: setup.reason,
+    setupReasonCode: setup.reasonCode,
     featureAllowed: hasFeature('drive_sync', entitlements),
     entitlementMode: entitlements.mode,
   };
@@ -486,6 +487,12 @@ export async function getDriveSyncStatus() {
 
 export function connectDriveSync() {
   return enqueueDriveOperation(async () => {
+    // Enabling two independent clouds on one profile creates migration/loop
+    // semantics we do not silently opt users into. Disconnect is explicit.
+    const oneDrive = await chromeGet('tn_onedrive_sync');
+    if ((oneDrive.tn_onedrive_sync as { enabled?: boolean } | undefined)?.enabled) {
+      throw new Error('Disconnect OneDrive before connecting Google Drive. Local notes are kept.');
+    }
     await assertDriveFeatureAllowed();
     await assertOAuthConfigured();
 
@@ -494,12 +501,20 @@ export function connectDriveSync() {
       retryTransientDriveRead(() => findBackupFile(activeToken))
     );
 
-    await setDriveState({
-      enabled: true,
-      status: backupFile ? 'idle' : 'syncing',
-      fileId: backupFile?.id,
-      remoteModifiedTime: backupFile?.modifiedTime,
-      lastError: undefined,
+    await withStorageLock(async () => {
+      const oneDriveNow = await chromeGet('tn_onedrive_sync');
+      if ((oneDriveNow.tn_onedrive_sync as { enabled?: boolean } | undefined)?.enabled) {
+        throw new Error(
+          'Disconnect OneDrive before connecting Google Drive. Local notes are kept.'
+        );
+      }
+      await setDriveState({
+        enabled: true,
+        status: backupFile ? 'idle' : 'syncing',
+        fileId: backupFile?.id,
+        remoteModifiedTime: backupFile?.modifiedTime,
+        lastError: undefined,
+      });
     });
 
     if (!backupFile) {

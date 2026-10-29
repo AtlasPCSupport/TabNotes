@@ -1,5 +1,23 @@
 # TabNotes — validación y entrega
 
+## OneDrive — candidato 2.13.0 (29 de octubre de 2026)
+
+- Perfil Chrome aislado `tmp/chrome-onedrive-qa-20261029-1214`; perfil Edge aislado `tmp/edge-onedrive-qa-20261029-1220`. El propietario autorizó su cuenta de OneDrive habitual para estas pruebas porque aún no contenía notas de TabNotes. Solo se operaron notas ficticias dentro de la carpeta de la aplicación.
+- Conexión real Microsoft/PKCE en ambos navegadores y subida inicial aprobadas. Sin secretos incrustados ni servidor.
+- Una nota creada en el editor de Chrome llegó a Edge; su edición en Edge regresó a Chrome.
+- Conflicto controlado: se prepararon revisiones ficticias distintas con los perfiles sin conexión. Se detectó y corrigió una omisión al propagar originales de conflicto tras avanzar el checkpoint; una regresión automatizada y la repetición en OneDrive real confirmaron ambas ediciones en Edge.
+- Se borró una nota ficticia mediante la confirmación normal; el borrado llegó a Chrome con su tombstone y sin borrar otras notas.
+- Caducidad del token simulada solo en el perfil QA: el primer intento sufrió fallo de red tras las pruebas offline; el reintento renovó acceso y completó sync sin volver a pedir login. No se atribuye el fallo transitorio a una causa no demostrada.
+- Recargar la extensión conservó autorización y notas. Desconectar Chrome retiró las credenciales locales, detuvo sync y conservó exactamente las notas locales. Edge quedó conectado para la inspección del propietario.
+- Se corrigió un solapamiento preexistente del botón Nueva nota con la acción de borrar en la última tarjeta; prueba E2E específica y margen de desplazamiento inferior.
+- Regresión adicional: las notas borradas no reaparecen desde un perfil inactivo pasado el plazo de 90 días. OneDrive conserva sus marcadores; Google Drive mantiene su retención predeterminada.
+- Validación local: 267 unitarias aprobadas (148 shared, 110 extensión, 8 web, 1 i18n); Chrome completo 48 E2E aprobadas y una omitida por el arrastre conocido. Tras la última corrección de retención, seis regresiones seleccionadas de Edge también pasaron sobre el paquete final. Lint, tipos, metadata, higiene y auditoría de dependencias de producción aprobados.
+- El ZIP 2.13.0 contiene exactamente los 28 archivos de dist, sin clave QA. SHA-256: `3e2db097fb5c23428099d875353d482b9c48c5c377528721d0689470acae28c1`.
+- Al reabrir y recargar el paquete final mediante CDP, el perfil Edge perdió los permisos opcionales Microsoft (`permissions.contains` devolvió false) y mostró Reconectar sin alterar las notas. Se pidió al propietario repetir la autorización para comprobar esta última recarga; no se trata de una actualización oficial desde Store.
+- El acceso al navegador de publicación está desactivado en Work. No se ha subido ni enviado 2.13.0 a revisión; se requiere habilitarlo o subir el ZIP manualmente.
+- Google Drive conserva su cliente y formato en Chrome. Su inicio de sesión en Edge sigue sin estar implementado: no anunciarlo como compatible en esta versión.
+- Edge Add-ons es una publicación aparte. Antes de distribuir allí hay que obtener su ID real y registrar su callback de Microsoft; no subir el ZIP afirmando soporte de una identidad aún desconocida.
+
 ## Novedades dentro del panel — candidato 2.12.2
 
 Rama: `codex/version-notes`. No se ha enviado este paquete a la Store.

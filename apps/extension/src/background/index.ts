@@ -1,5 +1,12 @@
 import { normalizeDomain, normalizeUrl } from '@tabnotes/shared';
 import { recordUpdateNotice } from '../shared/updateNotice';
+import { ONEDRIVE_REMOTE_APPLY_KEY } from '../shared/oneDrive';
+import {
+  handleOneDriveAlarm,
+  handleOneDriveMessage,
+  recordOneDriveChange,
+  scheduleOneDrivePeriodicSync,
+} from './oneDriveSync';
 import {
   DRIVE_REMOTE_APPLY_STORAGE_KEY,
   driveErrorMessage,
@@ -791,6 +798,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   scheduleDigest();
   scheduleBackupCheck();
   void scheduleDrivePeriodicSync().catch(() => undefined);
+  void scheduleOneDrivePeriodicSync().catch(() => undefined);
   void restoreNoteReminderAlarms().catch(() => undefined);
   void restoreReminderAlertIfNeeded().catch(() => undefined);
   void injectFloatingButtonsOnOpenTabs(true).catch(() => undefined);
@@ -800,6 +808,7 @@ chrome.runtime.onStartup.addListener(() => {
   createClipContextMenu();
   scheduleDigest();
   scheduleBackupCheck();
+  void scheduleOneDrivePeriodicSync().catch(() => undefined);
   void scheduleDrivePeriodicSync().catch(() => undefined);
   void restoreNoteReminderAlarms().catch(() => undefined);
   void restoreReminderAlertIfNeeded().catch(() => undefined);
@@ -876,6 +885,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
 
+  if (
+    changes.tabnotes_data &&
+    !changes[ONEDRIVE_REMOTE_APPLY_KEY] &&
+    !changes[DRIVE_REMOTE_APPLY_STORAGE_KEY]
+  ) {
+    await recordOneDriveChange(changes.tabnotes_data.oldValue, changes.tabnotes_data.newValue);
+  }
+
   if (changes['tabnotes_data'] || changes[PENDING_REMINDERS_STORAGE_KEY]) {
     await updateBadgeForActiveTab();
   }
@@ -888,7 +905,10 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   }
 
   if (changes['tabnotes_data']) {
-    const isDriveRemoteApply = Boolean(changes[DRIVE_REMOTE_APPLY_STORAGE_KEY]);
+    const isOneDriveRemoteApply = Boolean(changes[ONEDRIVE_REMOTE_APPLY_KEY]);
+    const isDriveRemoteApply =
+      Boolean(changes[DRIVE_REMOTE_APPLY_STORAGE_KEY]) || isOneDriveRemoteApply;
+    if (isOneDriveRemoteApply) void restoreNoteReminderAlarms().catch(() => undefined);
     if (!isDriveRemoteApply) {
       await recordDriveDeletionTombstones(
         changes['tabnotes_data'].oldValue,
@@ -902,6 +922,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // ── Message handler ───────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (handleOneDriveMessage(msg, sender, sendResponse)) return true;
   if (handleDriveMessage(msg, sendResponse)) return true;
 
   if (msg.type === 'FLOATING_SET_DOMAIN') {
@@ -1159,6 +1180,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 // ── Alarm handler ─────────────────────────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (await handleOneDriveAlarm(alarm.name)) return;
   if (await handleDriveAlarm(alarm.name)) return;
 
   // Daily digest

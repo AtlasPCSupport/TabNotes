@@ -2044,6 +2044,8 @@ select:focus-visible,
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Keep the final card's actions reachable above the floating new-note button. */
+  padding-bottom: 64px;
 }
 .sp-notes-list::-webkit-scrollbar {
   width: 3px;
@@ -2698,6 +2700,7 @@ select:focus-visible,
 }
 .sp-drive-sync-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;

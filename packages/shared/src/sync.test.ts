@@ -10,7 +10,12 @@ import {
 import { DEFAULT_STORAGE } from './storage';
 import type { Note, StorageData, Workspace } from './types';
 
-function note(id: string, updatedAt: number, content: string, workspaceId: string | null = null): Note {
+function note(
+  id: string,
+  updatedAt: number,
+  content: string,
+  workspaceId: string | null = null
+): Note {
   return {
     id,
     workspaceId,
@@ -41,6 +46,34 @@ function storage(patch: Partial<StorageData> = {}): StorageData {
 }
 
 describe('Drive sync envelope v2', () => {
+  it('keeps the existing Google retention default and allows persistent profile deletion markers', () => {
+    const now = 1_700_000_000_000;
+    const tombstone = createDeleteTombstone(
+      { entityType: 'note', id: 'deleted', scope: 'global' },
+      'device-a',
+      now - 1000 * 60 * 60 * 24 * 120
+    );
+    const options = { sourceDeviceId: 'device-a', now, tombstones: [tombstone] };
+    expect(createDriveSyncEnvelope(storage(), options).tombstones).toEqual([]);
+    const persistent = createDriveSyncEnvelope(storage(), {
+      ...options,
+      tombstoneRetentionMs: Infinity,
+    });
+    expect(persistent.tombstones).toEqual([tombstone]);
+    expect(
+      mergeDriveSyncEnvelope(persistent, storage(), {
+        sourceDeviceId: 'device-b',
+        now,
+      }).tombstones
+    ).toEqual([]);
+    expect(
+      mergeDriveSyncEnvelope(persistent, storage(), {
+        sourceDeviceId: 'device-b',
+        now,
+        tombstoneRetentionMs: Infinity,
+      }).tombstones
+    ).toEqual([tombstone]);
+  });
   it('creates and parses the v2 sync format', () => {
     const local = storage({
       notes_global: { a: note('a', 100, 'hello') },
@@ -67,7 +100,7 @@ describe('Drive sync envelope v2', () => {
       storage({ notes_global: { a: note('a', 100, 'legacy') } }),
       'desktop',
       undefined,
-      1_700_000_000_000,
+      1_700_000_000_000
     );
 
     const parsed = parseAnyDriveSyncEnvelope(backup);
@@ -133,7 +166,7 @@ describe('mergeDriveSyncEnvelope', () => {
         createDeleteTombstone(
           { entityType: 'note', id: 'gone', scope: 'global', workspaceId: null },
           'mobile',
-          200,
+          200
         ),
       ],
       now: 300,
@@ -152,7 +185,7 @@ describe('mergeDriveSyncEnvelope', () => {
   it('uses local tombstones to keep stale remote notes deleted', () => {
     const remote = createDriveSyncEnvelope(
       storage({ notes_global: { old: note('old', 100, 'stale remote') } }),
-      { sourceDeviceId: 'desktop', now: 150 },
+      { sourceDeviceId: 'desktop', now: 150 }
     );
 
     const result = mergeDriveSyncEnvelope(remote, storage(), {
@@ -161,7 +194,7 @@ describe('mergeDriveSyncEnvelope', () => {
         createDeleteTombstone(
           { entityType: 'note', id: 'old', scope: 'global', workspaceId: null },
           'mobile',
-          200,
+          200
         ),
       ],
       now: 300,
@@ -177,7 +210,7 @@ describe('mergeDriveSyncEnvelope', () => {
     });
     const remote = createDriveSyncEnvelope(
       storage({ notes_global: { n: note('n', 320, 'remote edit') } }),
-      { sourceDeviceId: 'mobile', now: 330 },
+      { sourceDeviceId: 'mobile', now: 330 }
     );
 
     const first = mergeDriveSyncEnvelope(remote, local, {
@@ -192,7 +225,9 @@ describe('mergeDriveSyncEnvelope', () => {
       now: 500,
     });
 
-    const conflictIds = Object.keys(second.data.notes_global).filter((id) => id.includes('__conflict__'));
+    const conflictIds = Object.keys(second.data.notes_global).filter((id) =>
+      id.includes('__conflict__')
+    );
 
     expect(first.data.notes_global.n.content).toBe('local edit');
     expect(second.data.notes_global.n.content).toBe('local edit');
@@ -201,10 +236,12 @@ describe('mergeDriveSyncEnvelope', () => {
 
     const newerRemote = createDriveSyncEnvelope(
       storage({ notes_global: { n: note('n', 600, 'new remote edit') } }),
-      { sourceDeviceId: 'mobile', now: 650 },
+      { sourceDeviceId: 'mobile', now: 650 }
     );
     const third = mergeDriveSyncEnvelope(newerRemote, second.data, {
-      sourceDeviceId: 'desktop', lastSyncedAt: 500, now: 700,
+      sourceDeviceId: 'desktop',
+      lastSyncedAt: 500,
+      now: 700,
     });
     expect(third.data.notes_global.n.content).toBe('new remote edit');
   });
@@ -223,10 +260,10 @@ describe('mergeDriveSyncEnvelope', () => {
     const local = storage({
       notes_global: { n: localNote },
     });
-    const remote = createDriveSyncEnvelope(
-      storage({ notes_global: { n: remoteNote } }),
-      { sourceDeviceId: 'mobile', now: 330 },
-    );
+    const remote = createDriveSyncEnvelope(storage({ notes_global: { n: remoteNote } }), {
+      sourceDeviceId: 'mobile',
+      now: 330,
+    });
 
     const result = mergeDriveSyncEnvelope(remote, local, {
       sourceDeviceId: 'desktop',
@@ -234,7 +271,9 @@ describe('mergeDriveSyncEnvelope', () => {
       now: 400,
     });
 
-    const conflictIds = Object.keys(result.data.notes_global).filter((id) => id.includes('__conflict__'));
+    const conflictIds = Object.keys(result.data.notes_global).filter((id) =>
+      id.includes('__conflict__')
+    );
 
     expect(conflictIds).toHaveLength(0);
     expect(result.summary.noteConflictsCreated).toBe(0);
@@ -250,10 +289,10 @@ describe('mergeDriveSyncEnvelope', () => {
       ...note('n', 320, 'same content'),
       folder: 'different-folder',
     };
-    const remote = createDriveSyncEnvelope(
-      storage({ notes_global: { n: remoteNote } }),
-      { sourceDeviceId: 'mobile', now: 330 },
-    );
+    const remote = createDriveSyncEnvelope(storage({ notes_global: { n: remoteNote } }), {
+      sourceDeviceId: 'mobile',
+      now: 330,
+    });
 
     const result = mergeDriveSyncEnvelope(remote, local, {
       sourceDeviceId: 'desktop',
@@ -261,7 +300,9 @@ describe('mergeDriveSyncEnvelope', () => {
       now: 400,
     });
 
-    const conflictIds = Object.keys(result.data.notes_global).filter((id) => id.includes('__conflict__'));
+    const conflictIds = Object.keys(result.data.notes_global).filter((id) =>
+      id.includes('__conflict__')
+    );
 
     expect(conflictIds).toHaveLength(1);
     expect(result.summary.noteConflictsCreated).toBe(1);
@@ -279,7 +320,7 @@ describe('mergeDriveSyncEnvelope', () => {
         createDeleteTombstone(
           { entityType: 'workspace', id: 'w', workspaceId: 'w' },
           'mobile',
-          200,
+          200
         ),
       ],
       now: 300,
