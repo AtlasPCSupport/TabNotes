@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy - TabNotes</title>
+    <meta
+      name="description"
+      content="TabNotes privacy policy. TabNotes collects no personal data and stores notes locally by default."
+    />
+    <meta name="robots" content="index,follow" />
+    <link rel="icon" href="/assets/icon512.png" />
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="TabNotes home">
+        <img src="/assets/icon512.png" alt="" width="36" height="36" />
+        <span>TabNotes</span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a aria-current="page" href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="https://github.com/AtlasPCSupport/TabNotes" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="document">
+      <p class="updated">Effective date: October 29, 2026</p>
+      <h1>Privacy Policy</h1>
+      <p class="lead">
+        TabNotes is a local-first Chrome extension and companion mobile PWA. We collect no personal
+        data. Your notes stay on your device unless you export them or explicitly enable Google
+        Drive or OneDrive sync.
+      </p>
+
+      <section>
+        <h2>Data we collect</h2>
+        <p>
+          TabNotes does not collect, store, sell, share, or transmit personal information, browsing
+          data, note content, usage analytics, advertising identifiers, telemetry, or crash reports
+          to the TabNotes developer.
+        </p>
+      </section>
+
+      <section>
+        <h2>Local storage</h2>
+        <p>
+          Notes, workspaces, tags, settings, and related application data are stored locally in
+          Chrome extension storage on your own device. This data is not sent to a TabNotes server.
+        </p>
+      </section>
+
+      <section>
+        <h2>Optional Google Drive sync</h2>
+        <p>
+          If you choose to connect Google Drive, TabNotes uses Chrome's identity API and the Google
+          Drive <code>drive.appdata</code> scope to create or update a sync file in your private
+          Google Drive app data folder.
+        </p>
+        <p>
+          The sync data is transferred directly between TabNotes and Google Drive. The TabNotes
+          developer cannot access your Google account, your notes, or your sync file.
+        </p>
+        <p>
+          Drive sync is not end-to-end encrypted by default. Notes are uploaded as stored locally.
+          For sensitive content, use per-note encryption or an encrypted manual backup before
+          syncing.
+        </p>
+      </section>
+
+      <section>
+        <h2>Optional OneDrive sync</h2>
+        <p>
+          OneDrive connects using Microsoft authorization code with PKCE and delegated
+          <code>Files.ReadWrite.AppFolder</code> access. Each browser profile writes a separate JSON
+          snapshot in your TabNotes app folder and combines notes, workspaces, history and deletion
+          markers from other profiles. Your folder is visible in OneDrive. Sync is not end-to-end
+          encrypted by default; encrypt sensitive notes first.
+        </p>
+        <p>
+          Microsoft access and refresh tokens are stored locally with access limited to trusted
+          extension contexts. They are excluded from notes, exports and cloud files. You may need to
+          reconnect when authorization expires. Disconnect removes local tokens and stops sync,
+          without deleting your local notes or cloud files. Only one provider is enabled per
+          profile; switching does not automatically migrate data between providers. No TabNotes
+          server is used.
+        </p>
+      </section>
+
+      <section>
+        <h2>Browser permissions</h2>
+        <dl class="permission-list">
+          <dt>storage</dt>
+          <dd>Saves your notes and settings locally on your device.</dd>
+          <dt>unlimitedStorage</dt>
+          <dd>
+            Supports local-first note collections that may grow beyond standard storage quotas.
+          </dd>
+          <dt>tabs and activeTab</dt>
+          <dd>Reads the current tab URL so notes can be linked to the right page or domain.</dd>
+          <dt>sidePanel</dt>
+          <dd>Displays the TabNotes side panel beside browser content.</dd>
+          <dt>contextMenus</dt>
+          <dd>
+            Adds "Clip selection to TabNotes" when the user selects text and uses the context menu.
+          </dd>
+          <dt>identity</dt>
+          <dd>
+            Allows optional Google or Microsoft authorization for your selected sync provider.
+          </dd>
+          <dt>offscreen</dt>
+          <dd>Plays local reminder audio when a note reminder fires.</dd>
+          <dt>alarms and notifications</dt>
+          <dd>Schedules reminders and displays user-requested reminder notifications.</dd>
+          <dt>scripting</dt>
+          <dd>
+            Reads selected text after you invoke clipping or injects the optional floating capture
+            button.
+          </dd>
+          <dt>http://*/* and https://*/*</dt>
+          <dd>
+            Optional per-site capture access, plus Microsoft login and Graph site access requested
+            only when you connect OneDrive.
+          </dd>
+          <dt>https://www.googleapis.com/*</dt>
+          <dd>Calls Google Drive APIs only when the user enables Drive sync.</dd>
+          <dt>https://login.microsoftonline.com/* and https://graph.microsoft.com/*</dt>
+          <dd>
+            Optional sites for Microsoft authorization, token renewal and OneDrive app-folder sync.
+            Requested on Connect OneDrive, not at installation.
+          </dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>Export and import</h2>
+        <p>
+          Export creates a JSON backup file on your device. Import reads a local backup file you
+          choose. These actions do not use a TabNotes server.
+        </p>
+      </section>
+
+      <section>
+        <h2>Third-party services</h2>
+        <p>
+          TabNotes does not include third-party analytics, advertising, telemetry, or tracking
+          services. Google or Microsoft cloud sync is contacted only if you enable that provider.
+        </p>
+      </section>
+
+      <section>
+        <h2>Children's privacy</h2>
+        <p>
+          TabNotes does not knowingly collect information from children or from any other users.
+        </p>
+      </section>
+
+      <section>
+        <h2>Changes</h2>
+        <p>
+          If this policy changes, the updated policy will be published on this page and reflected in
+          the extension's release notes when appropriate.
+        </p>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <p>
+          For privacy questions, open an issue at
+          <a href="https://github.com/AtlasPCSupport/TabNotes/issues" rel="noopener noreferrer">
+            github.com/AtlasPCSupport/TabNotes/issues</a
+          >.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>© 2026 TabNotes</span>
+      <a href="/">Home</a>
+    </footer>
+  </body>
+</html>
